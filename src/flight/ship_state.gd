@@ -21,6 +21,8 @@ var status_message := ""
 
 ## 1 = undamaged, 0 = destroyed.
 var hull := 1.0
+## 1 = full tank. Cruise and boost burn it; with none left the ship is limited to combat gear.
+var fuel := 1.0
 ## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
 var last_impact_speed := 0.0
 

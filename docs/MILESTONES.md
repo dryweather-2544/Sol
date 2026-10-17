@@ -163,9 +163,11 @@ Acceptance tests:
 
 ## M9 — POI interiors, items, inventory
 
-- [ ] Typed room templates + graph expander for POI interiors (not EGSL; `05`)
-- [ ] Items, pickup, inventory (one ledger), loot tables from seeds
-- [ ] Ship cargo; resources gate fuel/upgrades
+> **Status:** items/inventory/loot/fuel done (138 tests, 51,005 assertions on the Mac; save v5). POI *interiors* are not built: crates stand in the open.
+
+- [ ] Typed room templates + graph expander for POI interiors (not EGSL; `05`) _(NOT done)_
+- [x] Items, pickup (crates at POIs, F), inventory (one ledger, Tab screen), loot tables from seeds _(5 items; seeded per POI/crate)_
+- [x] Ship fuel gates cruise/boost; fuel cells refuel _(no separate cargo hold or upgrades)_
 
 ## M10 — AI and combat
 

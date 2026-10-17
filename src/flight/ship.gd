@@ -22,6 +22,9 @@ var last_command := PilotCommand.new()
 
 signal destroyed
 
+const FUEL_CRUISE_PER_SECOND := 0.002
+const FUEL_BOOST_PER_SECOND := 0.006
+
 
 func _init() -> void:
 	name = "Ship"
@@ -51,11 +54,17 @@ func simulate_tick(delta: float) -> void:
 	elif free_space != null:
 		free_space.fill_environment(state, environment)
 	var command := controller.poll_command(state, delta)
+	var tank_empty := state.fuel <= 0.0
+	if tank_empty:
+		environment.max_gear = mini(environment.max_gear, PilotCommand.GEAR_COMBAT)
+		if command.boost:
+			command = command.without_boost()
 	var takeoff_block := systems.takeoff_block_reason() if systems != null and state.landed else ""
 	if takeoff_block != "":
 		command = command.without_thrust()
 	last_command = command
 	FlightModel.step(state, command, tuning, environment, delta)
+	_burn_fuel(command, delta)
 	if planet != null:
 		GroundContact.resolve(state, planet, tuning, delta)
 		_take_damage(delta)
@@ -84,3 +93,12 @@ func _take_damage(delta: float) -> void:
 	state.hull = maxf(0.0, state.hull - loss)
 	if state.hull <= 0.0:
 		destroyed.emit()
+
+
+func _burn_fuel(command: PilotCommand, delta: float) -> void:
+	var burn := 0.0
+	if state.gear == PilotCommand.GEAR_CRUISE and command.thrust != Vector3.ZERO:
+		burn += FUEL_CRUISE_PER_SECOND
+	if command.boost and command.thrust != Vector3.ZERO:
+		burn += FUEL_BOOST_PER_SECOND
+	state.fuel = maxf(0.0, state.fuel - burn * delta)

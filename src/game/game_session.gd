@@ -25,6 +25,10 @@ var exterior_body := OnFootBody.new()
 var pilot_source: PilotSource
 var discovery_log := DiscoveryLog.new()
 var suit := SuitState.new()
+var inventory := Inventory.new()
+var loot_log := LootLog.new()
+## POIs near the player, set by the scene each tick (for crates and solid props).
+var nearby_pois: Array = []
 var repairing := false
 
 ## Emitted when the run cannot go on (ship destroyed, suffocated); the scene decides what happens next.
@@ -46,6 +50,8 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 	systems.seats.seat_occupied.connect(_on_seat_occupied)
 	ship.destroyed.connect(func(): player_lost.emit("Ship destroyed"))
 	suit.died.connect(func(): player_lost.emit("Out of oxygen"))
+	inventory.add(ItemDefinition.OXYGEN_TANK, 1)
+	inventory.add(ItemDefinition.REPAIR_KIT, 1)
 	ship.controller.request_control(pilot_source, PILOT_SEAT)
 	systems.seats.try_sit(ACTOR, PILOT_SEAT)
 	systems.seats.update(SeatManager.SIT_SECONDS) # start the game already seated
@@ -90,7 +96,8 @@ func interact() -> void:
 		Mode.INSIDE:
 			_interact_inside()
 		Mode.OUTSIDE:
-			_say("Walk up the ramp to board")
+			if not _try_open_crate():
+				_say("Walk up the ramp to board")
 
 
 func prompt() -> String:
@@ -109,6 +116,8 @@ func prompt() -> String:
 				&"airlock_outer": return "F: outer door / walkway"
 				&"repair_panel": return "F: repair hull" if not repairing else "F: stop repairing"
 		Mode.OUTSIDE:
+			if not _nearest_crate().is_empty():
+				return "F: open crate"
 			if systems.walkway.is_deployed():
 				return "Walk up the ramp to board"
 	return ""
@@ -385,3 +394,80 @@ func _update_suit(delta: float) -> void:
 		Mode.INSIDE:
 			breathable = not (systems.layout.room_at(interior_body.position.x, interior_body.position.z) == &"airlock" and systems.airlock_pressure < 0.5)
 	suit.update(delta, breathable, mode == Mode.OUTSIDE and exterior_body.jetpack_burning, mode != Mode.OUTSIDE or exterior_body.grounded)
+
+
+const CRATE_REACH := 3.2
+
+## The closest unlooted crate within reach of the walker: {poi, index, id} or {}.
+func _nearest_crate() -> Dictionary:
+	if mode != Mode.OUTSIDE:
+		return {}
+	var best := {}
+	var best_distance := CRATE_REACH
+	for instance in nearby_pois:
+		var offset := exterior_body.position.vector_from(instance.position)
+		if offset.length() > 80.0:
+			continue
+		var frame := PoiBuilder.frame_basis(instance)
+		var here := Vector2(offset.dot(frame.x), offset.dot(frame.z))
+		var crate_index := 0
+		for crate_position in PoiBuilder.crate_positions(instance):
+			var crate_id := PoiBuilder.crate_id(instance, crate_index)
+			var distance := here.distance_to(crate_position)
+			if distance < best_distance and not loot_log.is_looted(crate_id):
+				best = {"poi": instance, "index": crate_index, "id": crate_id}
+				best_distance = distance
+			crate_index += 1
+	return best
+
+
+func _try_open_crate() -> bool:
+	var crate := _nearest_crate()
+	if crate.is_empty():
+		return false
+	var instance: PoiInstance = crate["poi"]
+	var contents := LootTable.roll(instance.seed_value, instance.type, crate["index"])
+	for entry in contents:
+		if not inventory.can_fit(entry["item"], entry["count"]):
+			_say("Inventory full - make room first")
+			return true
+	var found: Array[String] = []
+	for entry in contents:
+		inventory.add(entry["item"], entry["count"])
+		found.append("%d %s" % [entry["count"], ItemDefinition.display_name(entry["item"])])
+	loot_log.mark_looted(crate["id"])
+	_say("Found: " + ", ".join(found))
+	return true
+
+
+## Use one item from the inventory. Returns the message shown to the player.
+func use_item(item_id: StringName) -> String:
+	if inventory.count(item_id) <= 0:
+		return "You do not have that"
+	var near_ship := player_world_position().distance_to(ship.state.position) <= 15.0
+	var message_text := ""
+	match item_id:
+		ItemDefinition.OXYGEN_TANK:
+			if suit.oxygen >= 0.99:
+				return "Your suit is already full"
+			suit.oxygen = 1.0
+			message_text = "Suit oxygen refilled"
+		ItemDefinition.REPAIR_KIT:
+			if not near_ship:
+				return "Get closer to the ship"
+			if ship.state.hull >= 1.0:
+				return "Hull is undamaged"
+			ship.state.hull = minf(1.0, ship.state.hull + 0.5)
+			message_text = "Hull repaired"
+		ItemDefinition.FUEL_CELL:
+			if not near_ship:
+				return "Get closer to the ship"
+			if ship.state.fuel >= 0.99:
+				return "Tank is full"
+			ship.state.fuel = minf(1.0, ship.state.fuel + 0.5)
+			message_text = "Refuelled"
+		_:
+			return "That cannot be used"
+	inventory.remove(item_id, 1)
+	_say(message_text)
+	return message_text

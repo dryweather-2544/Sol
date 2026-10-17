@@ -50,6 +50,28 @@ static func blockers(instance: PoiInstance) -> Array[Vector3]:
 	return circles
 
 
+## Where the loot crates stand (local x, z) for a POI. Fixed per type so scenery and loot agree.
+static func crate_positions(instance: PoiInstance) -> Array[Vector2]:
+	var positions: Array[Vector2] = []
+	match instance.type:
+		PoiDefinition.Type.WRECK:
+			var rng := SeedRng.new(instance.seed_value)
+			var hull_yaw := rng.next_float() * TAU
+			positions.append(Vector2(sin(hull_yaw) * 6.5 + cos(hull_yaw) * 4.5, cos(hull_yaw) * 6.5 - sin(hull_yaw) * 4.5))
+			positions.append(Vector2(-sin(hull_yaw) * 5.0 - cos(hull_yaw) * 4.5, -cos(hull_yaw) * 5.0 + sin(hull_yaw) * 4.5))
+		PoiDefinition.Type.BEACON:
+			positions.append(Vector2(5.5, 0.0))
+		_:
+			positions.append(Vector2(14.0, 0.0))
+			positions.append(Vector2(-14.0, 6.0))
+			positions.append(Vector2(2.0, -15.0))
+	return positions
+
+
+static func crate_id(instance: PoiInstance, crate_index: int) -> StringName:
+	return StringName("%s#%d" % [instance.id, crate_index])
+
+
 static func build_content(instance: PoiInstance, planet: PlanetBody) -> Node3D:
 	var root := Node3D.new()
 	root.name = String(instance.id)
@@ -61,6 +83,18 @@ static func build_content(instance: PoiInstance, planet: PlanetBody) -> Node3D:
 			_build_beacon(root, instance, planet)
 		_:
 			_build_outpost(root, instance, planet, rng)
+	var crate_material := _material(Color(0.8, 0.55, 0.15), 0.6, 0.3)
+	var crate_index := 0
+	for crate_position in crate_positions(instance):
+		var crate_node := MeshInstance3D.new()
+		var crate_mesh := BoxMesh.new()
+		crate_mesh.size = Vector3(1.4, 1.0, 1.0)
+		crate_node.mesh = crate_mesh
+		crate_node.material_override = crate_material
+		crate_node.name = "Crate%d" % crate_index
+		crate_node.position = Vector3(crate_position.x, ground_offset(planet, instance, crate_position.x, crate_position.y) + 0.5, crate_position.y)
+		root.add_child(crate_node)
+		crate_index += 1
 	return root
 
 

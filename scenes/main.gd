@@ -25,6 +25,7 @@ var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
 var poi_manager: PoiManager
 var menu: PauseMenu
+var inventory_menu: InventoryMenu
 var audio: AudioService
 var _cockpit_view := false
 var _nav_target_index := -1
@@ -95,6 +96,10 @@ func _ready() -> void:
 	audio.ship = ship
 	add_child(audio)
 	session.player_lost.connect(_on_player_lost)
+	inventory_menu = InventoryMenu.new()
+	inventory_menu.session = session
+	inventory_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	add_child(inventory_menu)
 	menu = PauseMenu.new()
 	menu.resume_requested.connect(_on_menu_resume)
 	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
@@ -139,7 +144,8 @@ func _process(_delta: float) -> void:
 	if poi_manager != null:
 		poi_manager.viewer = actor_position
 		session.check_discovery(poi_manager.known_instances())
-		session.apply_poi_blockers(poi_manager.known_instances())
+		session.nearby_pois = poi_manager.known_instances()
+		session.apply_poi_blockers(session.nearby_pois)
 	var far_plane := 40000.0
 	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
@@ -174,7 +180,15 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if inventory_menu.visible:
+		if event.is_action_pressed("inventory") or event.is_action_pressed("pause"):
+			inventory_menu.close()
+		return
 	if menu.visible:
+		return
+	if event.is_action_pressed("inventory"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		inventory_menu.open()
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		match session.mode:
@@ -317,6 +331,7 @@ func _build_terrain() -> void:
 
 
 func _on_frame_changed(_old_frame: StringName, _new_frame: StringName) -> void:
+	session.nearby_pois = []
 	planet = runtime.planet_for(runtime.active_frame)
 	_build_terrain()
 	_build_poi_manager()

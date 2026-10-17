@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 const GAME_VERSION := "0.1"
 
 
@@ -34,6 +34,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"gear": ship_state.gear,
 			"landed": ship_state.landed,
 			"hull": ship_state.hull,
+			"fuel": ship_state.fuel,
 		},
 		"interior": {
 			"portals": portals,
@@ -56,7 +57,9 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 		"pois": {
 			"generation_version": PoiPlanner.GENERATION_VERSION,
 			"discovered": session.discovery_log.to_array(),
+			"looted": session.loot_log.to_array(),
 		},
+		"inventory": session.inventory.to_dictionary(),
 	}
 
 
@@ -73,6 +76,7 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	ship_state.gear = int(ship_data["gear"])
 	ship_state.landed = bool(ship_data["landed"])
 	ship_state.hull = float(ship_data.get("hull", 1.0))
+	ship_state.fuel = float(ship_data.get("fuel", 1.0))
 
 	var systems := session.systems
 	var interior_data: Dictionary = data["interior"]
@@ -105,6 +109,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	session.restore_mode(mode)
 	var poi_data: Dictionary = data.get("pois", {})
 	session.discovery_log.restore(poi_data.get("discovered", []))
+	session.loot_log.restore(poi_data.get("looted", []))
+	session.inventory.restore(data.get("inventory", {"oxygen_tank": 1, "repair_kit": 1}))
 	return ""
 
 

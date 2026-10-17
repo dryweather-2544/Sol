@@ -39,3 +39,15 @@ func without_thrust() -> PilotCommand:
 	copy.lock_linear = lock_linear
 	copy.source_id = source_id
 	return copy
+
+
+## A copy with boost off (used when the tank is empty).
+func without_boost() -> PilotCommand:
+	var copy := PilotCommand.new()
+	copy.thrust = thrust
+	copy.turn = turn
+	copy.gear = gear
+	copy.brake = brake
+	copy.lock_linear = lock_linear
+	copy.source_id = source_id
+	return copy
