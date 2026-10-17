@@ -31,7 +31,7 @@ The loop (M0–M4) comes before breadth (M5+). Do not start M5 until M4 is tagge
 - [x] `tests/run_tests.gd` headless runner with non-zero exit on failure _(written, parses, not yet run)_
 - [x] `src/core/world_pos.gd` (frame id + 64-bit doubles, add/sub/to_local_vector3) _(written, parses, not yet run)_
 - [x] `src/core/seed_hash.gd` (32-bit masked hash + RNG wrapper) with golden fixtures _(written, parses, not yet run)_
-- [ ] `src/core/floating_origin.gd` (rebase group `origin_shift` past 1,024 m)
+- [x] `src/core/floating_origin.gd` (rebase group `origin_shift` past 1,024 m)
 - [x] `src/flight/` PilotCommand, PilotSource, PlayerPilotSource, ScriptedPilotSource, PilotController, FlightModel (DOCK/COMBAT gears only), Ship node
 - [x] Placeholder ship (primitive meshes) + chase camera; debug overlay (fps, speed, origin offset)
 
@@ -40,7 +40,7 @@ Acceptance tests:
 - [ ] `seed_hash_test`: fixed inputs → fixed outputs (fixtures); 100 runs identical
 - [x] `flight_replay_test`: 600-tick scripted command stream → final position/velocity equal to recorded fixture within 1e-3
 - [x] `pilot_controller_test`: second source denied with reason; release → PARKED
-- [ ] `floating_origin_test`: fly 50 km scripted; origin rebased ≥ 40 times; ship WorldPos continuous (no jump > 1 tick of motion)
+- [x] `floating_origin_test`: fly 50 km scripted; origin rebased ≥ 40 times; ship WorldPos continuous (no jump > 1 tick of motion)
 - [ ] Manual: launch, fly 6DOF with keyboard/mouse, feel is controllable
 
 ## M1 — One planet: approach, atmosphere, landing, takeoff

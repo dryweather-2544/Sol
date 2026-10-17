@@ -9,6 +9,9 @@ func _ready() -> void:
 	add_child(PlaceholderSpace.new())
 	ship = Ship.new()
 	add_child(ship)
+	var floating_origin := FloatingOrigin.new()
+	floating_origin.anchor = ship
+	add_child(floating_origin) # after ship, so it runs after the ship's physics tick
 	var camera := ChaseCamera.new()
 	camera.target = ship
 	camera.far = 200000.0

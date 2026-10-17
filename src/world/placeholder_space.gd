@@ -10,6 +10,7 @@ const CLEAR_RADIUS_AROUND_START := 150.0
 
 
 func _ready() -> void:
+	add_to_group("origin_shift")
 	_add_environment()
 	var rock_material := StandardMaterial3D.new()
 	rock_material.albedo_color = Color(0.45, 0.4, 0.36)
@@ -56,3 +57,8 @@ func _add_rock(position_value: Vector3, scale_value: Vector3, material: Material
 	instance.position = position_value
 	instance.scale = scale_value
 	add_child(instance)
+
+
+func apply_origin_shift(shift: Vector3) -> void:
+	position -= shift
+	reset_physics_interpolation()

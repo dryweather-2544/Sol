@@ -13,6 +13,12 @@ var target: Node3D
 var _smoothed_orientation := Quaternion.IDENTITY
 
 
+## Origin shifts move everything by a constant, so the camera just follows the ship; this only
+## clears interpolation history so it does not smear across the jump.
+func apply_origin_shift(_shift: Vector3) -> void:
+	reset_physics_interpolation()
+
+
 func snap_to_target() -> void:
 	if target == null:
 		return
