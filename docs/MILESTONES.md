@@ -21,24 +21,25 @@ The loop (M0–M4) comes before breadth (M5+). Do not start M5 until M4 is tagge
 > `derive()` and `derive_indexed()` (golden value unchanged: 1319536956). **That fix has not yet been
 > run in Godot** - re-run `tools/run_tests.sh` on the Mac and record the output here.
 > `python3 -I tools/check_seed_goldens.py` independently recomputes every golden number.
+> M0.2 (pilot interface, flight model, ship, chase camera): 46 tests / 3,140 assertions passed on the Mac (Godot 4.7.2); visual smoke check via `tools/screenshot.gd`. Manual flight-feel check still owed by the user. `flight_replay_test` numbers are a recorded regression snapshot, not independent physics.
 > Ticked below = file exists and was run at least once on the Mac; M0.2+ not started.
 
 - [ ] Verify Godot: `godot --version` prints `4.7.2.stable…` (record exact output in `docs/decisions/0001-engine.md`)
-- [ ] `project.godot`: Forward+, Jolt, physics 60 Hz, input map (thrust, strafe, up/down, pitch/yaw/roll, boost, brake, interact, toggle_view, gear up/down, pause)
+- [x] `project.godot`: Forward+, Jolt, physics 60 Hz, physics interpolation, input map (thrust, strafe, up/down, pitch/yaw/roll, boost, brake, interact, toggle_view, gear up/down, pause) _(tested by input_map_test)_
 - [x] `.gitignore` ignoring only `.godot/` (commit `*.import` files); `CLAUDE.md` already present
 - [ ] Folder layout per ARCHITECTURE §2.2; autoloads `Sol`, `Events`, `SaveService` (stub), `Settings`
 - [x] `tests/run_tests.gd` headless runner with non-zero exit on failure _(written, parses, not yet run)_
 - [x] `src/core/world_pos.gd` (frame id + 64-bit doubles, add/sub/to_local_vector3) _(written, parses, not yet run)_
 - [x] `src/core/seed_hash.gd` (32-bit masked hash + RNG wrapper) with golden fixtures _(written, parses, not yet run)_
 - [ ] `src/core/floating_origin.gd` (rebase group `origin_shift` past 1,024 m)
-- [ ] `src/flight/` PilotCommand, PilotSource, PlayerPilotSource, ScriptedPilotSource, PilotController, FlightModel (DOCK/COMBAT gears only), Ship node
-- [ ] Placeholder ship (primitive meshes) + chase camera; debug overlay (fps, speed, origin offset)
+- [x] `src/flight/` PilotCommand, PilotSource, PlayerPilotSource, ScriptedPilotSource, PilotController, FlightModel (DOCK/COMBAT gears only), Ship node
+- [x] Placeholder ship (primitive meshes) + chase camera; debug overlay (fps, speed, origin offset)
 
 Acceptance tests:
 - [ ] `world_pos_test`: 6.0e6 m + 0.001 m round-trips to within 1e-6 m; subtracting two nearby positions 6,000 km from origin is correct to 1e-6 m
 - [ ] `seed_hash_test`: fixed inputs → fixed outputs (fixtures); 100 runs identical
-- [ ] `flight_replay_test`: 600-tick scripted command stream → final position/velocity equal to recorded fixture within 1e-3
-- [ ] `pilot_controller_test`: second source denied with reason; release → PARKED
+- [x] `flight_replay_test`: 600-tick scripted command stream → final position/velocity equal to recorded fixture within 1e-3
+- [x] `pilot_controller_test`: second source denied with reason; release → PARKED
 - [ ] `floating_origin_test`: fly 50 km scripted; origin rebased ≥ 40 times; ship WorldPos continuous (no jump > 1 tick of motion)
 - [ ] Manual: launch, fly 6DOF with keyboard/mouse, feel is controllable
 
