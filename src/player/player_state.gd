@@ -73,3 +73,10 @@ func _change(allowed: bool, new_posture: int, new_location: int, new_authority: 
 	location = new_location
 	authority = new_authority
 	return outcome
+
+
+## Set all three facts at once (loading a save); callers pass a combination that is_legal().
+func restore(new_posture: int, new_location: int, new_authority: int) -> void:
+	posture = new_posture
+	location = new_location
+	authority = new_authority

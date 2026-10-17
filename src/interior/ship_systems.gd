@@ -86,3 +86,9 @@ func secure_for_takeoff() -> void:
 
 func _is_occupied(portal_id: StringName) -> bool:
 	return occupied_portals.get(portal_id, false)
+
+
+## Drop queued actions (used when a save is loaded; the saved door/walkway states are authoritative).
+func reset_pending_actions() -> void:
+	_outer_close_pending = false
+	seats.reset()

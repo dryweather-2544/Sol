@@ -259,6 +259,34 @@ func _keep_outside_body_out_of_hull() -> void:
 			exterior_body.velocity = Vector3.ZERO
 
 
+## Shows a short message in the prompt line.
+func say(text: String) -> void:
+	_say(text)
+
+
 func _say(text: String) -> void:
 	message = text
 	message_seconds_left = 2.5
+
+
+## Puts the session into a saved mode. Interior/exterior bodies and ship state must already be set.
+func restore_mode(saved_mode: int) -> void:
+	var seat_position: Vector3 = systems.layout.seats[PILOT_SEAT]["position"]
+	ship.controller.release_control(pilot_source)
+	systems.seats.reset()
+	message = ""
+	message_seconds_left = 0.0
+	match saved_mode:
+		Mode.SEATED:
+			mode = Mode.SEATED
+			player_state.restore(PlayerState.Posture.SEATED, PlayerState.Location.INTERIOR, PlayerState.Authority.PILOT)
+			systems.seats.try_sit(ACTOR, PILOT_SEAT)
+			systems.seats.update(SeatManager.SIT_SECONDS)
+			interior_body.position = seat_position
+			ship.controller.request_control(pilot_source, PILOT_SEAT)
+		Mode.OUTSIDE:
+			mode = Mode.OUTSIDE
+			player_state.restore(PlayerState.Posture.STANDING, PlayerState.Location.EXTERIOR, PlayerState.Authority.NONE)
+		_:
+			mode = Mode.INSIDE
+			player_state.restore(PlayerState.Posture.STANDING, PlayerState.Location.INTERIOR, PlayerState.Authority.NONE)

@@ -5,6 +5,8 @@ extends Node3D
 
 const START_ALTITUDE := 300000.0
 const START_SUN_ANGLE_DEGREES := 50.0
+const WORLD_SEED := 42
+const AUTOSAVE_INTERVAL_SECONDS := 300.0
 
 var ship: Ship
 var planet: PlanetBody
@@ -19,6 +21,9 @@ var cockpit_camera: CockpitCamera
 var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
 var _cockpit_view := false
+var save_manager := SaveManager.new()
+var _was_landed := false
+var _seconds_since_autosave := 0.0
 
 
 func _ready() -> void:
@@ -87,6 +92,9 @@ func _physics_process(delta: float) -> void:
 	interior_view.sync_view()
 	if session.mode != mode_before:
 		_on_mode_changed()
+		if session.mode == GameSession.Mode.SEATED or mode_before == GameSession.Mode.OUTSIDE:
+			_autosave("boarded")
+	_autosave_if_due(delta)
 
 
 func _process(_delta: float) -> void:
@@ -125,6 +133,10 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("toggle_view"):
 		_cockpit_view = not _cockpit_view
 		_update_active_camera()
+	elif event.is_action_pressed("quicksave"):
+		_save_to("quicksave")
+	elif event.is_action_pressed("quickload"):
+		_load_from("quicksave")
 	elif event.is_action_pressed("pause"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed:
@@ -153,3 +165,49 @@ func _update_active_camera() -> void:
 				cockpit_camera.current = true
 			else:
 				chase_camera.current = true
+
+
+func _save_to(slot: String) -> void:
+	var error := save_manager.save(slot, SaveGame.capture(session, WORLD_SEED))
+	session.say("Saved (%s)" % slot if error == "" else "Save failed: " + error)
+
+
+func _load_from(slot: String) -> void:
+	var loaded := save_manager.load_slot(slot)
+	if not loaded["ok"]:
+		session.say("Load failed: " + String(loaded["error"]))
+		return
+	var error := SaveGame.restore(session, loaded["data"])
+	if error != "":
+		session.say("Load failed: " + error)
+		return
+	# Everything now lives somewhere else: re-centre the render origin on the ship and re-place nodes.
+	var new_origin := session.ship.state.position.duplicate_position()
+	ship.render_origin = new_origin
+	ship.apply_origin_shift(Vector3.ZERO)
+	terrain.render_origin = new_origin.duplicate_position()
+	terrain.apply_origin_shift(Vector3.ZERO)
+	on_foot.render_origin = new_origin.duplicate_position()
+	_on_mode_changed()
+	chase_camera.snap_to_target()
+	session.say("Loaded (%s)%s" % [slot, " from backup" if loaded["used_backup"] else ""])
+
+
+func _autosave(reason: String) -> void:
+	if session.mode == GameSession.Mode.SITTING:
+		return # never mid-transition
+	var error := save_manager.save("autosave", SaveGame.capture(session, WORLD_SEED))
+	if error != "":
+		push_warning("autosave (%s) failed: %s" % [reason, error])
+
+
+func _autosave_if_due(delta: float) -> void:
+	_seconds_since_autosave += delta
+	var landed_now := ship.state.landed
+	if landed_now and not _was_landed:
+		_autosave("landed")
+		_seconds_since_autosave = 0.0
+	_was_landed = landed_now
+	if _seconds_since_autosave >= AUTOSAVE_INTERVAL_SECONDS:
+		_seconds_since_autosave = 0.0
+		_autosave("timer")

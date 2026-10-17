@@ -84,3 +84,11 @@ func _release(seat_id: StringName) -> void:
 	_timer.erase(seat_id)
 	if was_occupied:
 		seat_released.emit(seat_id, actor_id)
+
+
+## Forget everything (used when a save is loaded).
+func reset() -> void:
+	for seat_id in _state:
+		_state[seat_id] = SeatState.FREE
+	_occupant.clear()
+	_timer.clear()

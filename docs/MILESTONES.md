@@ -105,14 +105,16 @@ Acceptance tests:
 
 ## M4 — Save/load v1
 
-- [ ] `SaveGame` schema v1, `SaveManager` (atomic write, `.bak`, SHA-256), `SaveMigrations` scaffold
-- [ ] Save player state/WorldPos, ship state, pilot authority, seats, doors, walkway, landing
-- [ ] Quicksave/quickload + pause menu save/load; autosave triggers (deferred during transitions)
-- [ ] Fixture `tests/fixtures/saves/v1_*.json` committed
+> **Status:** implemented and tested headless on the Mac (see commit). F5/F9 verified in the real scene by script (save, move 50 km, load -> back within 5 cm). Not done: pause menu, save slots UI, saving POIs (M5). Manual check owed: quit mid-walk outside, relaunch, press F9.
+
+- [x] `SaveGame` schema v1, `SaveManager` (atomic write, `.bak`, SHA-256), `SaveMigrations` scaffold
+- [x] Save player state/WorldPos, ship state, pilot authority, seats, doors, walkway, landing
+- [x] Quicksave (F5) / quickload (F9); autosave on landing, boarding and every 5 min, never mid-sit _(no pause menu yet, so no menu save/load)_
+- [x] Fixture `tests/fixtures/saves/v1_*.json` committed
 
 Acceptance tests:
-- [ ] `save_roundtrip_test` in 5 states (piloting in space, landed seated, inside standing, outside, mid-airlock) → equal state, position < 1 cm, velocity preserved
-- [ ] `save_corrupt_test`: truncated/bad checksum → previous save kept, clear error
+- [x] `save_roundtrip_test` in 5 states (piloting in space, landed seated, inside standing, outside, mid-airlock) → equal state, position < 1 cm, velocity preserved
+- [x] `save_corrupt_test`: truncated/bad checksum → previous save kept, clear error
 - [ ] Manual: quit mid-walk outside, relaunch, continue
 
 ## M5 — Procedural POIs and discovery

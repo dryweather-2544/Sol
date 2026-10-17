@@ -68,6 +68,12 @@ func update(delta: float) -> void:
 	_cycle_seconds_left = maxf(0.0, _cycle_seconds_left - delta)
 
 
+## Forget any pending pressure cycle (used when a save is loaded).
+func reset_cycle() -> void:
+	_cycle_seconds_left = 0.0
+	_door_waiting_for_cycle = null
+
+
 ## The safety invariant, exposed so tests (and a debug overlay) can check it.
 func is_invariant_ok() -> bool:
 	return inner.open_factor <= 0.0 or outer.open_factor <= 0.0
