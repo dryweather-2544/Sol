@@ -14,14 +14,14 @@ The loop (M0–M4) comes before breadth (M5+). Do not start M5 until M4 is tagge
 
 ## M0 — Foundation
 
-> **Status (cloud session, Godot unavailable):** M0.1 files are written and **parse** under
-> `gdparse` (gdtoolkit 4.5.0); golden hash values were cross-checked with an independent Python
-> mirror. **No GDScript has been executed.** Nothing below is ticked as passing until
-> `tools/run_tests.sh` has been run on the Mac and its output recorded.
-> Ticked here = file exists, not "test passed".
-
-Goal: an empty but real project with the core math, test runner, and a flyable placeholder ship
-in empty space through the `PilotCommand` path.
+> **Status:** M0.1 ran on the Mac with Godot 4.7.2: 15 of 16 tests passed (3,032 assertions);
+> the 1 failure was `test_seed_chain_golden_value`. Cause: a bug in the *design of the test and
+> `derive()`*, not in the hash: `derive()` always mixed in an index (default 0), so it added a stray
+> `combine(.., 0)` step and could never equal the documented chain. Fixed by splitting it into
+> `derive()` and `derive_indexed()` (golden value unchanged: 1319536956). **That fix has not yet been
+> run in Godot** - re-run `tools/run_tests.sh` on the Mac and record the output here.
+> `python3 -I tools/check_seed_goldens.py` independently recomputes every golden number.
+> Ticked below = file exists and was run at least once on the Mac; M0.2+ not started.
 
 - [ ] Verify Godot: `godot --version` prints `4.7.2.stable…` (record exact output in `docs/decisions/0001-engine.md`)
 - [ ] `project.godot`: Forward+, Jolt, physics 60 Hz, input map (thrust, strafe, up/down, pitch/yaw/roll, boost, brake, interact, toggle_view, gear up/down, pause)

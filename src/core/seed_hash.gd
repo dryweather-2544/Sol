@@ -44,5 +44,15 @@ static func string_hash(text: String) -> int:
 	return hashed
 
 
-static func derive(parent_seed: int, label: String, index: int = 0) -> int:
-	return combine(combine(parent_seed, string_hash(label)), index)
+## Child seed for a named thing: planet_seed = derive(world_seed, planet_id).
+## Exactly combine(parent_seed, string_hash(label)) - no hidden extra steps.
+static func derive(parent_seed: int, label: String) -> int:
+	return combine(parent_seed, string_hash(label))
+
+
+## Child seed for the Nth thing of a kind: poi_seed = derive_indexed(planet_seed, "poi", i).
+## Exactly combine(derive(parent_seed, label), index).
+## Kept separate from derive() on purpose: a derive() that always folded in an index (default 0)
+## made derive(derive(a, x), y, i) differ from the documented chain by a stray combine(.., 0).
+static func derive_indexed(parent_seed: int, label: String, index: int) -> int:
+	return combine(derive(parent_seed, label), index)

@@ -43,10 +43,34 @@ func test_rng_golden_sequence() -> void:
 	assert_eq(rng.next_u32(), 1355978862)
 
 
+func test_derive_is_exactly_combine_of_parent_and_label_hash() -> void:
+	var planet_seed: int = SeedHashScript.derive(42, "earth")
+	assert_eq(planet_seed, SeedHashScript.combine(42, SeedHashScript.string_hash("earth")), "derive must add no hidden steps")
+	assert_eq(planet_seed, 2408887855, "golden: derive(42, \"earth\")")
+
+
 func test_seed_chain_golden_value() -> void:
-	var chain: int = SeedHashScript.combine(SeedHashScript.combine(SeedHashScript.combine(42, SeedHashScript.string_hash("earth")), SeedHashScript.string_hash("poi")), 7)
-	assert_eq(chain, 1319536956)
-	assert_eq(SeedHashScript.derive(SeedHashScript.derive(42, "earth"), "poi", 7), chain)
+	# world 42 -> planet "earth" -> 7th "poi". This is the chain written in docs/ARCHITECTURE.md.
+	var chain_written_out: int = SeedHashScript.combine(SeedHashScript.combine(SeedHashScript.combine(42, SeedHashScript.string_hash("earth")), SeedHashScript.string_hash("poi")), 7)
+	assert_eq(chain_written_out, 1319536956, "chain written out with combine/string_hash")
+	var chain_via_helpers: int = SeedHashScript.derive_indexed(SeedHashScript.derive(42, "earth"), "poi", 7)
+	assert_eq(chain_via_helpers, 1319536956, "chain built with derive/derive_indexed")
+	assert_eq(chain_via_helpers, chain_written_out, "helpers must equal the written-out chain")
+
+
+func test_indexed_derivation_depends_on_index_and_label() -> void:
+	var planet_seed: int = SeedHashScript.derive(42, "earth")
+	assert_true(SeedHashScript.derive_indexed(planet_seed, "poi", 0) != SeedHashScript.derive_indexed(planet_seed, "poi", 1), "index changes the seed")
+	assert_true(SeedHashScript.derive_indexed(planet_seed, "poi", 3) != SeedHashScript.derive_indexed(planet_seed, "loot", 3), "label changes the seed")
+	assert_eq(SeedHashScript.derive_indexed(planet_seed, "poi", 0), SeedHashScript.combine(SeedHashScript.derive(planet_seed, "poi"), 0), "index 0 is a real step, not 'no index'")
+
+
+func test_regression_stray_index_zero_step_is_not_the_chain() -> void:
+	# The original bug: derive() always folded in index 0, so the old derive(derive(42,"earth"),"poi",7)
+	# was combine(combine(combine(combine(42,h_earth),0),h_poi),7) = 1190027475, NOT the chain.
+	var with_stray_zero_step: int = SeedHashScript.combine(SeedHashScript.combine(SeedHashScript.combine(SeedHashScript.combine(42, SeedHashScript.string_hash("earth")), 0), SeedHashScript.string_hash("poi")), 7)
+	assert_eq(with_stray_zero_step, 1190027475, "golden for the stray-step variant (documents the old bug)")
+	assert_true(SeedHashScript.derive_indexed(SeedHashScript.derive(42, "earth"), "poi", 7) != with_stray_zero_step, "new helpers must not reintroduce the stray step")
 
 
 func test_same_seed_gives_same_sequence_every_time() -> void:
