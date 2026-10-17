@@ -69,7 +69,7 @@ func test_committed_v1_fixture_still_loads_and_restores() -> void:
 	var manager := SaveManager.new(ProjectSettings.globalize_path("res://tests/fixtures/saves"))
 	var loaded := manager.load_slot("v1_landed_seated")
 	assert_true(loaded["ok"], "fixture failed to load: %s" % loaded["error"])
-	assert_eq(int(loaded["data"]["save_version"]), 1)
+	assert_eq(int(loaded["data"]["save_version"]), SaveGame.SAVE_VERSION, "v1 file is migrated up on load")
 	assert_eq(int(loaded["data"]["world_seed"]), 42)
 	var planet := PlanetBody.new()
 	var ship := Ship.new()

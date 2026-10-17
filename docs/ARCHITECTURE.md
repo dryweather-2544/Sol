@@ -1,6 +1,6 @@
 # Sol — Architecture
 
-**Status:** plan only, no game code yet (2026-10-17).
+**Status:** decided plan; M0-M5 are implemented (see MILESTONES.md for what is verified). Where the code differs from this text, the ADRs in `docs/decisions/` win.
 **Engine:** Godot 4.7.2 Forward+, GDScript (static typing), Jolt physics.
 **Target:** macOS, Mac mini M4, 16 GB unified memory.
 **Goal:** an independently implemented game that recreates Rodina's connected loop —

@@ -5,8 +5,10 @@ extends CanvasLayer
 var ship: Ship
 var terrain: PlanetTerrain
 var session: GameSession
+var poi_manager: PoiManager
 var _label := Label.new()
 var _prompt_label := Label.new()
+var _signal_label := Label.new()
 
 
 func _ready() -> void:
@@ -22,12 +24,18 @@ func _ready() -> void:
 	_prompt_label.add_theme_constant_override("outline_size", 6)
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_prompt_label)
+	_signal_label.position = Vector2(12, 600)
+	_signal_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+	_signal_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_signal_label.add_theme_constant_override("outline_size", 4)
+	add_child(_signal_label)
 
 
 func _process(_delta: float) -> void:
 	if ship == null:
 		return
 	_prompt_label.text = session.prompt() if session != null else ""
+	_signal_label.text = _nearest_signal_text()
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:
 		var body := session.exterior_body
@@ -56,3 +64,30 @@ func _process(_delta: float) -> void:
 		Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 		state.speed(), vertical_speed, altitude_text, FlightRegime.label(state.regime),
 		gear_names[state.gear], source_text, state.status_message]
+
+
+func _nearest_signal_text() -> String:
+	if poi_manager == null or session == null:
+		return ""
+	var discovered := session.discovery_log.count()
+	var nearest := poi_manager.nearest_undiscovered(session.discovery_log)
+	if nearest == null:
+		return "Discovered %d    (no signals in range)" % discovered
+	var viewer_position := session.player_world_position()
+	var to_poi := nearest.position.vector_from(viewer_position)
+	var up := session.planet.up_at(viewer_position)
+	var forward := session.forward_vector()
+	forward = (forward - up * forward.dot(up)).normalized()
+	var flat := (to_poi - up * to_poi.dot(up))
+	var right := forward.cross(up)
+	var bearing := rad_to_deg(atan2(flat.dot(right), flat.dot(forward)))
+	var direction_word := "ahead"
+	if absf(bearing) > 135.0:
+		direction_word = "behind"
+	elif bearing > 45.0:
+		direction_word = "to the right"
+	elif bearing < -45.0:
+		direction_word = "to the left"
+	var distance := to_poi.length()
+	var distance_text := "%.0f m" % distance if distance < 1000.0 else "%.1f km" % (distance / 1000.0)
+	return "Discovered %d    Nearest signal: %s, %s %s" % [discovered, nearest.display_name, distance_text, direction_word]

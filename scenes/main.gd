@@ -20,6 +20,7 @@ var chase_camera: ChaseCamera
 var cockpit_camera: CockpitCamera
 var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
+var poi_manager: PoiManager
 var _cockpit_view := false
 var save_manager := SaveManager.new()
 var _was_landed := false
@@ -54,6 +55,11 @@ func _ready() -> void:
 	terrain.viewer = ship.state.position
 	add_child(terrain)
 
+	poi_manager = PoiManager.new(PoiPlanner.new(planet, SeedHash.derive(WORLD_SEED, "planet")))
+	poi_manager.render_origin = ship.render_origin.duplicate_position()
+	poi_manager.viewer = ship.state.position
+	add_child(poi_manager)
+
 	on_foot = OnFootController.new()
 	on_foot.planet = planet
 	on_foot.body = session.exterior_body
@@ -71,6 +77,7 @@ func _ready() -> void:
 	overlay.ship = ship
 	overlay.terrain = terrain
 	overlay.session = session
+	overlay.poi_manager = poi_manager
 	add_child(overlay)
 	_update_active_camera()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -100,6 +107,8 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	var actor_position := session.player_world_position()
 	terrain.viewer = actor_position
+	poi_manager.viewer = actor_position
+	session.check_discovery(poi_manager.known_instances())
 	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
 		# horizon. Keeping far/near moderate avoids depth-precision and light-culler problems.
@@ -187,6 +196,8 @@ func _load_from(slot: String) -> void:
 	ship.apply_origin_shift(Vector3.ZERO)
 	terrain.render_origin = new_origin.duplicate_position()
 	terrain.apply_origin_shift(Vector3.ZERO)
+	poi_manager.render_origin = new_origin.duplicate_position()
+	poi_manager.apply_origin_shift(Vector3.ZERO)
 	on_foot.render_origin = new_origin.duplicate_position()
 	_on_mode_changed()
 	chase_camera.snap_to_target()

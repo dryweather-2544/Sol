@@ -119,14 +119,16 @@ Acceptance tests:
 
 ## M5 — Procedural POIs and discovery
 
-- [ ] `POIDefinition` catalog with 3 types (wreck, beacon, outpost) using CC0 props
-- [ ] `POIManager` plan-as-data, rings with hysteresis, `TerrainModifier` pads, site scoring
-- [ ] Discovery (120 m on foot), HUD markers, discovery log screen
-- [ ] POI state in saves (save v2 + migration v1→v2)
+> **Status:** implemented and tested headless on the Mac (106 tests / 45,856 assertions). POIs verified visually only as markers on the HUD/horizon and by node-count tests; prop scenery up close has not been looked at. Wrecks have no beam on purpose (find them by flying low). Save format is now v2 with a committed v1 fixture migrated on load.
+
+- [x] `PoiDefinition` catalog with 3 types (wreck, beacon, outpost) _(primitive props, no third-party assets)_
+- [x] `PoiManager` plan-as-data (lazy per lattice cell, ADR 0004), rings with hysteresis, site scoring _(TerrainModifier pads not implemented: sites are picked flat instead)_
+- [x] Discovery (120 m on foot), beam markers + nearest-signal HUD line _(no discovery log screen yet; the log is saved)_
+- [x] POI state in saves (save v2 + migration v1→v2)
 
 Acceptance tests:
-- [ ] `poi_determinism_test`, `poi_ring_test` (500 planned, ≤ 30 active), `discovery_once_test`, `save_v1_to_v2_test`
-- [ ] Manual: find and discover 3 POIs by flying and walking
+- [x] `poi_determinism_test`, `poi_ring_test` (500 planned, ≤ 30 active), `discovery_once_test`, `save_v1_to_v2_test`
+- [ ] Manual: find and discover 3 POIs by flying and walking _(owed by the user)_
 
 ## M6 — Solar system and travel
 

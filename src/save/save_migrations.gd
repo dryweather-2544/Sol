@@ -1,7 +1,7 @@
 class_name SaveMigrations
 extends RefCounted
 ## Upgrades old save data one version at a time (v1 -> v2 -> ...). Fixtures of every released
-## version live in tests/fixtures/saves/ and must keep loading. There is only v1 today.
+## version live in tests/fixtures/saves/ and must keep loading. v1 and v2 exist.
 
 
 ## Returns {ok: bool, data: Dictionary, error: String}.
@@ -17,8 +17,11 @@ static func migrate(data: Dictionary) -> Dictionary:
 	return {"ok": true, "data": migrated, "error": ""}
 
 
-## Placeholder for the first real migration; each case turns version N into N+1.
+## Each case turns version N into N+1. v1 -> v2 added the "pois" section (nothing discovered yet).
 static func _step_up(data: Dictionary) -> Dictionary:
 	var upgraded := data.duplicate(true)
+	match int(data["save_version"]):
+		1:
+			upgraded["pois"] = {"generation_version": 1, "discovered": []}
 	upgraded["save_version"] = int(data["save_version"]) + 1
 	return upgraded

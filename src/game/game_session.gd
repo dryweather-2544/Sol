@@ -23,6 +23,7 @@ var player_state := PlayerState.new()
 var interior_body := InteriorBody.new()
 var exterior_body := OnFootBody.new()
 var pilot_source: PilotSource
+var discovery_log := DiscoveryLog.new()
 var mode := Mode.SEATED
 var message := ""
 var message_seconds_left := 0.0
@@ -290,3 +291,26 @@ func restore_mode(saved_mode: int) -> void:
 		_:
 			mode = Mode.INSIDE
 			player_state.restore(PlayerState.Posture.STANDING, PlayerState.Location.INTERIOR, PlayerState.Authority.NONE)
+
+
+## Discover any POI within reach of a person on foot outside the ship. Call once per tick with the
+## POIs that are currently known; each fires its discovery once.
+func check_discovery(known_pois: Array) -> void:
+	if mode != Mode.OUTSIDE:
+		return
+	for instance in known_pois:
+		if discovery_log.is_discovered(instance.id):
+			continue
+		if instance.position.distance_to(exterior_body.position) <= PoiDefinition.DISCOVER_RADIUS:
+			if discovery_log.try_discover(instance):
+				_say("Discovered: " + instance.display_name)
+
+
+## Forward direction of the player in the planet frame (for pointing at things).
+func forward_vector() -> Vector3:
+	match mode:
+		Mode.OUTSIDE:
+			return exterior_body.heading
+		Mode.INSIDE, Mode.SITTING:
+			return ship.state.basis * interior_body.forward()
+	return -ship.state.basis.z

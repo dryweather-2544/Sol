@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const GAME_VERSION := "0.1"
 
 
@@ -50,6 +50,10 @@ static func capture(session: GameSession, world_seed: int) -> Dictionary:
 				"grounded": session.exterior_body.grounded,
 			},
 		},
+		"pois": {
+			"generation_version": PoiPlanner.GENERATION_VERSION,
+			"discovered": session.discovery_log.to_array(),
+		},
 	}
 
 
@@ -90,6 +94,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	session.exterior_body.vertical_speed = float(exterior["vertical_speed"])
 	session.exterior_body.grounded = bool(exterior["grounded"])
 	session.restore_mode(mode)
+	var poi_data: Dictionary = data.get("pois", {})
+	session.discovery_log.restore(poi_data.get("discovered", []))
 	return ""
 
 

@@ -7,6 +7,7 @@ extends SceneTree
 ##   cockpit  cockpit camera view
 ##   inside   land, stand up, put the player at ship-local (x, z) facing yaw_deg, interior view
 ##   outside  land, walk out through the airlock instantly, outside first-person view
+##   poi      (args: out altitude pitch poi type_index) hover above the nearest POI of that type
 ## Chunk loading is awaited, so the picture is what the player sees once the world has loaded.
 
 var _frames := 0
@@ -31,6 +32,8 @@ func _process(_delta: float) -> bool:
 	var mode := arguments[3] if arguments.size() > 3 else ""
 	if _frames == 2:
 		_move_ship()
+	if mode == "poi" and _frames == 3:
+		_move_to_poi(int(arguments[4]) if arguments.size() > 4 else 0)
 	if _frames > 2:
 		_settled_frames = _settled_frames + 1 if _main.terrain.is_settled() else 0
 	var wants_ground_mode := mode == "inside" or mode == "outside"
@@ -59,6 +62,8 @@ func _process(_delta: float) -> bool:
 		_stage = 2
 		_stage_frame = _frames
 	if _stage == 2 and _frames < _stage_frame + 90:
+		return false
+	if mode == "poi" and _frames < 200:
 		return false
 	if _settled_frames > 30 or _frames > 2400:
 		var output_path: String = arguments[0] if arguments.size() > 0 else "screenshot.png"
@@ -102,3 +107,35 @@ func _move_ship() -> void:
 	ship.state.velocity = Vector3.ZERO
 	_main.terrain.render_origin = ship.render_origin.duplicate_position()
 	_main.chase_camera.snap_to_target()
+
+
+func _move_to_poi(type_index: int) -> void:
+	var ship: Ship = _main.ship
+	var planet: PlanetBody = _main.planet
+	var up := planet.up_at(ship.state.position)
+	var ground := planet.surface_radius_xyz(up.x, up.y, up.z)
+	var start_ground := WorldPos.new(planet.frame_id, up.x * ground, up.y * ground, up.z * ground)
+	var best: PoiInstance
+	for instance in _main.poi_manager.planner.plan_region(start_ground, 60000.0):
+		if instance.type == type_index and (best == null or instance.position.distance_to(start_ground) < best.position.distance_to(start_ground)):
+			best = instance
+	if best == null:
+		print("no POI of type ", type_index, " found")
+		return
+	var poi_up := Vector3(best.position.x, best.position.y, best.position.z).normalized()
+	var target_radius := planet.distance_from_center(best.position) + float(_args()[1])
+	var side := poi_up.cross(Vector3.RIGHT).normalized()
+	# hover a little to the side of the POI, looking at it
+	var offset := side * 90.0
+	ship.state.position = WorldPos.new(planet.frame_id, poi_up.x * target_radius + offset.x, poi_up.y * target_radius + offset.y, poi_up.z * target_radius + offset.z)
+	ship.render_origin = ship.state.position.duplicate_position()
+	ship.position = Vector3.ZERO
+	var look := Vector3(best.position.x - ship.state.position.x, best.position.y - ship.state.position.y, best.position.z - ship.state.position.z).normalized()
+	ship.state.basis = Basis.looking_at(look, poi_up)
+	ship.state.velocity = Vector3.ZERO
+	_main.terrain.render_origin = ship.render_origin.duplicate_position()
+	_main.poi_manager.render_origin = ship.render_origin.duplicate_position()
+	_main.poi_manager.viewer = ship.state.position
+	_main.poi_manager.apply_origin_shift(Vector3.ZERO)
+	_main.chase_camera.snap_to_target()
+	print("moved to ", best.display_name)
