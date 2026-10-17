@@ -7,6 +7,8 @@ extends RefCounted
 var system: StarSystem
 ## Current game time, set by the runtime each tick.
 var time_seconds := 0.0
+## Cruise speed multiplier for open space (the warp drive; 1 once installed). Set by the runtime.
+var warp_factor := 1.0
 
 
 func _init(star_system: StarSystem) -> void:
@@ -18,7 +20,7 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	environment.gravity = Vector3.ZERO
 	environment.max_speed_factor = 1.0
 	environment.max_gear = PilotCommand.GEAR_CRUISE
-	environment.cruise_speed_limit = clampf(distance * 0.3, 500.0, 2.0e7)
+	environment.cruise_speed_limit = clampf(distance * 0.3, 500.0, 2.0e7) * warp_factor
 	environment.level_assist = 0.0
 	ship_state.altitude_above_ground = distance
 	ship_state.atmosphere_ratio = INF

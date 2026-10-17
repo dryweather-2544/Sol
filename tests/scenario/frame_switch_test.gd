@@ -42,6 +42,7 @@ func test_fly_home_planet_to_moon_through_system_frame_and_land() -> void:
 	var pilot := TravelPilot.new()
 	pilot.target_body = &"selene"
 	var session := GameSession.new(home, ship, pilot)
+	session.progress.warp_installed = true
 	var runtime := WorldRuntime.new(system, session, &"planet")
 	pilot.runtime = runtime
 	pilot.session = session

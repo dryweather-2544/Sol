@@ -83,7 +83,8 @@ func _refresh(player_position: WorldPos) -> void:
 		if not anyone_alive:
 			session.cleared_log.mark_looted(encounter.poi.id)
 			session.inventory.add(ItemDefinition.SCRAP, 4)
-			session.say("Outpost cleared - salvaged 4 scrap")
+			var found_coil := session.inventory.count(ItemDefinition.WARP_COIL) == 0 and not session.progress.warp_installed and session.inventory.add(ItemDefinition.WARP_COIL, 1)
+			session.say("Outpost cleared - salvaged 4 scrap%s" % (" and a WARP COIL" if found_coil else ""))
 			_remove_encounter(poi_id)
 
 

@@ -10,6 +10,7 @@ var frame_text := ""
 var _label := Label.new()
 var _prompt_label := Label.new()
 var _signal_label := Label.new()
+var _objective_label := Label.new()
 
 
 func _ready() -> void:
@@ -30,12 +31,18 @@ func _ready() -> void:
 	_signal_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_signal_label.add_theme_constant_override("outline_size", 4)
 	add_child(_signal_label)
+	_objective_label.position = Vector2(12, 520)
+	_objective_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
+	_objective_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_objective_label.add_theme_constant_override("outline_size", 4)
+	add_child(_objective_label)
 
 
 func _process(_delta: float) -> void:
 	if ship == null:
 		return
 	_prompt_label.text = session.prompt() if session != null else ""
+	_objective_label.text = "Objective: " + session.progress.current_text() if session != null else ""
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:

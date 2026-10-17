@@ -45,6 +45,7 @@ func _process(_delta: float) -> bool:
 	var prefix: String = arguments[0]
 	var target := StringName(arguments[1])
 	if _frames == 3:
+		_main.session.progress.warp_installed = true # test cheat: skip the story
 		var pilot := AimPilot.new()
 		pilot.main = _main
 		pilot.target = target

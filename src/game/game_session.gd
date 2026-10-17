@@ -25,6 +25,7 @@ var exterior_body := OnFootBody.new()
 var pilot_source: PilotSource
 var discovery_log := DiscoveryLog.new()
 var suit := SuitState.new()
+var progress := ProgressTracker.new()
 var inventory := Inventory.new()
 var loot_log := LootLog.new()
 ## POIs near the player, set by the scene each tick (for crates and solid props).
@@ -481,6 +482,12 @@ func use_item(item_id: StringName) -> String:
 				return "Tank is full"
 			ship.state.fuel = minf(1.0, ship.state.fuel + 0.5)
 			message_text = "Refuelled"
+		ItemDefinition.WARP_COIL:
+			if not near_ship:
+				return "Get closer to the ship"
+			var install_message := progress.install_warp_coil(self)
+			_say(install_message)
+			return install_message
 		_:
 			return "That cannot be used"
 	inventory.remove(item_id, 1)

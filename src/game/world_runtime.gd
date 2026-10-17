@@ -35,6 +35,8 @@ func planet_for(frame_id: StringName) -> PlanetBody:
 func advance(delta: float) -> void:
 	time_seconds += delta
 	navigator.time_seconds = time_seconds
+	navigator.warp_factor = session.progress.warp_speed_factor()
+	session.progress.update(session, active_frame)
 
 
 ## Check whether the ship has crossed into another frame and switch if so. Returns true if it did.

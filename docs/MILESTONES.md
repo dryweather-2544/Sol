@@ -179,9 +179,11 @@ Acceptance tests:
 
 ## M11 — Progression and ship customization
 
-- [ ] Story/progress stages gating gears and areas (Rodina gear gating, FLY-13 concept)
-- [ ] Warp travel mode with atmosphere sweep
-- [ ] Interior layout editor for the player ship (Rodina has one; `03`)
+> **Status:** progression + warp gating done and tested (save v7). Ship customization / layout editor not done.
+
+- [x] Story/progress stages gating gears and areas: 5 objectives; open-space cruise is crippled until a Warp coil (outpost reward) is installed
+- [x] Warp travel _(the distance-scaled cruise from M6 is the warp; it is gated by the coil; no separate warp mode and no atmosphere sweep, because cruise speed already shrinks toward any surface)_
+- [ ] Interior layout editor for the player ship (Rodina has one; `03`) _(NOT done)_
 
 ## M12 — Release quality
 
