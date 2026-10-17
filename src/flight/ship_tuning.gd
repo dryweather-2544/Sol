@@ -18,7 +18,9 @@ extends Resource
 
 func gear_count() -> int:
 	return gear_max_speed.size()
-## Points on the hull that touch the ground (ship-local): rear-left/right and front-left/right,
-## in the order GroundContact expects: (-x,-z) (+x,-z) (-x,+z) (+x,+z).
+## Points on the hull that can touch the ground (ship-local). The first four are the landing
+## gear, in the order GroundContact uses to fit the ground plane: (-x,-z) (+x,-z) (-x,+z) (+x,+z).
+## The rest (nose and tail underside) only stop the hull passing through terrain; wings are not solid.
 @export var support_points := PackedVector3Array([
-	Vector3(-2.8, -0.6, -2.6), Vector3(2.8, -0.6, -2.6), Vector3(-2.8, -0.6, 2.6), Vector3(2.8, -0.6, 2.6)])
+	Vector3(-2.6, -2.0, -5.0), Vector3(2.6, -2.0, -5.0), Vector3(-2.6, -2.0, 4.5), Vector3(2.6, -2.0, 4.5),
+	Vector3(0, -0.9, -7.3), Vector3(0, -0.9, 6.3)])

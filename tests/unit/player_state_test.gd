@@ -1,30 +1,31 @@
 extends "res://tests/test_case.gd"
 
 
-func _landed_ship_state() -> ShipState:
-	var ship_state := ShipState.new()
-	ship_state.landed = true
-	return ship_state
-
-
-func test_cannot_exit_while_flying_or_moving() -> void:
+func test_full_cycle_stand_walk_out_in_sit() -> void:
 	var player := PlayerState.new()
-	var flying := ShipState.new()
-	var outcome := player.try_exit_ship(flying)
-	assert_eq(outcome.result, PlayerState.Result.BLOCKED_NOT_LANDED)
-	assert_true(player.authority == PlayerState.Authority.PILOT, "failed exit must not change state")
-	var sliding := _landed_ship_state()
-	sliding.velocity = Vector3(5, 0, 0)
-	assert_eq(player.try_exit_ship(sliding).result, PlayerState.Result.BLOCKED_MOVING)
+	assert_true(player.try_stand_up().ok())
+	assert_true(player.authority == PlayerState.Authority.NONE and player.posture == PlayerState.Posture.STANDING)
+	assert_true(player.try_go_outside().ok())
+	assert_true(player.location == PlayerState.Location.EXTERIOR)
+	assert_true(not player.try_begin_sit().ok(), "cannot sit while outside")
+	assert_true(player.try_go_inside().ok())
+	assert_true(player.try_begin_sit().ok())
+	assert_true(player.posture == PlayerState.Posture.SITTING_DOWN and player.authority == PlayerState.Authority.NONE, "no control until seated")
+	assert_true(player.try_finish_sit().ok())
+	assert_true(player.authority == PlayerState.Authority.PILOT and player.is_legal())
 
 
-func test_exit_then_board_round_trip() -> void:
+func test_cancel_sit_returns_to_standing_with_no_authority() -> void:
 	var player := PlayerState.new()
-	var ship_state := _landed_ship_state()
-	assert_true(player.try_exit_ship(ship_state).ok())
-	assert_true(player.posture == PlayerState.Posture.STANDING and player.authority == PlayerState.Authority.NONE and player.location == PlayerState.Location.EXTERIOR)
-	assert_eq(player.try_exit_ship(ship_state).result, PlayerState.Result.BLOCKED_AUTHORITY, "cannot exit twice")
-	assert_eq(player.try_board_ship(50.0, ship_state).result, PlayerState.Result.BLOCKED_TOO_FAR)
-	assert_true(player.try_board_ship(5.0, ship_state).ok())
-	assert_true(player.posture == PlayerState.Posture.SEATED and player.authority == PlayerState.Authority.PILOT)
-	assert_eq(player.try_board_ship(1.0, ship_state).result, PlayerState.Result.BLOCKED_AUTHORITY, "already piloting")
+	player.try_stand_up()
+	player.try_begin_sit()
+	assert_true(player.try_cancel_sit().ok())
+	assert_true(player.posture == PlayerState.Posture.STANDING and player.authority == PlayerState.Authority.NONE)
+
+
+func test_illegal_transitions_are_refused_without_changing_state() -> void:
+	var player := PlayerState.new() # seated pilot inside
+	assert_true(not player.try_go_outside().ok(), "cannot walk out while seated")
+	assert_true(not player.try_begin_sit().ok(), "already seated")
+	assert_true(not player.try_finish_sit().ok())
+	assert_true(player.posture == PlayerState.Posture.SEATED and player.authority == PlayerState.Authority.PILOT and player.is_legal())

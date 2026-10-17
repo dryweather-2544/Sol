@@ -1,24 +1,24 @@
 extends Node3D
-## Boot scene: one planet, one ship in orbit, chase camera, overlay. The player starts in the
-## pilot seat; when landed, F steps out (M2 debug exit, replaced by airlock/seat in M3) and F
-## near the ship climbs back in.
+## Boot scene: one planet, the ship in orbit, the player in the pilot seat. This script only
+## builds nodes, turns keys/mouse into commands for GameSession, and picks the active camera;
+## all game rules live in GameSession and the classes it uses.
 
 const START_ALTITUDE := 300000.0
 const START_SUN_ANGLE_DEGREES := 50.0
-const EXIT_SIDE_OFFSET := 8.0
 
 var ship: Ship
 var planet: PlanetBody
 var terrain: PlanetTerrain
 var space_environment: SpaceEnvironment
 var player_source := PlayerPilotSource.new()
-var player_state := PlayerState.new()
+var session: GameSession
 var on_foot: OnFootController
-var camera: ChaseCamera
+var interior_view: InteriorView
+var chase_camera: ChaseCamera
+var cockpit_camera: CockpitCamera
 var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
-var _message := ""
-var _message_seconds_left := 0.0
+var _cockpit_view := false
 
 
 func _ready() -> void:
@@ -35,8 +35,14 @@ func _ready() -> void:
 	ship.state.position = WorldPos.new(planet.frame_id, start_up.x * (planet.radius + START_ALTITUDE), start_up.y * (planet.radius + START_ALTITUDE), start_up.z * (planet.radius + START_ALTITUDE))
 	ship.state.basis = Basis.looking_at(-start_up, Vector3.UP) # nose toward the planet
 	ship.render_origin = ship.state.position.duplicate_position()
-	ship.position = Vector3.ZERO
+	session = GameSession.new(planet, ship, player_source) # gives the ship its interior systems
 	add_child(ship)
+
+	interior_view = InteriorView.new()
+	interior_view.body = session.interior_body
+	ship.add_child(interior_view)
+	cockpit_camera = CockpitCamera.new()
+	ship.add_child(cockpit_camera)
 
 	terrain = PlanetTerrain.new(planet)
 	terrain.render_origin = ship.render_origin.duplicate_position()
@@ -45,95 +51,105 @@ func _ready() -> void:
 
 	on_foot = OnFootController.new()
 	on_foot.planet = planet
+	on_foot.body = session.exterior_body
 	on_foot.render_origin = ship.render_origin.duplicate_position()
 	add_child(on_foot)
 
 	floating_origin = FloatingOrigin.new()
 	floating_origin.anchor = ship
 	add_child(floating_origin) # after the actors, so it runs after their physics ticks
-	camera = ChaseCamera.new()
-	camera.target = ship
-	add_child(camera)
-	camera.snap_to_target()
-	camera.current = true
+	chase_camera = ChaseCamera.new()
+	chase_camera.target = ship
+	add_child(chase_camera)
+	chase_camera.snap_to_target()
 	overlay = DebugOverlay.new()
 	overlay.ship = ship
 	overlay.terrain = terrain
+	overlay.session = session
 	add_child(overlay)
-	ship.controller.request_control(player_source, &"pilot_seat")
+	_update_active_camera()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-func _process(delta: float) -> void:
-	_message_seconds_left = maxf(0.0, _message_seconds_left - delta)
-	var actor_position := on_foot.body.position if on_foot.active else ship.state.position
+func _physics_process(delta: float) -> void:
+	var command := OnFootCommand.new()
+	command.move = Vector2(Input.get_axis("strafe_left", "strafe_right"), Input.get_axis("thrust_back", "thrust_forward"))
+	command.run = Input.is_action_pressed("boost")
+	command.jump = Input.is_action_pressed("move_up")
+	var keyboard_turn := Input.get_axis("yaw_right", "yaw_left") * 2.0 * delta
+	if session.mode == GameSession.Mode.OUTSIDE:
+		command.yaw_delta = on_foot.take_pending_yaw() + keyboard_turn
+	else:
+		command.yaw_delta = interior_view.take_pending_yaw() + keyboard_turn
+	var mode_before := session.mode
+	session.tick(delta, command)
+	on_foot.sync_transform()
+	interior_view.sync_view()
+	if session.mode != mode_before:
+		_on_mode_changed()
+
+
+func _process(_delta: float) -> void:
+	var actor_position := session.player_world_position()
 	terrain.viewer = actor_position
-	if not on_foot.active:
+	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
 		# horizon. Keeping far/near moderate avoids depth-precision and light-culler problems.
 		var altitude := maxf(ship.state.altitude_above_ground, 1.0)
-		camera.near = clampf(altitude * 0.002, 0.3, 2.0)
-		camera.far = clampf(sqrt(2.0 * planet.radius * altitude) * 2.0 + 5000.0, 20000.0, 3.0e7)
+		var near_plane := clampf(altitude * 0.002, 0.3, 2.0)
+		var far_plane := clampf(sqrt(2.0 * planet.radius * altitude) * 2.0 + 5000.0, 20000.0, 3.0e7)
+		chase_camera.near = near_plane
+		chase_camera.far = far_plane
+		cockpit_camera.near = minf(near_plane, 0.5)
+		cockpit_camera.far = far_plane
 	var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 	var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio)
 	var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-SpaceEnvironment.sun_direction()))
 	space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position))
-	overlay.prompt_text = _message if _message_seconds_left > 0.0 else _prompt_for_current_situation()
-	overlay.on_foot = on_foot if on_foot.active else null
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		if on_foot.active:
-			on_foot.add_mouse_motion(event.relative)
-		else:
-			player_source.add_mouse_motion(event.relative)
+		match session.mode:
+			GameSession.Mode.OUTSIDE:
+				on_foot.add_mouse_motion(event.relative)
+			GameSession.Mode.INSIDE:
+				interior_view.add_mouse_motion(event.relative)
+			_:
+				player_source.add_mouse_motion(event.relative)
 	elif event.is_action_pressed("interact"):
-		if on_foot.active:
-			_try_board_ship()
-		else:
-			_try_exit_ship()
+		var mode_before := session.mode
+		session.interact()
+		if session.mode != mode_before:
+			_on_mode_changed()
+	elif event.is_action_pressed("toggle_view"):
+		_cockpit_view = not _cockpit_view
+		_update_active_camera()
 	elif event.is_action_pressed("pause"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-func _prompt_for_current_situation() -> String:
-	if on_foot.active:
-		var near_ship := on_foot.body.position.distance_to(ship.state.position) <= PlayerState.BOARD_MAX_DISTANCE
-		return "Press F to board the ship" if near_ship else ""
-	return "Press F to leave the ship" if ship.state.landed else ""
-
-
-func _try_exit_ship() -> void:
-	var outcome := player_state.try_exit_ship(ship.state)
-	if not outcome.ok():
-		_show_message(outcome.message)
-		return
-	ship.controller.release_control(player_source)
-	var side := ship.state.basis.x
-	var exit_position := ship.state.position.offset_by(side * EXIT_SIDE_OFFSET)
-	on_foot.render_origin = ship.render_origin.duplicate_position()
-	on_foot.body.place_on_ground(planet, exit_position, -ship.state.basis.z)
-	on_foot.active = true
+func _on_mode_changed() -> void:
+	floating_origin.anchor = on_foot if session.mode == GameSession.Mode.OUTSIDE else ship
+	if session.mode == GameSession.Mode.OUTSIDE:
+		on_foot.render_origin = ship.render_origin.duplicate_position()
 	on_foot.sync_transform()
 	on_foot.reset_physics_interpolation()
-	floating_origin.anchor = on_foot
+	if session.mode == GameSession.Mode.SEATED:
+		chase_camera.snap_to_target()
+	_update_active_camera()
 
 
-func _try_board_ship() -> void:
-	var outcome := player_state.try_board_ship(on_foot.body.position.distance_to(ship.state.position), ship.state)
-	if not outcome.ok():
-		_show_message(outcome.message)
-		return
-	on_foot.active = false
-	camera.current = true
-	camera.snap_to_target()
-	floating_origin.anchor = ship
-	ship.controller.request_control(player_source, &"pilot_seat")
-
-
-func _show_message(text: String) -> void:
-	_message = text
-	_message_seconds_left = 2.5
+func _update_active_camera() -> void:
+	match session.mode:
+		GameSession.Mode.OUTSIDE:
+			on_foot.camera.current = true
+		GameSession.Mode.INSIDE:
+			interior_view.camera.current = true
+		_:
+			if _cockpit_view:
+				cockpit_camera.current = true
+			else:
+				chase_camera.current = true

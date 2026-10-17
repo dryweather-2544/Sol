@@ -7,12 +7,13 @@ extends RefCounted
 ## thrust the assist damps the axis to zero (unless lock_linear); brake damps everything.
 
 const OVERSPEED_BLEED_RATE := 3.0
+const LEVEL_ASSIST_GAIN := 2.0
 
 
 static func step(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
 	ship_state.gear = clampi(command.gear, 0, mini(tuning.gear_count() - 1, environment.max_gear))
 	_step_linear(ship_state, command, tuning, environment, delta)
-	_step_angular(ship_state, command, tuning, delta)
+	_step_angular(ship_state, command, tuning, environment, delta)
 
 
 static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
@@ -48,11 +49,18 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 	ship_state.position.z += ship_state.velocity.z * delta
 
 
-static func _step_angular(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, delta: float) -> void:
+static func _step_angular(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
 	var turn := Vector3(clampf(command.turn.x, -1.0, 1.0), clampf(command.turn.y, -1.0, 1.0), clampf(command.turn.z, -1.0, 1.0))
 	var target_rate := turn * tuning.max_turn_rate
+	if environment.level_assist > 0.0:
+		var level_in_ship_axes := ship_state.basis.transposed() * environment.level_up
+		var correction_limit := tuning.max_turn_rate * 0.5 * environment.level_assist
+		if turn.x == 0.0:
+			target_rate.x = clampf(level_in_ship_axes.z * LEVEL_ASSIST_GAIN, -correction_limit.x, correction_limit.x)
+		if turn.z == 0.0:
+			target_rate.z = clampf(-level_in_ship_axes.x * LEVEL_ASSIST_GAIN, -correction_limit.z, correction_limit.z)
 	for axis in 3:
-		var rate_change := (tuning.turn_acceleration if turn[axis] != 0.0 else tuning.turn_damping) * delta
+		var rate_change := (tuning.turn_acceleration if (turn[axis] != 0.0 or target_rate[axis] != 0.0) else tuning.turn_damping) * delta
 		ship_state.angular_velocity[axis] = move_toward(ship_state.angular_velocity[axis], target_rate[axis], rate_change)
 	var turn_angle := ship_state.angular_velocity.length() * delta
 	if turn_angle > 1e-9:

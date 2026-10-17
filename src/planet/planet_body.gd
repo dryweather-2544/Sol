@@ -4,6 +4,9 @@ extends RefCounted
 ## atmosphere and terrain queries. Positions are WorldPos (64-bit).
 
 const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 2000.0
+## Below LEVEL_ASSIST_START_ALTITUDE metres the ship eases itself upright; full strength at LEVEL_ASSIST_FULL_ALTITUDE.
+const LEVEL_ASSIST_START_ALTITUDE := 400.0
+const LEVEL_ASSIST_FULL_ALTITUDE := 150.0
 
 var frame_id: StringName = &"planet"
 var radius: float
@@ -68,5 +71,7 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
 	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
 	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
+	environment.level_up = up_at(ship_state.position)
+	environment.level_assist = 0.0 if ship_state.landed else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
 	ship_state.atmosphere_ratio = ratio
 	ship_state.regime = FlightRegime.classify(ratio, ship_state.altitude_above_ground, ship_state.landed)

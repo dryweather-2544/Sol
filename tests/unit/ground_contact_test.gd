@@ -36,7 +36,7 @@ func test_ship_never_ends_up_below_flat_ground_and_lands() -> void:
 	_settle(ship, 300)
 	assert_true(ship.state.landed, "should be landed after a slow settle")
 	var clearance := planet.altitude_above_ground(ship.state.position)
-	assert_true(clearance > 0.3 and clearance < 1.0, "centre rests on its support points: %f" % clearance)
+	assert_true(clearance > 1.7 and clearance < 2.4, "centre rests on its support points (2 m below it): %f" % clearance)
 	assert_true(ship.state.speed() < 0.1)
 	ship.free()
 

@@ -30,8 +30,13 @@ var blocked_by_slope := false
 
 func place_on_ground(planet: PlanetBody, new_position: WorldPos, facing: Vector3) -> void:
 	var up := planet.up_at(new_position)
-	var ground_distance := planet.surface_radius_xyz(up.x, up.y, up.z)
-	position = WorldPos.new(new_position.frame_id, up.x * ground_distance, up.y * ground_distance, up.z * ground_distance)
+	# Direction in 64-bit (up is only 32-bit): a 0.4 m rounding at 6,000 km would put the feet a few cm off the ground.
+	var distance := planet.distance_from_center(new_position)
+	var direction_x := new_position.x / distance
+	var direction_y := new_position.y / distance
+	var direction_z := new_position.z / distance
+	var ground_distance := planet.surface_radius_xyz(direction_x, direction_y, direction_z)
+	position = WorldPos.new(new_position.frame_id, direction_x * ground_distance, direction_y * ground_distance, direction_z * ground_distance)
 	heading = _tangent_unit(facing, up)
 	velocity = Vector3.ZERO
 	vertical_speed = 0.0

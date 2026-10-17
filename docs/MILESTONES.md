@@ -83,23 +83,25 @@ Acceptance tests:
 
 ## M3 — Ship interior: the complete loop
 
-- [ ] **M3.0 spike:** CharacterBody3D in a separate `World3D` (SubViewport `own_world_3d`) — decide, write `docs/decisions/0002-interior-space.md`
-- [ ] Ship model: exterior + interior from CC0 modules (ATTRIBUTION), interior collision
-- [ ] `InteriorLayout` resource (rooms, portals, seats, spawns) for the player ship
-- [ ] `SeatManager` + pilot seat → `PilotController`; posture transitions with lock/cancel
-- [ ] `AirlockController` (never both doors open), `WalkwayController` (deploy/retract/fit)
-- [ ] Boarding/frame transfer interior ↔ exterior with gravity blend, no teleports
-- [ ] Interlocks: takeoff blocked by occupied walkway / open outer door; outer door blocked above 2 m/s
-- [ ] Interaction prompts in HUD; remove M2 debug exit
+> **Status:** implemented; the scripted full loop (orbit -> land -> stand -> cockpit door -> inner door -> airlock -> outer door/walkway -> walk out 50 m -> back up the ramp -> close up -> sit -> take off -> space) passes headless on the Mac, with all invariant/fuzz tests (91 tests / 45,537 assertions). Interior and exterior views checked by screenshot only. The M2 debug exit is removed. Not done: seat sit/stand animation, pressure, walkway/airlock sounds, HUD marker for panels, second seat/crew. Manual play-through by hand is still owed.
+
+- [x] **M3.0 spike:** decided *against* a second `World3D`: ship-local kinematic walking, see `docs/decisions/0003-interior-space.md` (reasoned, not measured)
+- [x] Ship model: exterior + interior _(placeholder primitives built from the layout; no third-party assets, so nothing in ATTRIBUTION)_
+- [x] `InteriorLayout` (rooms, portals, seats, interaction points; built in code, not yet a `.tres` Resource) for the player ship
+- [x] `SeatManager` + pilot seat → `PilotController`; posture transitions with lock/cancel
+- [x] `AirlockController` (never both doors open), `WalkwayController` (deploy/retract/fit)
+- [x] Boarding/frame transfer interior ↔ exterior with gravity blend, no teleports
+- [x] Interlocks: takeoff blocked by occupied walkway / open outer door; outer door blocked above 2 m/s
+- [x] Interaction prompts in HUD; remove M2 debug exit
 
 Acceptance tests:
-- [ ] `airlock_invariant_test`: 10,000 random requests, never both open
-- [ ] `seat_test`: two actors, one seat → exactly one succeeds; cancel mid-sit works
-- [ ] `interlock_test`: takeoff denied with walkway occupied; outer door denied at speed
-- [ ] `full_loop_scenario_test` (headless, scripted): orbit → land → stand → airlock → walk 50 m → return → sit → takeoff → orbit; ends legal, no teleport > 0.5 m between ticks
-- [ ] `interior_moving_test`: walk inside while ship flies 500 m/s and rolls: no clipping
-- [ ] `transition_fuzz_test`: 100 randomized transition sequences, no softlock
-- [ ] Manual: play the full loop by hand three times without any debug key
+- [x] `airlock_invariant_test`: 10,000 random requests, never both open
+- [x] `seat_test`: two actors, one seat → exactly one succeeds; cancel mid-sit works
+- [x] `interlock_test`: takeoff denied with walkway occupied; outer door denied at speed
+- [x] `full_loop_scenario_test` (headless, scripted): orbit → land → stand → airlock → walk 50 m → return → sit → takeoff → orbit; ends legal, no teleport > 0.5 m between ticks
+- [x] `interior_moving_test`: walk inside while ship flies 500 m/s and rolls: no clipping
+- [x] `transition_fuzz_test`: 100 randomized transition sequences, no softlock
+- [ ] Manual: play the full loop by hand three times without any debug key _(owed by the user)_
 
 ## M4 — Save/load v1
 

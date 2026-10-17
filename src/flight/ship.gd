@@ -11,6 +11,10 @@ var controller := PilotController.new()
 var render_origin := WorldPos.new(&"space")
 ## Optional: when set, the ship feels its gravity/atmosphere and collides with its terrain.
 var planet: PlanetBody
+## Optional interior systems; when set, interlocks can hold the ship on the ground.
+var systems: ShipSystems
+## False when a GameSession drives simulate_tick itself (keeps tick order explicit).
+var auto_tick := true
 
 
 func _init() -> void:
@@ -21,22 +25,33 @@ func _init() -> void:
 
 func _ready() -> void:
 	add_to_group("origin_shift")
-	PlaceholderShipMesh.build(self)
+	if systems != null:
+		var visuals := ShipVisuals.new()
+		visuals.ship = self
+		add_child(visuals)
+	else:
+		PlaceholderShipMesh.build(self)
 	_sync_transform()
 
 
 func _physics_process(delta: float) -> void:
-	simulate_tick(delta)
+	if auto_tick:
+		simulate_tick(delta)
 
 
 func simulate_tick(delta: float) -> void:
 	if planet != null:
 		planet.fill_environment(state, environment)
 	var command := controller.poll_command(state, delta)
+	var takeoff_block := systems.takeoff_block_reason() if systems != null and state.landed else ""
+	if takeoff_block != "":
+		command = command.without_thrust()
 	FlightModel.step(state, command, tuning, environment, delta)
 	if planet != null:
 		GroundContact.resolve(state, planet, tuning, delta)
 		state.regime = FlightRegime.classify(state.atmosphere_ratio, state.altitude_above_ground, state.landed)
+		if takeoff_block != "":
+			state.status_message = "Takeoff blocked: " + takeoff_block
 	_sync_transform()
 
 

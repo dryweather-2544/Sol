@@ -27,3 +27,15 @@ static func parked(current_gear: int) -> PilotCommand:
 	command.lock_linear = true
 	command.source_id = &"parked"
 	return command
+
+
+## A copy with all thrust removed (used when an interlock holds the ship; commands may be shared, never mutate them).
+func without_thrust() -> PilotCommand:
+	var copy := PilotCommand.new()
+	copy.turn = turn
+	copy.gear = gear
+	copy.boost = boost
+	copy.brake = brake
+	copy.lock_linear = lock_linear
+	copy.source_id = source_id
+	return copy

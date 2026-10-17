@@ -9,6 +9,8 @@ const TOUCH_DISTANCE := 0.3
 const LIFTOFF_DISTANCE := 1.0
 const LANDED_MAX_SPEED := 4.0
 const MAX_LANDING_SLOPE_DEGREES := 35.0
+## The ship must be roughly upright relative to the ground to count as landed.
+const MAX_LANDING_TILT_DEGREES := 40.0
 const ALIGN_RATE := 6.0
 ## Deceleration of sliding along the ground while landed (stops a parked ship drifting downhill).
 const LANDED_FRICTION := 25.0
@@ -34,7 +36,7 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 		surface_offsets.append(Vector3(direction_x * surface_distance - position.x, direction_y * surface_distance - position.y, direction_z * surface_distance - position.z))
 
 	var ground_normal := up
-	if support_count == 4:
+	if support_count >= 4:
 		ground_normal = (surface_offsets[2] - surface_offsets[1]).cross(surface_offsets[3] - surface_offsets[0]).normalized()
 		if ground_normal.dot(up) < 0.0:
 			ground_normal = -ground_normal
@@ -48,11 +50,12 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 		if into_ground_speed < 0.0:
 			ship_state.velocity -= ground_normal * into_ground_speed
 	var touching := lowest_clearance < TOUCH_DISTANCE
+	var tilt_degrees := rad_to_deg(acos(clampf(ship_state.basis.y.dot(ground_normal), -1.0, 1.0)))
 
 	if ship_state.landed:
 		if lowest_clearance > LIFTOFF_DISTANCE or ship_state.speed() >= LANDED_MAX_SPEED:
 			ship_state.landed = false
-	elif touching and ship_state.speed() < LANDED_MAX_SPEED and slope_degrees <= MAX_LANDING_SLOPE_DEGREES:
+	elif touching and ship_state.speed() < LANDED_MAX_SPEED and slope_degrees <= MAX_LANDING_SLOPE_DEGREES and tilt_degrees <= MAX_LANDING_TILT_DEGREES:
 		ship_state.landed = true
 
 	ship_state.status_message = ""

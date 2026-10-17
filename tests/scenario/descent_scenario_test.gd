@@ -37,7 +37,7 @@ func test_descent_from_orbit_reaches_landed_and_never_goes_below_terrain() -> vo
 	var lowest_clearance := INF
 	for tick in 60 * 600:
 		ship.simulate_tick(DELTA)
-		var support_clearance := planet.altitude_above_ground(ship.state.position) - 0.6 * 1.0
+		var support_clearance := planet.altitude_above_ground(ship.state.position) - 2.0
 		lowest_clearance = minf(lowest_clearance, support_clearance)
 		if ship.state.landed:
 			landed_tick = tick

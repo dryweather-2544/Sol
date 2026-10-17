@@ -10,3 +10,7 @@ var max_speed_factor := 1.0
 var max_gear := 99
 ## Hard speed limit for cruise gear, m/s.
 var cruise_speed_limit := INF
+## Landing assist: when level_assist > 0 and the pilot is not pitching/rolling, the ship eases
+## its up axis toward level_up (local planet up). 0 = off.
+var level_up := Vector3.UP
+var level_assist := 0.0
