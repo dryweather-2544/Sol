@@ -32,9 +32,14 @@ func _ready() -> void:
 
 
 ## daylight: 0 = space, 1 = full sky. up_direction: local up, for the horizon glow.
-func set_daylight(daylight: float, up_direction: Vector3) -> void:
+func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float = 0.0) -> void:
 	_sky_material.set_shader_parameter("daylight", daylight)
 	_sky_material.set_shader_parameter("sun_direction", -sun_direction)
+	# Ground haze: a little distance fog by day, thinning out with altitude.
+	_environment.fog_enabled = daylight > 0.02
+	_environment.fog_light_color = Color(0.62, 0.75, 0.92)
+	_environment.fog_density = 3.0e-5 * daylight * (1.0 - smoothstep(2000.0, 30000.0, altitude_metres))
+	_environment.fog_sky_affect = 0.0
 	_environment.ambient_light_energy = lerpf(0.6, 0.55, daylight)
 	_environment.ambient_light_color = Color(0.12, 0.14, 0.2).lerp(Color(0.45, 0.55, 0.75), daylight)
 

@@ -314,3 +314,26 @@ func forward_vector() -> Vector3:
 		Mode.INSIDE, Mode.SITTING:
 			return ship.state.basis * interior_body.forward()
 	return -ship.state.basis.z
+
+
+## Push the walker out of solid POI props (wrecks, buildings, beacon bases). Call once per tick with the
+## POIs near the player; only POIs close enough to matter are examined.
+func apply_poi_blockers(near_pois: Array) -> void:
+	if mode != Mode.OUTSIDE:
+		return
+	for instance in near_pois:
+		var offset := exterior_body.position.vector_from(instance.position)
+		if offset.length() > 120.0:
+			continue
+		var frame := PoiBuilder.frame_basis(instance)
+		var local_x := offset.dot(frame.x)
+		var local_z := offset.dot(frame.z)
+		for circle in PoiBuilder.blockers(instance):
+			var away := Vector2(local_x - circle.x, local_z - circle.y)
+			var limit := circle.z + 0.4
+			if away.length() < limit:
+				var pushed := (away.normalized() if away.length() > 1e-4 else Vector2.RIGHT) * limit
+				var correction := frame.x * (circle.x + pushed.x - local_x) + frame.z * (circle.y + pushed.y - local_z)
+				exterior_body.place_on_ground(planet, exterior_body.position.offset_by(correction), exterior_body.heading)
+				local_x = offset.dot(frame.x) + correction.dot(frame.x)
+				local_z = offset.dot(frame.z) + correction.dot(frame.z)

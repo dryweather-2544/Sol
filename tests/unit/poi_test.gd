@@ -44,7 +44,7 @@ func test_golden_poi_region_hash() -> void:
 	assert_eq(_region_hash(_planner(), _center(), 20000.0), GOLDEN_REGION_HASH)
 
 
-const GOLDEN_REGION_HASH := 4251991260
+const GOLDEN_REGION_HASH := 2779771745
 
 
 func test_pois_sit_on_the_terrain_and_have_sensible_spacing() -> void:
@@ -139,4 +139,40 @@ func test_discovery_fires_once_per_poi_and_only_on_foot_and_close() -> void:
 	session.check_discovery([near_instance, far_instance])
 	assert_eq(discoveries.size(), 1, "fires once")
 	assert_eq(session.discovery_log.count(), 1)
+	ship.free()
+
+
+func test_walker_cannot_walk_into_a_prop_blocker() -> void:
+	var planet := PlanetBody.new()
+	var ship := Ship.new()
+	ship.planet = planet
+	ship.render_origin = WorldPos.new(planet.frame_id)
+	var center := _center()
+	var ship_distance := planet.distance_from_center(center) + 2.1
+	var direction := Vector3(center.x, center.y, center.z).normalized()
+	ship.state.position = WorldPos.new(planet.frame_id, direction.x * ship_distance, direction.y * ship_distance, direction.z * ship_distance)
+	ship.state.basis = Basis.looking_at(Vector3.UP.cross(direction).normalized(), direction)
+	var session := GameSession.new(planet, ship, PilotSource.new())
+	var beacon := PoiInstance.new()
+	beacon.id = &"poi_blocker_test"
+	beacon.type = PoiDefinition.Type.BEACON
+	beacon.seed_value = 5
+	var beacon_ground := planet.surface_radius_xyz(direction.x, direction.y, direction.z)
+	beacon.position = WorldPos.new(planet.frame_id, direction.x * beacon_ground, direction.y * beacon_ground, direction.z * beacon_ground).offset_by(ship.state.basis.x * 30.0)
+	var distance := planet.distance_from_center(beacon.position)
+	var beacon_direction := Vector3(beacon.position.x, beacon.position.y, beacon.position.z) / distance
+	beacon.position = WorldPos.new(planet.frame_id, beacon_direction.x * planet.surface_radius_xyz(beacon_direction.x, beacon_direction.y, beacon_direction.z), beacon_direction.y * planet.surface_radius_xyz(beacon_direction.x, beacon_direction.y, beacon_direction.z), beacon_direction.z * planet.surface_radius_xyz(beacon_direction.x, beacon_direction.y, beacon_direction.z))
+	session.exterior_body.place_on_ground(planet, beacon.position.offset_by(ship.state.basis.x * -20.0), ship.state.basis.x)
+	session.restore_mode(GameSession.Mode.OUTSIDE)
+	var closest := INF
+	var walk := OnFootCommand.new()
+	walk.move = Vector2(0, 1)
+	for tick in 600:
+		session.exterior_body.heading = (beacon.position.vector_from(session.exterior_body.position))
+		session.exterior_body.heading = (session.exterior_body.heading - planet.up_at(session.exterior_body.position) * session.exterior_body.heading.dot(planet.up_at(session.exterior_body.position))).normalized()
+		session.exterior_body.step(walk, planet, DELTA)
+		session.apply_poi_blockers([beacon])
+		closest = minf(closest, session.exterior_body.position.distance_to(beacon.position))
+	assert_true(closest >= 3.6 - 0.2, "walker stopped %f m from the beacon centre (base radius 3.6)" % closest)
+	assert_true(closest < 6.0, "and did walk up to it: %f" % closest)
 	ship.free()

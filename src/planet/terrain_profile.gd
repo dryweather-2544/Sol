@@ -15,3 +15,8 @@ extends Resource
 @export var hill_amplitude := 8.0
 @export var rough_wavelength := 70.0
 @export var rough_amplitude := 1.5
+## Kilometre-scale rolling relief so a landing area is not a flat plain: wavelength and amplitude in metres.
+@export var mid_wavelength := 4000.0
+@export var mid_amplitude := 180.0
+@export var large_wavelength := 20000.0
+@export var large_amplitude := 500.0

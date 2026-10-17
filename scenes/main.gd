@@ -137,6 +137,7 @@ func _process(_delta: float) -> void:
 	if poi_manager != null:
 		poi_manager.viewer = actor_position
 		session.check_discovery(poi_manager.known_instances())
+		session.apply_poi_blockers(poi_manager.known_instances())
 	var far_plane := 40000.0
 	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
@@ -164,7 +165,7 @@ func _process(_delta: float) -> void:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
 		var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-sun_direction))
-		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position))
+		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position), 0.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground)
 	else:
 		space_environment.set_daylight(0.0, Vector3.UP)
 	overlay.frame_text = _frame_and_nav_text()

@@ -25,6 +25,31 @@ static func ground_offset(planet: PlanetBody, instance: PoiInstance, local_x: fl
 	return planet.surface_radius_xyz(point_x / distance, point_y / distance, point_z / distance) - origin_distance
 
 
+## Solid circles (local x, z, radius) that people on foot cannot walk into. Mirrors the random draws in
+## the builders below, so the circles sit under the visible props.
+static func blockers(instance: PoiInstance) -> Array[Vector3]:
+	var circles: Array[Vector3] = []
+	var rng := SeedRng.new(instance.seed_value)
+	match instance.type:
+		PoiDefinition.Type.WRECK:
+			var hull_yaw := rng.next_float() * TAU
+			var axis := Vector2(sin(hull_yaw), cos(hull_yaw))
+			for offset in [-8.0, -4.0, 0.0, 4.0, 8.0]:
+				circles.append(Vector3(axis.x * offset, axis.y * offset, 3.2))
+			circles.append(Vector3(axis.x * -12.0 + 2.0, axis.y * -12.0, 3.0))
+		PoiDefinition.Type.BEACON:
+			circles.append(Vector3(0.0, 0.0, 3.6))
+		_:
+			for building_index in 3:
+				var angle := (float(building_index) / 3.0 + rng.next_float() * 0.2) * TAU
+				var width := 9.0 + rng.next_float() * 5.0
+				rng.next_float() # height
+				var depth := 8.0 + rng.next_float() * 5.0
+				circles.append(Vector3(cos(angle) * 30.0, sin(angle) * 30.0, maxf(width, depth) * 0.6))
+			circles.append(Vector3(0.0, 0.0, 0.6))
+	return circles
+
+
 static func build_content(instance: PoiInstance, planet: PlanetBody) -> Node3D:
 	var root := Node3D.new()
 	root.name = String(instance.id)

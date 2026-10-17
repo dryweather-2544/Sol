@@ -49,6 +49,8 @@ static func default_system() -> StarSystem:
 	moon.orbit_phase = 1.0
 	moon.spin_period = 9000.0
 	moon.terrain_profile = _profile(7777, 1.7e6, 500.0, 1100.0, 4.0, 1.0)
+	moon.terrain_profile.mid_amplitude = 100.0
+	moon.terrain_profile.large_amplitude = 300.0
 	moon.color = Color(0.7, 0.7, 0.72)
 	system.bodies[moon.id] = moon
 
@@ -92,6 +94,10 @@ static func default_system() -> StarSystem:
 	asteroid.spin_period = 1200.0
 	asteroid.terrain_profile = _profile(31337, 1.5e4, 1500.0, 0.0, 2.0, 0.5)
 	asteroid.terrain_profile.macro_scale = 3.0
+	asteroid.terrain_profile.mid_amplitude = 60.0
+	asteroid.terrain_profile.large_amplitude = 150.0
+	asteroid.terrain_profile.mid_wavelength = 1500.0
+	asteroid.terrain_profile.large_wavelength = 6000.0
 	asteroid.color = Color(0.5, 0.45, 0.4)
 	system.bodies[asteroid.id] = asteroid
 	return system

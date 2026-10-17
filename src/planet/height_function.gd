@@ -15,6 +15,8 @@ var _macro: FastNoiseLite
 var _ridge: FastNoiseLite
 var _hills: FastNoiseLite
 var _rough: FastNoiseLite
+var _mid: FastNoiseLite
+var _large: FastNoiseLite
 
 
 func _init(terrain_profile: TerrainProfile) -> void:
@@ -23,6 +25,8 @@ func _init(terrain_profile: TerrainProfile) -> void:
 	_ridge = _make_noise("ridge", 4, FastNoiseLite.FRACTAL_NONE)
 	_hills = _make_noise("hills", 3, FastNoiseLite.FRACTAL_FBM)
 	_rough = _make_noise("rough", 2, FastNoiseLite.FRACTAL_FBM)
+	_mid = _make_noise("mid", 3, FastNoiseLite.FRACTAL_FBM)
+	_large = _make_noise("large", 2, FastNoiseLite.FRACTAL_FBM)
 
 
 func _make_noise(label: String, octaves: int, fractal: int) -> FastNoiseLite:
@@ -46,6 +50,10 @@ func height_xyz(dx: float, dy: float, dz: float) -> float:
 	var height := profile.macro_amplitude * macro + profile.mountain_amplitude * ridged * ridged * mountain_mask
 	var to_hills := profile.radius / profile.hill_wavelength
 	var to_rough := profile.radius / profile.rough_wavelength
+	var to_mid := profile.radius / profile.mid_wavelength
+	var to_large := profile.radius / profile.large_wavelength
+	height += profile.large_amplitude * _smooth_noise(_large, dx * to_large, dy * to_large, dz * to_large)
+	height += profile.mid_amplitude * _smooth_noise(_mid, dx * to_mid, dy * to_mid, dz * to_mid)
 	height += profile.hill_amplitude * _smooth_noise(_hills, dx * to_hills, dy * to_hills, dz * to_hills)
 	height += profile.rough_amplitude * _smooth_noise(_rough, dx * to_rough, dy * to_rough, dz * to_rough)
 	return height

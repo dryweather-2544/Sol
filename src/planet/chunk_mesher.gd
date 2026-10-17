@@ -51,7 +51,10 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			vertices.append(position)
 			normals.append(normal)
 			var outward := (position + Vector3(origin_x, origin_y, origin_z)).normalized()
-			colors.append(_color_for(lattice_heights[index], 1.0 - normal.dot(outward)))
+			var base_color := _color_for(lattice_heights[index], 1.0 - normal.dot(outward))
+			# Patchy variation from the absolute position so colours match across chunk borders.
+			var patch := sin((position.x + origin_x) * 0.00031) * sin((position.z + origin_z) * 0.00043) + 0.5 * sin((position.y + origin_y) * 0.0021 + (position.x + origin_x) * 0.0017)
+			colors.append(base_color * (0.9 + 0.1 * patch))
 
 	var indices := PackedInt32Array()
 	for row in GRID:
