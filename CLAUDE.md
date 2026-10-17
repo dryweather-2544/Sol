@@ -12,7 +12,7 @@ Read before working:
 Hard rules:
 - Never modify Starfall or any other project. Never copy Rodina code, assets, or data.
 - Every third-party file gets a row in `ATTRIBUTION.md` before commit.
-- Tests: `godot --headless --path . -s res://tests/run_tests.gd`. Godot is only available on
+- Tests: run `tools/run_tests.sh` (it imports first, which new `class_name` scripts need; a bare `godot --headless --path . -s res://tests/run_tests.gd` fails with parse errors after adding one). Filter with `-- name_substring`. Godot is only available on
   the Mac, not in cloud sessions. Report tests you did not run as "not run".
 - Architecture changes need an ADR in `docs/decisions/` and an `ARCHITECTURE.md` update.
 - Keep `research/` read-only and separate from game code and assets.
