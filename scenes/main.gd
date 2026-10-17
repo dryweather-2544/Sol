@@ -9,8 +9,11 @@ const WORLD_SEED := 42
 const AUTOSAVE_INTERVAL_SECONDS := 300.0
 
 var ship: Ship
-var planet: PlanetBody
+var system: StarSystem
+var runtime: WorldRuntime
+var planet: PlanetBody ## null while in the star-centred system frame
 var terrain: PlanetTerrain
+var impostors: BodyImpostors
 var space_environment: SpaceEnvironment
 var player_source := PlayerPilotSource.new()
 var session: GameSession
@@ -22,18 +25,20 @@ var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
 var poi_manager: PoiManager
 var _cockpit_view := false
+var _nav_target_index := -1
 var save_manager := SaveManager.new()
 var _was_landed := false
 var _seconds_since_autosave := 0.0
 
 
 func _ready() -> void:
-	planet = PlanetBody.new()
+	system = StarSystem.default_system()
+	planet = system.build_planet_body(system.home_id)
 	space_environment = SpaceEnvironment.new()
 	add_child(space_environment)
 
 	# Start above a point where the sun is START_SUN_ANGLE_DEGREES from overhead, facing the planet.
-	var toward_sun := -SpaceEnvironment.sun_direction()
+	var toward_sun := -system.sun_direction_in_frame(system.home_id, 0.0)
 	var tilt_axis := toward_sun.cross(Vector3.UP).normalized()
 	var start_up := toward_sun.rotated(tilt_axis, deg_to_rad(START_SUN_ANGLE_DEGREES))
 	ship = Ship.new()
@@ -42,6 +47,8 @@ func _ready() -> void:
 	ship.state.basis = Basis.looking_at(-start_up, Vector3.UP) # nose toward the planet
 	ship.render_origin = ship.state.position.duplicate_position()
 	session = GameSession.new(planet, ship, player_source) # gives the ship its interior systems
+	runtime = WorldRuntime.new(system, session, system.home_id)
+	runtime.frame_changed.connect(_on_frame_changed)
 	add_child(ship)
 
 	interior_view = InteriorView.new()
@@ -55,10 +62,7 @@ func _ready() -> void:
 	terrain.viewer = ship.state.position
 	add_child(terrain)
 
-	poi_manager = PoiManager.new(PoiPlanner.new(planet, SeedHash.derive(WORLD_SEED, "planet")))
-	poi_manager.render_origin = ship.render_origin.duplicate_position()
-	poi_manager.viewer = ship.state.position
-	add_child(poi_manager)
+	_build_poi_manager()
 
 	on_foot = OnFootController.new()
 	on_foot.planet = planet
@@ -79,6 +83,10 @@ func _ready() -> void:
 	overlay.session = session
 	overlay.poi_manager = poi_manager
 	add_child(overlay)
+	impostors = BodyImpostors.new()
+	impostors.system = system
+	impostors.runtime = runtime
+	add_child(impostors)
 	_update_active_camera()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -94,6 +102,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		command.yaw_delta = interior_view.take_pending_yaw() + keyboard_turn
 	var mode_before := session.mode
+	runtime.advance(delta)
+	runtime.update_frame()
 	session.tick(delta, command)
 	on_foot.sync_transform()
 	interior_view.sync_view()
@@ -106,23 +116,42 @@ func _physics_process(delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	var actor_position := session.player_world_position()
-	terrain.viewer = actor_position
-	poi_manager.viewer = actor_position
-	session.check_discovery(poi_manager.known_instances())
+	if terrain != null:
+		terrain.viewer = actor_position
+	if poi_manager != null:
+		poi_manager.viewer = actor_position
+		session.check_discovery(poi_manager.known_instances())
+	var far_plane := 40000.0
 	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
-		# horizon. Keeping far/near moderate avoids depth-precision and light-culler problems.
+		# horizon (or far enough for other worlds in open space). Keeping far/near moderate avoids
+		# depth-precision and light-culler problems.
 		var altitude := maxf(ship.state.altitude_above_ground, 1.0)
 		var near_plane := clampf(altitude * 0.002, 0.3, 2.0)
-		var far_plane := clampf(sqrt(2.0 * planet.radius * altitude) * 2.0 + 5000.0, 20000.0, 3.0e7)
+		if planet != null:
+			far_plane = clampf(sqrt(2.0 * planet.radius * altitude) * 2.0 + 5000.0, 20000.0, 3.0e7)
+		else:
+			far_plane = 4.0e6
 		chase_camera.near = near_plane
 		chase_camera.far = far_plane
 		cockpit_camera.near = minf(near_plane, 0.5)
 		cockpit_camera.far = far_plane
-	var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
-	var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio)
-	var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-SpaceEnvironment.sun_direction()))
-	space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position))
+	impostors.placement_distance = far_plane * 0.8
+	impostors.viewer_local = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else ship.position
+	var sun_direction := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds)
+	if runtime.active_frame == StarSystem.SYSTEM_FRAME:
+		var to_star := system.body_position(system.star_id, runtime.time_seconds)
+		var here := system.convert_position(actor_position, StarSystem.SYSTEM_FRAME, runtime.time_seconds)
+		sun_direction = Vector3(here.x - to_star.x, here.y - to_star.y, here.z - to_star.z).normalized()
+	space_environment.set_sun_direction(sun_direction)
+	if planet != null:
+		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
+		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
+		var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-sun_direction))
+		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position))
+	else:
+		space_environment.set_daylight(0.0, Vector3.UP)
+	overlay.frame_text = _frame_and_nav_text()
 
 
 func _input(event: InputEvent) -> void:
@@ -139,6 +168,8 @@ func _input(event: InputEvent) -> void:
 		session.interact()
 		if session.mode != mode_before:
 			_on_mode_changed()
+	elif event.is_action_pressed("nav_next"):
+		_cycle_nav_target()
 	elif event.is_action_pressed("toggle_view"):
 		_cockpit_view = not _cockpit_view
 		_update_active_camera()
@@ -177,7 +208,7 @@ func _update_active_camera() -> void:
 
 
 func _save_to(slot: String) -> void:
-	var error := save_manager.save(slot, SaveGame.capture(session, WORLD_SEED))
+	var error := save_manager.save(slot, SaveGame.capture(session, WORLD_SEED, runtime.time_seconds))
 	session.say("Saved (%s)" % slot if error == "" else "Save failed: " + error)
 
 
@@ -186,19 +217,17 @@ func _load_from(slot: String) -> void:
 	if not loaded["ok"]:
 		session.say("Load failed: " + String(loaded["error"]))
 		return
-	var error := SaveGame.restore(session, loaded["data"])
+	var saved_data: Dictionary = loaded["data"]
+	runtime.time_seconds = float(saved_data["world"]["time"])
+	runtime.navigator.time_seconds = runtime.time_seconds
+	var saved_frame := StringName(String(saved_data["ship"]["position"]["frame_id"]))
+	if saved_frame != runtime.active_frame:
+		runtime.force_frame(saved_frame)
+	var error := SaveGame.restore(session, saved_data)
 	if error != "":
 		session.say("Load failed: " + error)
 		return
-	# Everything now lives somewhere else: re-centre the render origin on the ship and re-place nodes.
-	var new_origin := session.ship.state.position.duplicate_position()
-	ship.render_origin = new_origin
-	ship.apply_origin_shift(Vector3.ZERO)
-	terrain.render_origin = new_origin.duplicate_position()
-	terrain.apply_origin_shift(Vector3.ZERO)
-	poi_manager.render_origin = new_origin.duplicate_position()
-	poi_manager.apply_origin_shift(Vector3.ZERO)
-	on_foot.render_origin = new_origin.duplicate_position()
+	_recentre_everything_on_ship()
 	_on_mode_changed()
 	chase_camera.snap_to_target()
 	session.say("Loaded (%s)%s" % [slot, " from backup" if loaded["used_backup"] else ""])
@@ -207,7 +236,7 @@ func _load_from(slot: String) -> void:
 func _autosave(reason: String) -> void:
 	if session.mode == GameSession.Mode.SITTING:
 		return # never mid-transition
-	var error := save_manager.save("autosave", SaveGame.capture(session, WORLD_SEED))
+	var error := save_manager.save("autosave", SaveGame.capture(session, WORLD_SEED, runtime.time_seconds))
 	if error != "":
 		push_warning("autosave (%s) failed: %s" % [reason, error])
 
@@ -222,3 +251,87 @@ func _autosave_if_due(delta: float) -> void:
 	if _seconds_since_autosave >= AUTOSAVE_INTERVAL_SECONDS:
 		_seconds_since_autosave = 0.0
 		_autosave("timer")
+
+
+## Everything that lives in render space is re-centred on the ship (after a load or frame switch).
+func _recentre_everything_on_ship() -> void:
+	var new_origin := session.ship.state.position.duplicate_position()
+	ship.render_origin = new_origin
+	ship.apply_origin_shift(Vector3.ZERO)
+	if terrain != null:
+		terrain.render_origin = new_origin.duplicate_position()
+		terrain.apply_origin_shift(Vector3.ZERO)
+	if poi_manager != null:
+		poi_manager.render_origin = new_origin.duplicate_position()
+		poi_manager.apply_origin_shift(Vector3.ZERO)
+	on_foot.planet = planet
+	on_foot.render_origin = new_origin.duplicate_position()
+
+
+func _build_poi_manager() -> void:
+	if poi_manager != null:
+		poi_manager.queue_free()
+		poi_manager = null
+	if planet == null:
+		return
+	var prefix := "" if runtime.active_frame == system.home_id else String(runtime.active_frame)
+	poi_manager = PoiManager.new(PoiPlanner.new(planet, SeedHash.derive(WORLD_SEED, String(runtime.active_frame)), 0.22, prefix))
+	poi_manager.render_origin = ship.render_origin.duplicate_position()
+	poi_manager.viewer = ship.state.position
+	add_child(poi_manager)
+
+
+func _build_terrain() -> void:
+	if terrain != null:
+		terrain.queue_free()
+		terrain = null
+	if planet == null:
+		return
+	terrain = PlanetTerrain.new(planet)
+	terrain.render_origin = ship.render_origin.duplicate_position()
+	terrain.viewer = ship.state.position
+	add_child(terrain)
+
+
+func _on_frame_changed(_old_frame: StringName, _new_frame: StringName) -> void:
+	planet = runtime.planet_for(runtime.active_frame)
+	_build_terrain()
+	_build_poi_manager()
+	_recentre_everything_on_ship()
+	overlay.terrain = terrain
+	overlay.poi_manager = poi_manager
+	chase_camera.snap_to_target()
+	session.say("Entering %s" % (system.bodies[runtime.active_frame] as BodyDef).display_name if runtime.active_frame != StarSystem.SYSTEM_FRAME else "Leaving orbit - open space")
+
+
+func _nav_targets() -> Array[StringName]:
+	var targets: Array[StringName] = []
+	for body_id in system.bodies:
+		if body_id != runtime.active_frame:
+			targets.append(body_id)
+	return targets
+
+
+func _cycle_nav_target() -> void:
+	var targets := _nav_targets()
+	_nav_target_index = (_nav_target_index + 1) % (targets.size() + 1) # last step = no target
+	session.say("Nav target cleared" if _nav_target_index >= targets.size() else "Nav target: " + (system.bodies[targets[_nav_target_index]] as BodyDef).display_name)
+
+
+func _frame_and_nav_text() -> String:
+	var frame_name := "open space" if runtime.active_frame == StarSystem.SYSTEM_FRAME else (system.bodies[runtime.active_frame] as BodyDef).display_name
+	var text := "Frame: %s   T: cycle nav target" % frame_name
+	var targets := _nav_targets()
+	if _nav_target_index < 0 or _nav_target_index >= targets.size():
+		return text
+	var target_id := targets[_nav_target_index]
+	var target_center := system.convert_position(WorldPos.new(target_id, 0.0, 0.0, 0.0), runtime.active_frame, runtime.time_seconds)
+	var here := session.player_world_position()
+	var offset := target_center.vector_from(here)
+	var surface_distance := maxf(offset.length() - (system.bodies[target_id] as BodyDef).radius, 0.0)
+	var forward := session.forward_vector()
+	var bearing_up := ship.state.basis.y if planet == null else planet.up_at(here)
+	var angle_off := rad_to_deg(forward.angle_to(offset))
+	var side := "ahead" if angle_off < 20.0 else ("behind" if angle_off > 140.0 else ("to the right" if forward.cross(bearing_up).dot(offset) > 0.0 else "to the left"))
+	var distance_text := "%.0f m" % surface_distance if surface_distance < 1.0e4 else ("%.0f km" % (surface_distance / 1000.0) if surface_distance < 1.0e7 else "%.2e m" % surface_distance)
+	return text + "\nTarget: %s   %s   %s" % [(system.bodies[target_id] as BodyDef).display_name, distance_text, side]

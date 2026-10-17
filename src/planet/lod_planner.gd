@@ -4,13 +4,14 @@ extends RefCounted
 ## the viewer is closer than split_ratio chunk-edges to it. Pure logic, no nodes.
 
 var planet: PlanetBody
-var max_level := 18
+var max_level := 18 # set from the planet's size in _init
 var split_ratio := 2.0
 var _center_cache := {}
 
 
 func _init(planet_body: PlanetBody) -> void:
 	planet = planet_body
+	max_level = planet_body.finest_lod_level()
 
 
 ## Approximate edge length in metres of a chunk at this level.

@@ -12,10 +12,13 @@ var planet: PlanetBody
 var planet_seed: int
 ## Chance that a cell holds a POI.
 var density := 0.22
+## Put in POI ids so worlds never share ids; empty keeps the original home-planet ids (and saves).
+var id_prefix := ""
 var _cache := {} # cell id -> PoiInstance or null
 
 
-func _init(planet_body: PlanetBody, seed_for_planet: int, cell_density: float = 0.22) -> void:
+func _init(planet_body: PlanetBody, seed_for_planet: int, cell_density: float = 0.22, poi_id_prefix: String = "") -> void:
+	id_prefix = poi_id_prefix
 	planet = planet_body
 	planet_seed = seed_for_planet
 	density = cell_density
@@ -70,7 +73,9 @@ func _cell_can_reach_surface(cell_i: int, cell_j: int, cell_k: int) -> bool:
 
 
 func _cell_id(cell_i: int, cell_j: int, cell_k: int) -> StringName:
-	return StringName("poi_%d_%d_%d" % [cell_i, cell_j, cell_k])
+	if id_prefix == "":
+		return StringName("poi_%d_%d_%d" % [cell_i, cell_j, cell_k])
+	return StringName("poi_%s_%d_%d_%d" % [id_prefix, cell_i, cell_j, cell_k])
 
 
 func _build_cell(cell_i: int, cell_j: int, cell_k: int, cell_id: StringName) -> PoiInstance:

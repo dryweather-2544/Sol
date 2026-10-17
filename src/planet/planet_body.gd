@@ -24,6 +24,11 @@ func _init(terrain_profile: TerrainProfile = TerrainProfile.new()) -> void:
 	height_function = HeightFunction.new(terrain_profile)
 
 
+## Quadtree depth at which a chunk is about 40 m across (about 1 m between vertices).
+func finest_lod_level() -> int:
+	return maxi(3, int(ceil(log(PI * radius / 80.0) / log(2.0))))
+
+
 func terrain_height_xyz(dx: float, dy: float, dz: float) -> float:
 	if height_override.is_valid():
 		return height_override.call(dx, dy, dz)
@@ -47,6 +52,8 @@ func altitude_above_ground(position: WorldPos) -> float:
 
 ## 0 at the surface, 1 at the top of the atmosphere, above 1 in space (research FLY-27).
 func atmosphere_ratio(position: WorldPos) -> float:
+	if atmosphere_height <= 0.0:
+		return INF # airless: always "in space"
 	return maxf(0.0, (distance_from_center(position) - radius) / atmosphere_height)
 
 
@@ -67,11 +74,15 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	var ratio := atmosphere_ratio(ship_state.position)
 	ship_state.altitude_above_ground = altitude_above_ground(ship_state.position)
 	environment.gravity = Vector3.ZERO if ship_state.landed else gravity_at(ship_state.position)
-	environment.max_speed_factor = 1.0 if ratio >= 1.0 else lerpf(0.25, 1.0, smoothstep(0.1, 1.0, ratio))
+	if atmosphere_height <= 0.0:
+		# No air to slow the ship, but still keep speed sane close to the ground.
+		environment.max_speed_factor = lerpf(0.25, 1.0, smoothstep(100.0, 3000.0, ship_state.altitude_above_ground))
+	else:
+		environment.max_speed_factor = 1.0 if ratio >= 1.0 else lerpf(0.25, 1.0, smoothstep(0.1, 1.0, ratio))
 	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
 	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
 	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
 	environment.level_up = up_at(ship_state.position)
-	environment.level_assist = 0.0 if ship_state.landed else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
+	environment.level_assist = 0.0 if ship_state.landed or atmosphere_height <= 0.0 else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
 	ship_state.atmosphere_ratio = ratio
 	ship_state.regime = FlightRegime.classify(ratio, ship_state.altitude_above_ground, ship_state.landed)

@@ -1,9 +1,9 @@
 class_name ShipTuning
 extends Resource
 ## Handling numbers for one ship. Gears 0/1 follow the research gear table (FLY-12: 100 and
-## 500 m/s); gear 2 is cruise (research: 5-10 km/s); acceleration and the rest are Sol's own tuning, expect to adjust by feel.
+## 500 m/s); gear 2 is cruise (research: 5-10 km/s near a planet; here the speed limit is set by distance to the nearest surface, so travel between worlds takes seconds); acceleration and the rest are Sol's own tuning, expect to adjust by feel.
 
-@export var gear_max_speed := PackedFloat64Array([100.0, 500.0, 10000.0])
+@export var gear_max_speed := PackedFloat64Array([100.0, 500.0, 2.0e7])
 @export var gear_acceleration := PackedFloat64Array([60.0, 150.0, 2500.0])
 @export var gear_deceleration := PackedFloat64Array([80.0, 200.0, 4000.0])
 ## Fraction of full speed available sideways / vertically / forward-back (FLY-08: sideways is weaker).

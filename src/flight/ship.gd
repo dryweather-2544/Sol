@@ -11,6 +11,8 @@ var controller := PilotController.new()
 var render_origin := WorldPos.new(&"space")
 ## Optional: when set, the ship feels its gravity/atmosphere and collides with its terrain.
 var planet: PlanetBody
+## Used instead of `planet` when the ship is in the system frame (outside every planet's reach).
+var free_space: SystemNavigator
 ## Optional interior systems; when set, interlocks can hold the ship on the ground.
 var systems: ShipSystems
 ## False when a GameSession drives simulate_tick itself (keeps tick order explicit).
@@ -42,6 +44,8 @@ func _physics_process(delta: float) -> void:
 func simulate_tick(delta: float) -> void:
 	if planet != null:
 		planet.fill_environment(state, environment)
+	elif free_space != null:
+		free_space.fill_environment(state, environment)
 	var command := controller.poll_command(state, delta)
 	var takeoff_block := systems.takeoff_block_reason() if systems != null and state.landed else ""
 	if takeoff_block != "":

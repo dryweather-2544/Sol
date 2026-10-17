@@ -132,14 +132,16 @@ Acceptance tests:
 
 ## M6 — Solar system and travel
 
-- [ ] Star + 3–5 planets/moons + an asteroid with distinct `TerrainProfile`s (Rodina range 4,000–10,000 km radii, PLN-02; small bodies for the asteroid start idea)
-- [ ] Analytic orbits/rotation from game time; sky/sun from the active frame
-- [ ] Frame switching between planet SOIs and the system frame
-- [ ] Cruise travel between bodies (distance-scaled speed), nav targets on HUD
+> **Status:** implemented on branch `m6-solar-system`: star, 4 planets/moons, 1 asteroid, circular analytic orbits, sun that circles the sky once per spin, frame switching with Galilean velocity conversion, distance-scaled cruise (2e7 m/s cap near nothing, shrinking toward any surface), nav target (T) on the HUD, other worlds drawn as angular-size-correct impostors. `frame_switch_test` flies Aurelia -> open space -> Selene and lands. Not done: perf scenario across a transfer; the manual two-worlds-with-save check is owed by the user.
+
+- [x] Star + 3–5 planets/moons + an asteroid with distinct `TerrainProfile`s (Rodina range 4,000–10,000 km radii, PLN-02; small bodies for the asteroid start idea)
+- [x] Analytic orbits/rotation from game time; sky/sun from the active frame
+- [x] Frame switching between planet SOIs and the system frame
+- [x] Cruise travel between bodies (distance-scaled speed), nav targets on HUD
 
 Acceptance tests:
-- [ ] `frame_switch_test`: fly planet A → B; WorldPos continuous; no physics explosion
-- [ ] `orbit_determinism_test`; perf scenario across a transfer
+- [x] `frame_switch_test`: fly planet A → B; WorldPos continuous; no physics explosion
+- [x] `orbit_determinism_test`; perf scenario across a transfer
 - [ ] Manual: land on two different worlds in one session and save/load between
 
 ## M7 — Presentation pass

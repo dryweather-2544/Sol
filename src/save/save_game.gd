@@ -4,11 +4,11 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const GAME_VERSION := "0.1"
 
 
-static func capture(session: GameSession, world_seed: int) -> Dictionary:
+static func capture(session: GameSession, world_seed: int, game_time_seconds: float = 0.0) -> Dictionary:
 	var ship_state := session.ship.state
 	var systems := session.systems
 	var portals := {}
@@ -25,6 +25,7 @@ static func capture(session: GameSession, world_seed: int) -> Dictionary:
 		"save_version": SAVE_VERSION,
 		"game_version": GAME_VERSION,
 		"world_seed": world_seed,
+		"world": {"time": game_time_seconds, "frame": String(session.ship.state.position.frame_id)},
 		"ship": {
 			"position": ship_state.position.to_dictionary(),
 			"velocity": _vector_to_array(ship_state.velocity),

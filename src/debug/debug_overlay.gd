@@ -6,6 +6,7 @@ var ship: Ship
 var terrain: PlanetTerrain
 var session: GameSession
 var poi_manager: PoiManager
+var frame_text := ""
 var _label := Label.new()
 var _prompt_label := Label.new()
 var _signal_label := Label.new()
@@ -24,7 +25,7 @@ func _ready() -> void:
 	_prompt_label.add_theme_constant_override("outline_size", 6)
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_prompt_label)
-	_signal_label.position = Vector2(12, 600)
+	_signal_label.position = Vector2(12, 560)
 	_signal_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	_signal_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_signal_label.add_theme_constant_override("outline_size", 4)
@@ -35,7 +36,7 @@ func _process(_delta: float) -> void:
 	if ship == null:
 		return
 	_prompt_label.text = session.prompt() if session != null else ""
-	_signal_label.text = _nearest_signal_text()
+	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:
 		var body := session.exterior_body

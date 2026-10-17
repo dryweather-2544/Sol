@@ -38,3 +38,21 @@ func test_discoveries_survive_save_and_load() -> void:
 	assert_eq(fresh.discovery_log.order, session.discovery_log.order)
 	ship.free()
 	fresh_ship.free()
+
+
+func test_v3_saves_record_game_time_and_frame_and_old_saves_migrate() -> void:
+	var manager := SaveManager.new(ProjectSettings.globalize_path("res://tests/fixtures/saves"))
+	var migrated := manager.load_slot("v1_landed_seated")["data"] as Dictionary
+	assert_eq(migrated["world"]["frame"], "planet", "old saves had one planet, frame 'planet'")
+	assert_eq(float(migrated["world"]["time"]), 0.0)
+	var system := StarSystem.default_system()
+	var moon := system.build_planet_body(&"selene")
+	var ship := Ship.new()
+	ship.planet = moon
+	ship.render_origin = WorldPos.new(&"selene")
+	ship.state.position = WorldPos.new(&"selene", 0.0, 0.0, moon.radius + 1000.0)
+	var session := GameSession.new(moon, ship, PilotSource.new())
+	var data := SaveGame.capture(session, 42, 123456.5)
+	assert_eq(data["world"]["frame"], "selene")
+	assert_near(float(data["world"]["time"]), 123456.5, 1e-9)
+	ship.free()

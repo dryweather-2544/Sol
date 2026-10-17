@@ -24,6 +24,8 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 	else:
 		max_speed *= environment.max_speed_factor
 	var acceleration := tuning.gear_acceleration[ship_state.gear] * boost_factor
+	if ship_state.gear == PilotCommand.GEAR_CRUISE:
+		acceleration = maxf(acceleration, max_speed) # cruise reaches its (distance-scaled) cap in about a second
 	var deceleration := tuning.gear_deceleration[ship_state.gear] * (tuning.brake_multiplier if command.brake else 1.0)
 	var thrust := command.thrust.limit_length(1.0)
 	var target_velocity := thrust * tuning.axis_strength * max_speed
