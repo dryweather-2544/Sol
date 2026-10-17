@@ -117,3 +117,8 @@ static func _tangent_unit(vector: Vector3, up: Vector3) -> Vector3:
 	if tangent.length_squared() < 1e-12:
 		tangent = up.cross(Vector3.RIGHT) if absf(up.dot(Vector3.RIGHT)) < 0.9 else up.cross(Vector3.UP)
 	return tangent.normalized()
+
+
+## A short offset along local up (for placing a visual above the feet).
+func position_up_offset(metres: float) -> Vector3:
+	return Vector3(position.x, position.y, position.z).normalized() * metres

@@ -12,6 +12,11 @@ const GEAR_CRUISE := 2
 var thrust := Vector3.ZERO
 ## Turn-rate demand about ship-local axes, each -1..1: x pitch (+ = nose up), y yaw (+ = nose left), z roll (+ = left wing down).
 var turn := Vector3.ZERO
+## Desired nose direction in the ship's frame (unit vector, ZERO = use `turn`). AI pilots set this; the
+## flight model turns the ship toward it (research FLY-02: AI gives a face vector, players a turn vector).
+var face_direction := Vector3.ZERO
+## Fire the ship's guns this tick.
+var fire := false
 var gear := GEAR_DOCK
 var boost := false
 var brake := false
@@ -33,6 +38,8 @@ static func parked(current_gear: int) -> PilotCommand:
 func without_thrust() -> PilotCommand:
 	var copy := PilotCommand.new()
 	copy.turn = turn
+	copy.face_direction = face_direction
+	copy.fire = fire
 	copy.gear = gear
 	copy.boost = boost
 	copy.brake = brake
@@ -46,6 +53,8 @@ func without_boost() -> PilotCommand:
 	var copy := PilotCommand.new()
 	copy.thrust = thrust
 	copy.turn = turn
+	copy.face_direction = face_direction
+	copy.fire = fire
 	copy.gear = gear
 	copy.brake = brake
 	copy.lock_linear = lock_linear

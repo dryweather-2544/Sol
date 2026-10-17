@@ -171,9 +171,11 @@ Acceptance tests:
 
 ## M10 — AI and combat
 
-- [ ] `AIPilotSource` (goto/orbit/follow/attack) through `PilotCommand`
-- [ ] Ground NPCs with nav on terrain and in interiors
-- [ ] Weapons/projectiles with `team_id` (no player-vs-everyone hack, ITM-06), damage, death/respawn
+> **Status:** implemented and tested headless (148 tests / 51,039 assertions on the Mac; save v6 stores cleared outposts). Outposts get 2 guard ships + 2 drones while the player is within 4 km; clearing one is saved. Combat difficulty and aim are untuned and never played by a human.
+
+- [x] `AIPilotSource` (goto/orbit/attack) through `PilotCommand` _(no follow; PilotCommand gained face_direction and fire)_
+- [x] Ground enemies (drones) walk the real terrain with the player's body class _(no navmesh/obstacle avoidance, no interiors, no friendly NPCs)_
+- [x] Weapons/projectiles with `team_id`, swept hit tests, damage, death/respawn via last autosave _(ship guns click/Ctrl; pistol on foot; no missiles)_
 
 ## M11 — Progression and ship customization
 

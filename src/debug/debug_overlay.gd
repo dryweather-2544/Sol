@@ -40,7 +40,7 @@ func _process(_delta: float) -> void:
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:
 		var body := session.exterior_body
-		_label.text = "fps %d   chunks %d\nOUTSIDE   speed %.1f m/s   %s\nheight above ground %.2f m%s\nWASD move  Shift run  Space jump  mouse look\nwalk up the ramp to board  Esc menu" % [
+		_label.text = "fps %d   chunks %d\nOUTSIDE   speed %.1f m/s   %s\nheight above ground %.2f m%s\nWASD move  Shift run  Space jump  mouse look  click/Ctrl fire\nwalk up the ramp to board  Esc menu" % [
 			Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 			body.velocity.length(), "grounded" if body.grounded else "airborne", body.height_above_ground,
 			"   (slope too steep)" if body.blocked_by_slope else ""]

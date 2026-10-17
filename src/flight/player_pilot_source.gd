@@ -31,6 +31,7 @@ func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		Input.get_axis("roll_right", "roll_left"))
 	_mouse_motion_this_tick = Vector2.ZERO
 	command.boost = Input.is_action_pressed("boost")
+	command.fire = Input.is_action_pressed("fire")
 	command.brake = Input.is_action_pressed("brake")
 	command.gear = ship_state.gear
 	if Input.is_action_just_pressed("gear_up"):

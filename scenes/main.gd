@@ -27,6 +27,8 @@ var poi_manager: PoiManager
 var menu: PauseMenu
 var inventory_menu: InventoryMenu
 var audio: AudioService
+var enemy_director: EnemyDirector
+var projectile_view: ProjectileView
 var _cockpit_view := false
 var _nav_target_index := -1
 var save_manager := SaveManager.new()
@@ -66,6 +68,11 @@ func _ready() -> void:
 	add_child(terrain)
 
 	_build_poi_manager()
+
+	projectile_view = ProjectileView.new()
+	projectile_view.sim = session.projectiles
+	projectile_view.render_origin = ship.render_origin.duplicate_position()
+	add_child(projectile_view)
 
 	on_foot = OnFootController.new()
 	on_foot.planet = planet
@@ -122,6 +129,8 @@ func _physics_process(delta: float) -> void:
 		command.yaw_delta = on_foot.take_pending_yaw() + keyboard_turn
 	else:
 		command.yaw_delta = interior_view.take_pending_yaw() + keyboard_turn
+	if session.mode == GameSession.Mode.OUTSIDE and Input.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		session.player_fire(-on_foot.camera.global_transform.basis.z)
 	var mode_before := session.mode
 	runtime.advance(delta)
 	runtime.update_frame()
@@ -301,6 +310,9 @@ func _recentre_everything_on_ship() -> void:
 	if poi_manager != null:
 		poi_manager.render_origin = new_origin.duplicate_position()
 		poi_manager.apply_origin_shift(Vector3.ZERO)
+	projectile_view.render_origin = new_origin.duplicate_position()
+	if enemy_director != null:
+		enemy_director.render_origin = new_origin.duplicate_position()
 	on_foot.planet = planet
 	on_foot.render_origin = new_origin.duplicate_position()
 
@@ -309,6 +321,7 @@ func _build_poi_manager() -> void:
 	if poi_manager != null:
 		poi_manager.queue_free()
 		poi_manager = null
+	_build_enemy_director(null)
 	if planet == null:
 		return
 	var prefix := "" if runtime.active_frame == system.home_id else String(runtime.active_frame)
@@ -316,6 +329,22 @@ func _build_poi_manager() -> void:
 	poi_manager.render_origin = ship.render_origin.duplicate_position()
 	poi_manager.viewer = ship.state.position
 	add_child(poi_manager)
+	_build_enemy_director(poi_manager)
+
+
+func _build_enemy_director(manager: PoiManager) -> void:
+	if enemy_director != null:
+		enemy_director.clear_all()
+		enemy_director.queue_free()
+		enemy_director = null
+	if manager == null:
+		return
+	enemy_director = EnemyDirector.new()
+	enemy_director.session = session
+	enemy_director.planet = planet
+	enemy_director.poi_manager = manager
+	enemy_director.render_origin = ship.render_origin.duplicate_position()
+	add_child(enemy_director)
 
 
 func _build_terrain() -> void:

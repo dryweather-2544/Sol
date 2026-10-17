@@ -19,6 +19,13 @@ var systems: ShipSystems
 var auto_tick := true
 ## The command applied on the latest tick (read by audio and HUD).
 var last_command := PilotCommand.new()
+## Combat: set by the scene/director. With no ProjectileSim the guns do nothing.
+var projectiles: ProjectileSim
+var team_id := 0
+var hull_color := Color(0.62, 0.66, 0.72)
+var weapon := Weapon.ship_gun()
+## Nose of the ship, where shots leave (ship-local).
+var muzzle_offset := Vector3(0, -0.2, -7.6)
 
 signal destroyed
 
@@ -39,7 +46,7 @@ func _ready() -> void:
 		visuals.ship = self
 		add_child(visuals)
 	else:
-		PlaceholderShipMesh.build(self)
+		PlaceholderShipMesh.build(self, hull_color)
 	_sync_transform()
 
 
@@ -65,6 +72,7 @@ func simulate_tick(delta: float) -> void:
 	last_command = command
 	FlightModel.step(state, command, tuning, environment, delta)
 	_burn_fuel(command, delta)
+	_fire_weapon(command, delta)
 	if planet != null:
 		GroundContact.resolve(state, planet, tuning, delta)
 		_take_damage(delta)
@@ -102,3 +110,11 @@ func _burn_fuel(command: PilotCommand, delta: float) -> void:
 	if command.boost and command.thrust != Vector3.ZERO:
 		burn += FUEL_BOOST_PER_SECOND
 	state.fuel = maxf(0.0, state.fuel - burn * delta)
+
+
+func _fire_weapon(command: PilotCommand, delta: float) -> void:
+	weapon.update(delta)
+	if projectiles == null or not command.fire or state.hull <= 0.0:
+		return
+	var muzzle := state.position.offset_by(state.basis * muzzle_offset)
+	weapon.try_fire(projectiles, muzzle, -state.basis.z, state.velocity, team_id, self)

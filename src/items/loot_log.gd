@@ -9,6 +9,10 @@ func is_looted(crate_id: StringName) -> bool:
 	return _looted.has(crate_id)
 
 
+func is_cleared(poi_id: StringName) -> bool:
+	return _looted.has(poi_id)
+
+
 func mark_looted(crate_id: StringName) -> void:
 	_looted[crate_id] = true
 

@@ -8,6 +8,7 @@ extends RefCounted
 
 const OVERSPEED_BLEED_RATE := 3.0
 const LEVEL_ASSIST_GAIN := 2.0
+const FACE_SLOWDOWN_ANGLE := 0.5
 
 
 static func step(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
@@ -53,6 +54,8 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 
 static func _step_angular(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
 	var turn := Vector3(clampf(command.turn.x, -1.0, 1.0), clampf(command.turn.y, -1.0, 1.0), clampf(command.turn.z, -1.0, 1.0))
+	if command.face_direction != Vector3.ZERO:
+		turn = turn_toward(ship_state.basis, command.face_direction)
 	var target_rate := turn * tuning.max_turn_rate
 	if environment.level_assist > 0.0:
 		var level_in_ship_axes := ship_state.basis.transposed() * environment.level_up
@@ -68,3 +71,15 @@ static func _step_angular(ship_state: ShipState, command: PilotCommand, tuning: 
 	if turn_angle > 1e-9:
 		var rotation_step := Quaternion(ship_state.angular_velocity.normalized(), turn_angle)
 		ship_state.basis = Basis((Quaternion(ship_state.basis) * rotation_step).normalized())
+
+
+## Turn demand (pitch, yaw, 0) that swings the nose toward a world direction. The demand eases off
+## within FACE_SLOWDOWN_ANGLE of the target so the ship settles instead of overshooting.
+static func turn_toward(basis: Basis, world_direction: Vector3) -> Vector3:
+	var local := (basis.transposed() * world_direction.normalized())
+	var pitch_error := atan2(local.y, -local.z)
+	var yaw_error := atan2(-local.x, -local.z)
+	if local.z > 0.0:
+		# Target is behind: turn by the larger error so the ship does not stall at exactly 180 degrees.
+		yaw_error = PI if absf(yaw_error) < 0.05 else yaw_error
+	return Vector3(clampf(pitch_error / FACE_SLOWDOWN_ANGLE, -1.0, 1.0), clampf(yaw_error / FACE_SLOWDOWN_ANGLE, -1.0, 1.0), 0.0)

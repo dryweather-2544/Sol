@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 const GAME_VERSION := "0.1"
 
 
@@ -58,6 +58,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"generation_version": PoiPlanner.GENERATION_VERSION,
 			"discovered": session.discovery_log.to_array(),
 			"looted": session.loot_log.to_array(),
+			"cleared": session.cleared_log.to_array(),
 		},
 		"inventory": session.inventory.to_dictionary(),
 	}
@@ -110,6 +111,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	var poi_data: Dictionary = data.get("pois", {})
 	session.discovery_log.restore(poi_data.get("discovered", []))
 	session.loot_log.restore(poi_data.get("looted", []))
+	session.cleared_log.restore(poi_data.get("cleared", []))
+	session.projectiles.clear()
 	session.inventory.restore(data.get("inventory", {"oxygen_tank": 1, "repair_kit": 1}))
 	return ""
 

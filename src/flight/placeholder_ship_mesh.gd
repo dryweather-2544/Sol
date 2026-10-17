@@ -3,8 +3,8 @@ extends RefCounted
 ## Primitive-shape stand-in for the ship so flight can be judged by eye. Nose points to -z.
 
 
-static func build(ship_node: Node3D) -> void:
-	var hull := _material(Color(0.62, 0.66, 0.72), 0.5, 0.4)
+static func build(ship_node: Node3D, hull_color: Color = Color(0.62, 0.66, 0.72)) -> void:
+	var hull := _material(hull_color, 0.5, 0.4)
 	var accent := _material(Color(0.9, 0.35, 0.1), 0.6, 0.2)
 	var glow := StandardMaterial3D.new()
 	glow.albedo_color = Color(0.3, 0.6, 1.0)

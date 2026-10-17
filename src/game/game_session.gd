@@ -29,6 +29,13 @@ var inventory := Inventory.new()
 var loot_log := LootLog.new()
 ## POIs near the player, set by the scene each tick (for crates and solid props).
 var nearby_pois: Array = []
+## Combat: one projectile world shared by every shooter; enemy_targets is filled by the encounter director.
+var projectiles := ProjectileSim.new()
+var enemy_targets: Array = []
+var pistol := Weapon.pistol()
+var cleared_log := LootLog.new() ## POIs whose guards were destroyed (same id-set ledger as looted crates)
+var _player_ship_target: ShipCombatant
+var _player_foot_target: CombatTargets.OnFootTarget
 var repairing := false
 
 ## Emitted when the run cannot go on (ship destroyed, suffocated); the scene decides what happens next.
@@ -49,6 +56,10 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 	ship.auto_tick = false
 	systems.seats.seat_occupied.connect(_on_seat_occupied)
 	ship.destroyed.connect(func(): player_lost.emit("Ship destroyed"))
+	ship.projectiles = projectiles
+	ship.team_id = 0
+	_player_ship_target = ShipCombatant.new(ship, 0)
+	_player_foot_target = CombatTargets.OnFootTarget.new(self)
 	suit.died.connect(func(): player_lost.emit("Out of oxygen"))
 	inventory.add(ItemDefinition.OXYGEN_TANK, 1)
 	inventory.add(ItemDefinition.REPAIR_KIT, 1)
@@ -82,6 +93,10 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 			_keep_outside_body_out_of_hull()
 			_maybe_walk_in()
 	_update_suit(delta)
+	pistol.update(delta)
+	var targets: Array = [_player_ship_target, _player_foot_target]
+	targets.append_array(enemy_targets)
+	projectiles.step(delta, targets)
 
 
 ## The context-sensitive action key.
@@ -471,3 +486,11 @@ func use_item(item_id: StringName) -> String:
 	inventory.remove(item_id, 1)
 	_say(message_text)
 	return message_text
+
+
+## Fire the pistol (on foot only) along a unit direction in the planet frame.
+func player_fire(aim_direction: Vector3) -> void:
+	if mode != Mode.OUTSIDE or suit.health <= 0.0:
+		return
+	var muzzle := exterior_body.position.offset_by(Vector3(exterior_body.position.x, exterior_body.position.y, exterior_body.position.z).normalized() * 1.5)
+	pistol.try_fire(projectiles, muzzle, aim_direction, exterior_body.velocity, 0, self)
