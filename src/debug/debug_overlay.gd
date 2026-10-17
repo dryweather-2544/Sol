@@ -44,6 +44,7 @@ func _process(_delta: float) -> void:
 			Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 			body.velocity.length(), "grounded" if body.grounded else "airborne", body.height_above_ground,
 			"   (slope too steep)" if body.blocked_by_slope else ""]
+		_label.text += "\nO2 %d%%   jetpack %d%%   health %d%%   (hold Space airborne to burn)" % [session.suit.oxygen * 100.0, session.suit.fuel * 100.0, session.suit.health * 100.0]
 		return
 	if session != null and session.mode == GameSession.Mode.INSIDE:
 		var airlock := session.systems.airlock
@@ -52,6 +53,7 @@ func _process(_delta: float) -> void:
 			session.systems.layout.room_at(session.interior_body.position.x, session.interior_body.position.z), ship.state.speed(),
 			FlightRegime.label(ship.state.regime), airlock.inner.open_factor * 100.0, airlock.outer.open_factor * 100.0,
 			WalkwayController.State.keys()[session.systems.walkway.state]]
+		_label.text += "\nhull %d%%   O2 %d%%   airlock pressure %d%%" % [ship.state.hull * 100.0, session.suit.oxygen * 100.0, session.systems.airlock_pressure * 100.0]
 		return
 	var state := ship.state
 	var source_text := "PARKED" if ship.controller.is_parked() else String(ship.controller.current_source.source_id)
@@ -65,6 +67,7 @@ func _process(_delta: float) -> void:
 		Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 		state.speed(), vertical_speed, altitude_text, FlightRegime.label(state.regime),
 		gear_names[state.gear], source_text, state.status_message]
+	_label.text += "\nhull %d%%%s" % [state.hull * 100.0, "   REENTRY HEAT" if ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) > 0.0 else ""]
 
 
 func _nearest_signal_text() -> String:

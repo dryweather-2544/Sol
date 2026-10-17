@@ -155,9 +155,11 @@ Acceptance tests:
 
 ## M8 — Ship systems depth
 
-- [ ] Per-room pressure, venting, decompression force; airlock cycling uses pressure
-- [ ] Suit oxygen + jetpack; vacuum hazard (Sol rule — Rodina unknown, G3/G14)
-- [ ] Ship damage from impacts/reentry; repair interaction
+> **Status:** implemented and tested headless (131 tests / 50,970 assertions on the Mac). Save format is v4 (hull + suit). Numbers (damage curves, oxygen 180 s, jetpack 6 s) are untuned guesses.
+
+- [x] Airlock pressure: vents to the outside when the outer door opens, inner door refuses until repressurised _(only the airlock room has pressure; no decompression force; cabin is always pressurised)_
+- [x] Suit oxygen + jetpack; vacuum/toxic-air hazard (Sol rule)
+- [x] Ship damage from impacts/reentry; repair panel in the cabin; destruction/suffocation reloads the last autosave
 
 ## M9 — POI interiors, items, inventory
 

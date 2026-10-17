@@ -20,6 +20,8 @@ var auto_tick := true
 ## The command applied on the latest tick (read by audio and HUD).
 var last_command := PilotCommand.new()
 
+signal destroyed
+
 
 func _init() -> void:
 	name = "Ship"
@@ -56,6 +58,7 @@ func simulate_tick(delta: float) -> void:
 	FlightModel.step(state, command, tuning, environment, delta)
 	if planet != null:
 		GroundContact.resolve(state, planet, tuning, delta)
+		_take_damage(delta)
 		state.regime = FlightRegime.classify(state.atmosphere_ratio, state.altitude_above_ground, state.landed)
 		if takeoff_block != "":
 			state.status_message = "Takeoff blocked: " + takeoff_block
@@ -70,3 +73,14 @@ func apply_origin_shift(shift: Vector3) -> void:
 	render_origin = render_origin.offset_by(shift)
 	_sync_transform()
 	reset_physics_interpolation()
+
+
+func _take_damage(delta: float) -> void:
+	if state.hull <= 0.0:
+		return
+	var loss := ShipDamage.impact_damage(state.last_impact_speed) + ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta
+	if loss <= 0.0:
+		return
+	state.hull = maxf(0.0, state.hull - loss)
+	if state.hull <= 0.0:
+		destroyed.emit()

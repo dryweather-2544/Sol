@@ -11,6 +11,10 @@ var seats := SeatManager.new([&"pilot_seat"])
 ## portal id -> true while a person is standing in (or beside) that doorway; set by the game each tick.
 ## A door never closes on someone.
 var occupied_portals := {}
+## 0..1 air pressure in the airlock room; vents to the outside when the outer door is open.
+var airlock_pressure := 1.0
+## Pressure outside (1 on a breathable world, 0 in vacuum or toxic air); set by the game each tick.
+var ambient_pressure := 1.0
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
 
@@ -25,6 +29,10 @@ func update(delta: float, ship_state: ShipState) -> void:
 			(portal as Portal).update(delta)
 	airlock.update(delta)
 	walkway.update(delta, ship_state)
+	if airlock.outer.open_factor > 0.0:
+		airlock_pressure = move_toward(airlock_pressure, ambient_pressure, delta / 0.8)
+	else:
+		airlock_pressure = move_toward(airlock_pressure, 1.0, delta / AirlockController.CYCLE_SECONDS)
 	seats.update(delta)
 	layout.ramp_walkable = walkway.is_deployed()
 	if _outer_close_pending and walkway.is_stowed() and not _is_occupied(&"airlock_outer"):
@@ -46,6 +54,8 @@ func toggle_inner_door() -> String:
 	var result: int
 	if airlock.inner.target_open:
 		result = airlock.request_close_inner(_is_occupied(&"airlock_inner"))
+	elif airlock_pressure < 0.99:
+		return "Airlock is still pressurising"
 	else:
 		result = airlock.request_open_inner()
 	return AirlockController.describe(result)

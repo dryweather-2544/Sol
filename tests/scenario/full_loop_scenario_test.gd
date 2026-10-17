@@ -205,6 +205,8 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 			break
 	assert_eq(ship.state.regime, FlightRegime.SPACE, "back in space (altitude %f)" % ship.state.altitude_above_ground)
 
+	assert_true(ship.state.hull > 0.8 and ship.state.hull <= 1.0, "a straight-down cruise descent only scorches the hull a little (re-entry heat): hull %f" % ship.state.hull)
+	assert_true(_session.suit.health >= 1.0 and _session.suit.oxygen >= 0.99, "suit fine on a breathable world")
 	assert_eq(_legal_failure, "", "state stayed legal")
 	assert_true(_worst_step <= MAX_STEP_PER_TICK, "worst per-tick movement relative to the ship: %f m" % _worst_step)
 	ship.free()

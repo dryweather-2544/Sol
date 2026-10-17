@@ -8,7 +8,7 @@ Read this first when resuming. Keep it short and current; update it with every m
 - **Visual checks without a human:** `tools/screenshot.gd` (ground/interior/POI views) and `tools/travel_shots.gd` (interplanetary), both need a display.
 
 ## Implemented
-M0 foundation, M1 planet/landing, M2 on foot, M3 ship interior + airlock + seat (full scripted loop passes headless), M4 saves (v3 now), M5 POIs + discovery, M6 solar system (see MILESTONES.md for per-item detail and what is *not* done).
+M0 foundation, M1 planet/landing, M2 on foot, M3 ship interior + airlock + seat (full scripted loop passes headless), M4 saves (v3 now), M5 POIs + discovery, M6 solar system, M7 (audio/menus/settings; atmosphere shader + terrain masks still open), M8 damage/suit/pressure (see MILESTONES.md for per-item detail and what is *not* done).
 
 ## Tests (last actual run, Godot 4.7.2 on the Mac)
 see the latest commit message; last full run 0 failures. Includes full_loop, interior_moving, transition_fuzz, airlock fuzz, frame_switch (planet -> open space -> moon -> landed).
@@ -27,7 +27,7 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 ## Next steps (in order)
 1. Merge M6 branch into the main branch after a full green run; push.
 2. M7 remainder: atmosphere horizon/sunset shader, terrain material masks. (Audio, menus, settings done; all audio is synthesised in code, no files.)
-3. M8 ship systems depth (pressure, suit oxygen + jetpack, damage/repair).
+3. (done) M8 ship systems depth.
 4. M9 POI interiors, items, inventory, loot.
 5. M10 AI pilots (`AIPilotSource` through `PilotCommand`), ground NPCs, weapons with `team_id`.
 6. M11 progression + warp; M12 release quality (macOS export, 2-hour soak, perf budgets).

@@ -24,6 +24,11 @@ var interior_body := InteriorBody.new()
 var exterior_body := OnFootBody.new()
 var pilot_source: PilotSource
 var discovery_log := DiscoveryLog.new()
+var suit := SuitState.new()
+var repairing := false
+
+## Emitted when the run cannot go on (ship destroyed, suffocated); the scene decides what happens next.
+signal player_lost(reason: String)
 var mode := Mode.SEATED
 var message := ""
 var message_seconds_left := 0.0
@@ -39,6 +44,8 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 	ship.systems = systems
 	ship.auto_tick = false
 	systems.seats.seat_occupied.connect(_on_seat_occupied)
+	ship.destroyed.connect(func(): player_lost.emit("Ship destroyed"))
+	suit.died.connect(func(): player_lost.emit("Out of oxygen"))
 	ship.controller.request_control(pilot_source, PILOT_SEAT)
 	systems.seats.try_sit(ACTOR, PILOT_SEAT)
 	systems.seats.update(SeatManager.SIT_SECONDS) # start the game already seated
@@ -50,8 +57,11 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	systems.walkway.occupied = _is_anyone_on_ramp()
 	for portal_id in systems.layout.portals:
 		systems.occupied_portals[portal_id] = _is_in_doorway(systems.layout.portals[portal_id])
+	systems.ambient_pressure = 1.0 if planet != null and planet.breathable and ship.state.atmosphere_ratio < 1.0 else 0.0
+	exterior_body.jetpack_fuel_available = suit.has_fuel()
 	ship.simulate_tick(delta)
 	systems.update(delta, ship.state)
+	_update_repair(delta)
 	match mode:
 		Mode.SITTING:
 			# Glide into the seat instead of snapping, so the camera and body move continuously.
@@ -65,6 +75,7 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 			exterior_body.step(foot_command, planet, delta)
 			_keep_outside_body_out_of_hull()
 			_maybe_walk_in()
+	_update_suit(delta)
 
 
 ## The context-sensitive action key.
@@ -96,6 +107,7 @@ func prompt() -> String:
 				&"cockpit_door": return "F: cockpit door"
 				&"airlock_inner": return "F: inner airlock door"
 				&"airlock_outer": return "F: outer door / walkway"
+				&"repair_panel": return "F: repair hull" if not repairing else "F: stop repairing"
 		Mode.OUTSIDE:
 			if systems.walkway.is_deployed():
 				return "Walk up the ramp to board"
@@ -181,6 +193,8 @@ func _interact_inside() -> void:
 			failure = systems.toggle_cockpit_door()
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
+		&"repair_panel":
+			failure = _toggle_repair()
 		&"airlock_outer":
 			failure = systems.toggle_outer_door(ship.state)
 			if failure == "" and systems.airlock.outer.target_open:
@@ -337,3 +351,37 @@ func apply_poi_blockers(near_pois: Array) -> void:
 				exterior_body.place_on_ground(planet, exterior_body.position.offset_by(correction), exterior_body.heading)
 				local_x = offset.dot(frame.x) + correction.dot(frame.x)
 				local_z = offset.dot(frame.z) + correction.dot(frame.z)
+
+
+func _toggle_repair() -> String:
+	if repairing:
+		repairing = false
+		return ""
+	if not ship.state.landed:
+		return "Land before repairing"
+	if ship.state.hull >= 1.0:
+		return "Hull is undamaged"
+	repairing = true
+	return ""
+
+
+func _update_repair(delta: float) -> void:
+	if not repairing:
+		return
+	if not ship.state.landed:
+		repairing = false
+		return
+	ship.state.hull = minf(1.0, ship.state.hull + ShipDamage.REPAIR_PER_SECOND * delta)
+	if ship.state.hull >= 1.0:
+		repairing = false
+		_say("Hull repaired")
+
+
+func _update_suit(delta: float) -> void:
+	var breathable := true
+	match mode:
+		Mode.OUTSIDE:
+			breathable = planet != null and planet.breathable
+		Mode.INSIDE:
+			breathable = not (systems.layout.room_at(interior_body.position.x, interior_body.position.z) == &"airlock" and systems.airlock_pressure < 0.5)
+	suit.update(delta, breathable, mode == Mode.OUTSIDE and exterior_body.jetpack_burning, mode != Mode.OUTSIDE or exterior_body.grounded)

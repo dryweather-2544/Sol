@@ -1,7 +1,7 @@
 class_name SaveMigrations
 extends RefCounted
 ## Upgrades old save data one version at a time (v1 -> v2 -> ...). Fixtures of every released
-## version live in tests/fixtures/saves/ and must keep loading. v1, v2 and v3 exist.
+## version live in tests/fixtures/saves/ and must keep loading. v1 to v4 exist.
 
 
 ## Returns {ok: bool, data: Dictionary, error: String}.
@@ -25,5 +25,8 @@ static func _step_up(data: Dictionary) -> Dictionary:
 			upgraded["pois"] = {"generation_version": 1, "discovered": []}
 		2:
 			upgraded["world"] = {"time": 0.0, "frame": "planet"} # v2 had one planet, whose frame was "planet"
+		3:
+			upgraded["ship"]["hull"] = 1.0 # v4 added hull damage and the suit
+			upgraded["player"]["suit"] = {"oxygen": 1.0, "fuel": 1.0, "health": 1.0}
 	upgraded["save_version"] = int(data["save_version"]) + 1
 	return upgraded

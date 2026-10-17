@@ -19,6 +19,11 @@ var atmosphere_ratio := INF
 var regime := FlightRegime.SPACE
 var status_message := ""
 
+## 1 = undamaged, 0 = destroyed.
+var hull := 1.0
+## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
+var last_impact_speed := 0.0
+
 
 func speed() -> float:
 	return velocity.length()

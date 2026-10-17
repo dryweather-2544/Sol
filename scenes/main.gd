@@ -94,6 +94,7 @@ func _ready() -> void:
 	audio.session = session
 	audio.ship = ship
 	add_child(audio)
+	session.player_lost.connect(_on_player_lost)
 	menu = PauseMenu.new()
 	menu.resume_requested.connect(_on_menu_resume)
 	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
@@ -110,6 +111,7 @@ func _physics_process(delta: float) -> void:
 	command.move = Vector2(Input.get_axis("strafe_left", "strafe_right"), Input.get_axis("thrust_back", "thrust_forward"))
 	command.run = Input.is_action_pressed("boost")
 	command.jump = Input.is_action_pressed("move_up")
+	command.jetpack = Input.is_action_pressed("move_up")
 	var keyboard_turn := Input.get_axis("yaw_right", "yaw_left") * 2.0 * delta
 	if session.mode == GameSession.Mode.OUTSIDE:
 		command.yaw_delta = on_foot.take_pending_yaw() + keyboard_turn
@@ -367,3 +369,13 @@ func _apply_field_of_view() -> void:
 	var fov := GameSettings.instance().field_of_view
 	for camera in [chase_camera, cockpit_camera, interior_view.camera, on_foot.camera]:
 		(camera as Camera3D).fov = fov
+
+
+func _on_player_lost(reason: String) -> void:
+	session.say("%s - restoring your last save..." % reason)
+	await get_tree().create_timer(2.5).timeout
+	var loaded := save_manager.load_slot("autosave")
+	if loaded["ok"]:
+		_load_from("autosave")
+	else:
+		get_tree().reload_current_scene()

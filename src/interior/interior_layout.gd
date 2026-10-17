@@ -35,6 +35,7 @@ static func player_ship() -> InteriorLayout:
 		{"id": &"airlock_inner", "position": Vector3(1.0, layout.floor_y, 3.0), "radius": 1.0},
 		{"id": &"airlock_inner", "position": Vector3(1.2, layout.floor_y, 3.9), "radius": 0.7},
 		{"id": &"airlock_outer", "position": Vector3(1.2, layout.floor_y, 5.4), "radius": 0.9},
+		{"id": &"repair_panel", "position": Vector3(-2.7, layout.floor_y, 0.0), "radius": 1.1},
 		{"id": &"pilot_seat", "position": Vector3(0, layout.floor_y, -5.4), "radius": 1.2}]
 	return layout
 

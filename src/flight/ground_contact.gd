@@ -42,12 +42,14 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 			ground_normal = -ground_normal
 	var slope_degrees := rad_to_deg(acos(clampf(ground_normal.dot(up), -1.0, 1.0)))
 
+	ship_state.last_impact_speed = 0.0
 	if lowest_clearance < 0.0:
 		position.x -= up.x * lowest_clearance
 		position.y -= up.y * lowest_clearance
 		position.z -= up.z * lowest_clearance
 		var into_ground_speed := ship_state.velocity.dot(ground_normal)
 		if into_ground_speed < 0.0:
+			ship_state.last_impact_speed = -into_ground_speed
 			ship_state.velocity -= ground_normal * into_ground_speed
 	var touching := lowest_clearance < TOUCH_DISTANCE
 	var tilt_degrees := rad_to_deg(acos(clampf(ship_state.basis.y.dot(ground_normal), -1.0, 1.0)))

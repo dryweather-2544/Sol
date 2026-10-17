@@ -8,3 +8,5 @@ var run := false
 var jump := false
 ## Radians to turn the heading this tick; positive turns left (counter-clockwise seen from above).
 var yaw_delta := 0.0
+## Hold to burn the jetpack while airborne (needs fuel).
+var jetpack := false

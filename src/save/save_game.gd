@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
 const GAME_VERSION := "0.1"
 
 
@@ -33,6 +33,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"angular_velocity": _vector_to_array(ship_state.angular_velocity),
 			"gear": ship_state.gear,
 			"landed": ship_state.landed,
+			"hull": ship_state.hull,
 		},
 		"interior": {
 			"portals": portals,
@@ -43,6 +44,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"mode": saved_mode,
 			"interior_position": _vector_to_array(interior_position),
 			"interior_yaw": session.interior_body.yaw,
+			"suit": {"oxygen": session.suit.oxygen, "fuel": session.suit.fuel, "health": session.suit.health},
 			"exterior": {
 				"position": session.exterior_body.position.to_dictionary(),
 				"heading": _vector_to_array(session.exterior_body.heading),
@@ -70,6 +72,7 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	ship_state.angular_velocity = _array_to_vector(ship_data["angular_velocity"])
 	ship_state.gear = int(ship_data["gear"])
 	ship_state.landed = bool(ship_data["landed"])
+	ship_state.hull = float(ship_data.get("hull", 1.0))
 
 	var systems := session.systems
 	var interior_data: Dictionary = data["interior"]
@@ -94,6 +97,11 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	session.exterior_body.velocity = _array_to_vector(exterior["velocity"])
 	session.exterior_body.vertical_speed = float(exterior["vertical_speed"])
 	session.exterior_body.grounded = bool(exterior["grounded"])
+	var suit_data: Dictionary = player_data.get("suit", {})
+	session.suit.oxygen = float(suit_data.get("oxygen", 1.0))
+	session.suit.fuel = float(suit_data.get("fuel", 1.0))
+	session.suit.health = float(suit_data.get("health", 1.0))
+	session.repairing = false
 	session.restore_mode(mode)
 	var poi_data: Dictionary = data.get("pois", {})
 	session.discovery_log.restore(poi_data.get("discovered", []))

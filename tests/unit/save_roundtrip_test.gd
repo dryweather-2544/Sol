@@ -113,3 +113,19 @@ func test_restored_session_keeps_running_without_a_jump() -> void:
 	assert_eq(restored.validate(), "")
 	original.ship.free()
 	restored.ship.free()
+
+
+func test_hull_and_suit_survive_a_save() -> void:
+	var original := _landed_session()
+	original.ship.state.hull = 0.37
+	original.suit.oxygen = 0.42
+	original.suit.fuel = 0.11
+	original.suit.health = 0.8
+	var pair := _round_trip(original, "survival")
+	var restored: GameSession = pair["restored"]
+	assert_near(restored.ship.state.hull, 0.37, 1e-9)
+	assert_near(restored.suit.oxygen, 0.42, 1e-9)
+	assert_near(restored.suit.fuel, 0.11, 1e-9)
+	assert_near(restored.suit.health, 0.8, 1e-9)
+	original.ship.free()
+	restored.ship.free()

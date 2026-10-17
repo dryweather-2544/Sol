@@ -4,6 +4,7 @@ extends RefCounted
 ## atmosphere and terrain queries. Positions are WorldPos (64-bit).
 
 const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 2000.0
+const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 8000.0
 ## Below LEVEL_ASSIST_START_ALTITUDE metres the ship eases itself upright; full strength at LEVEL_ASSIST_FULL_ALTITUDE.
 const LEVEL_ASSIST_START_ALTITUDE := 400.0
 const LEVEL_ASSIST_FULL_ALTITUDE := 150.0
@@ -14,6 +15,8 @@ var radius: float
 var surface_gravity := 12.0
 ## Atmosphere thickness above radius, metres (research: 200 km).
 var atmosphere_height := 200000.0
+## Can a person breathe at the surface without a suit tank?
+var breathable := true
 var height_function: HeightFunction
 ## Test hook: when set, replaces the noise: Callable(dx, dy, dz) -> float.
 var height_override := Callable()
@@ -82,6 +85,8 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
 	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
 	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
+	if ratio < 1.0:
+		environment.cruise_speed_limit = minf(environment.cruise_speed_limit, CRUISE_SPEED_LIMIT_IN_ATMOSPHERE)
 	environment.level_up = up_at(ship_state.position)
 	environment.level_assist = 0.0 if ship_state.landed or atmosphere_height <= 0.0 else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
 	ship_state.atmosphere_ratio = ratio

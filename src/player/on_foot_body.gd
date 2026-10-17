@@ -15,6 +15,9 @@ const SLOPE_PROBE_DISTANCE := 1.0
 ## Walking off a ledge higher than this starts a fall; below it the feet follow the ground.
 const STEP_DOWN_DISTANCE := 0.6
 const EYE_HEIGHT := 1.65
+## Upward push of the jetpack, m/s^2 (at least 1.5 g so it can lift on any world), and its climb speed cap.
+const JETPACK_MIN_ACCELERATION := 18.0
+const JETPACK_MAX_CLIMB_SPEED := 12.0
 
 var position := WorldPos.new(&"planet")
 ## Unit vector in the tangent plane the body faces.
@@ -26,6 +29,9 @@ var grounded := true
 ## Metres above the terrain directly below (0 while grounded).
 var height_above_ground := 0.0
 var blocked_by_slope := false
+## Set by the game: does the suit have fuel? jetpack_burning reports whether it fired this tick.
+var jetpack_fuel_available := true
+var jetpack_burning := false
 
 
 func place_on_ground(planet: PlanetBody, new_position: WorldPos, facing: Vector3) -> void:
@@ -77,8 +83,13 @@ func step(command: OnFootCommand, planet: PlanetBody, delta: float) -> void:
 		if command.jump and grounded:
 			grounded = false
 			vertical_speed = JUMP_SPEED
+	jetpack_burning = false
 	if not grounded:
-		vertical_speed -= planet.gravity_at(position).length() * delta
+		var gravity_strength := planet.gravity_at(position).length()
+		vertical_speed -= gravity_strength * delta
+		if command.jetpack and jetpack_fuel_available:
+			vertical_speed = minf(vertical_speed + maxf(JETPACK_MIN_ACCELERATION, gravity_strength * 1.5) * delta + gravity_strength * delta, JETPACK_MAX_CLIMB_SPEED)
+			jetpack_burning = true
 		height += vertical_speed * delta
 		if height <= 0.0 and vertical_speed <= 0.0:
 			height = 0.0

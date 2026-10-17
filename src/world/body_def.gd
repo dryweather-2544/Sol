@@ -13,6 +13,8 @@ var radius := 6.0e6
 var surface_gravity := 12.0
 ## Atmosphere thickness in metres; 0 = airless.
 var atmosphere_height := 200000.0
+## Breathable air at the surface (false: toxic or none, so a suit tank is needed outside).
+var breathable := true
 var orbit_radius := 0.0
 var orbit_period := 1.0e6
 var orbit_phase := 0.0

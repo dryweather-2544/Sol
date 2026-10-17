@@ -44,6 +44,7 @@ static func default_system() -> StarSystem:
 	moon.radius = 1.7e6
 	moon.surface_gravity = 3.5
 	moon.atmosphere_height = 0.0
+	moon.breathable = false
 	moon.orbit_radius = 1.0e8
 	moon.orbit_period = 1.0e6
 	moon.orbit_phase = 1.0
@@ -60,6 +61,7 @@ static func default_system() -> StarSystem:
 	inner.radius = 4.2e6
 	inner.surface_gravity = 7.0
 	inner.atmosphere_height = 60000.0
+	inner.breathable = false # thin and toxic
 	inner.orbit_radius = 0.7e9
 	inner.orbit_period = 0.9e6
 	inner.orbit_phase = 2.2
@@ -88,6 +90,7 @@ static func default_system() -> StarSystem:
 	asteroid.radius = 1.5e4
 	asteroid.surface_gravity = 0.6
 	asteroid.atmosphere_height = 0.0
+	asteroid.breathable = false
 	asteroid.orbit_radius = 3.3e9
 	asteroid.orbit_period = 6.0e6
 	asteroid.orbit_phase = 0.5
@@ -211,4 +214,5 @@ func build_planet_body(body_id: StringName) -> PlanetBody:
 	planet.frame_id = body.id
 	planet.surface_gravity = body.surface_gravity
 	planet.atmosphere_height = body.atmosphere_height
+	planet.breathable = body.breathable
 	return planet
