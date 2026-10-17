@@ -5,6 +5,14 @@ extends Node3D
 ## replacements are all on screen). Collision is not meshes: ship and player query the same
 ## HeightFunction directly (see docs/decisions/0002-height-query-collision.md).
 
+## Shared with worker threads. Lives on its own (not on the node) so a task that finishes after the
+## terrain was freed - for example when the ship leaves this world - touches nothing that is gone.
+class BuildState extends RefCounted:
+	var mutex := Mutex.new()
+	var results: Array[Dictionary] = []
+	var cancelled := false
+
+
 const CHUNKS_ADDED_PER_FRAME := 4
 const MAX_BUILDS_IN_FLIGHT := 6
 const PLAN_INTERVAL_SECONDS := 0.2
@@ -21,8 +29,7 @@ var _displayed_prefixes := {} # key -> count of displayed descendants (so covera
 var _desired := {}
 var _pending := {}            # keys currently being built
 var _build_queue: Array[int] = [] # closest-first keys still to build
-var _ready_results: Array[Dictionary] = []
-var _results_mutex := Mutex.new()
+var _build_state := BuildState.new()
 var _seconds_since_plan := PLAN_INTERVAL_SECONDS
 
 
@@ -85,23 +92,29 @@ func _start_queued_builds() -> void:
 		if _pending.has(key) or _displayed.has(key) or not _desired.has(key):
 			continue
 		_pending[key] = true
-		WorkerThreadPool.add_task(_build_in_background.bind(key))
+		WorkerThreadPool.add_task(PlanetTerrain._build_in_background.bind(key, planet, _build_state))
 
 
-func _build_in_background(key: int) -> void:
-	var mesh_data := ChunkMesher.build(key, planet)
+static func _build_in_background(key: int, planet_body: PlanetBody, state: BuildState) -> void:
+	if state.cancelled:
+		return
+	var mesh_data := ChunkMesher.build(key, planet_body)
 	mesh_data["key"] = key
-	_results_mutex.lock()
-	_ready_results.append(mesh_data)
-	_results_mutex.unlock()
+	state.mutex.lock()
+	state.results.append(mesh_data)
+	state.mutex.unlock()
+
+
+func _exit_tree() -> void:
+	_build_state.cancelled = true
 
 
 func _collect_finished_builds() -> void:
 	var finished: Array[Dictionary] = []
-	_results_mutex.lock()
-	for added in mini(CHUNKS_ADDED_PER_FRAME, _ready_results.size()):
-		finished.append(_ready_results.pop_front())
-	_results_mutex.unlock()
+	_build_state.mutex.lock()
+	for added in mini(CHUNKS_ADDED_PER_FRAME, _build_state.results.size()):
+		finished.append(_build_state.results.pop_front())
+	_build_state.mutex.unlock()
 	for mesh_data in finished:
 		var key: int = mesh_data["key"]
 		_pending.erase(key)
