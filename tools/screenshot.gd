@@ -28,6 +28,8 @@ func _args() -> PackedStringArray:
 
 func _process(_delta: float) -> bool:
 	_frames += 1
+	if _frames == 2 and not (OS.get_cmdline_user_args().size() > 0 and OS.get_cmdline_user_args()[0].ends_with("menu_title.png")):
+		_main.menu.dismiss() # skip the title screen
 	var arguments := _args()
 	var mode := arguments[3] if arguments.size() > 3 else ""
 	if _frames == 2:
@@ -65,6 +67,8 @@ func _process(_delta: float) -> bool:
 		return false
 	if mode == "poi" and _frames < 200:
 		return false
+	if _settled_frames > 30 and _frames < 90 and OS.get_cmdline_user_args()[0].ends_with("menu_title.png"):
+		pass
 	if _settled_frames > 30 or _frames > 2400:
 		var output_path: String = arguments[0] if arguments.size() > 0 else "screenshot.png"
 		root.get_viewport().get_texture().get_image().save_png(output_path)

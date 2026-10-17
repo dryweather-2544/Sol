@@ -24,6 +24,8 @@ var cockpit_camera: CockpitCamera
 var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
 var poi_manager: PoiManager
+var menu: PauseMenu
+var audio: AudioService
 var _cockpit_view := false
 var _nav_target_index := -1
 var save_manager := SaveManager.new()
@@ -88,7 +90,19 @@ func _ready() -> void:
 	impostors.runtime = runtime
 	add_child(impostors)
 	_update_active_camera()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	audio = AudioService.new()
+	audio.session = session
+	audio.ship = ship
+	add_child(audio)
+	menu = PauseMenu.new()
+	menu.resume_requested.connect(_on_menu_resume)
+	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
+	menu.continue_requested.connect(func(): _load_from("autosave"); _on_menu_resume())
+	menu.save_requested.connect(func(): _save_to("quicksave"))
+	menu.quit_requested.connect(func(): get_tree().quit())
+	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
+	add_child(menu)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _physics_process(delta: float) -> void:
@@ -115,6 +129,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	menu.world_ready = terrain != null and terrain.is_settled()
+	_apply_field_of_view()
 	var actor_position := session.player_world_position()
 	if terrain != null:
 		terrain.viewer = actor_position
@@ -155,6 +171,8 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if menu.visible:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		match session.mode:
 			GameSession.Mode.OUTSIDE:
@@ -178,8 +196,10 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("quickload"):
 		_load_from("quicksave")
 	elif event.is_action_pressed("pause"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	elif event is InputEventMouseButton and event.pressed:
+		if not menu.visible:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			menu.open_pause()
+	elif event is InputEventMouseButton and event.pressed and not menu.visible:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -335,3 +355,14 @@ func _frame_and_nav_text() -> String:
 	var side := "ahead" if angle_off < 20.0 else ("behind" if angle_off > 140.0 else ("to the right" if forward.cross(bearing_up).dot(offset) > 0.0 else "to the left"))
 	var distance_text := "%.0f m" % surface_distance if surface_distance < 1.0e4 else ("%.0f km" % (surface_distance / 1000.0) if surface_distance < 1.0e7 else "%.2e m" % surface_distance)
 	return text + "\nTarget: %s   %s   %s" % [(system.bodies[target_id] as BodyDef).display_name, distance_text, side]
+
+
+func _on_menu_resume() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
+
+
+func _apply_field_of_view() -> void:
+	var fov := GameSettings.instance().field_of_view
+	for camera in [chase_camera, cockpit_camera, interior_view.camera, on_foot.camera]:
+		(camera as Camera3D).fov = fov

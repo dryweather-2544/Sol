@@ -17,6 +17,8 @@ var free_space: SystemNavigator
 var systems: ShipSystems
 ## False when a GameSession drives simulate_tick itself (keeps tick order explicit).
 var auto_tick := true
+## The command applied on the latest tick (read by audio and HUD).
+var last_command := PilotCommand.new()
 
 
 func _init() -> void:
@@ -50,6 +52,7 @@ func simulate_tick(delta: float) -> void:
 	var takeoff_block := systems.takeoff_block_reason() if systems != null and state.landed else ""
 	if takeoff_block != "":
 		command = command.without_thrust()
+	last_command = command
 	FlightModel.step(state, command, tuning, environment, delta)
 	if planet != null:
 		GroundContact.resolve(state, planet, tuning, delta)

@@ -39,6 +39,8 @@ func _initialize() -> void:
 
 func _process(_delta: float) -> bool:
 	_frames += 1
+	if _frames == 2 and not (OS.get_cmdline_user_args().size() > 0 and OS.get_cmdline_user_args()[0].ends_with("menu_title.png")):
+		_main.menu.dismiss() # skip the title screen
 	var arguments := OS.get_cmdline_user_args()
 	var prefix: String = arguments[0]
 	var target := StringName(arguments[1])

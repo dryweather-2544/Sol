@@ -146,10 +146,12 @@ Acceptance tests:
 
 ## M7 — Presentation pass
 
+> **Status:** partly done. Done: audio, menus/settings/loading gate. Not done: atmosphere horizon/sunset shader, terrain material masks (terrain is still height/slope vertex colours). Fixed on the way: crash at quit/frame switch from worker threads outliving the terrain node.
+
 - [ ] Atmosphere shader (horizon/sunset palette, Rodina `04` §5.2 *concept*, own code)
 - [ ] Terrain material masks (altitude/latitude/slope/feature gates)
-- [ ] Audio buses and cues (§10); music states; reentry/landing feedback
-- [ ] Main menu, settings menu, loading screen
+- [x] Audio buses (Master/SFX/Ambience/Interior) and synthesised cues: engine, wind, doors, airlock, ramp, footsteps, landing thud, seat, discovery chime _(no music; no reentry feedback; never listened to by a human)_
+- [x] Title screen, pause menu (resume/save/load/settings/quit), settings (sensitivity, invert, FOV, volumes; persisted), loading gate on New game
 
 ## M8 — Ship systems depth
 

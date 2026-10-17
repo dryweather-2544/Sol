@@ -21,8 +21,8 @@ func _init() -> void:
 
 
 func add_mouse_motion(relative_pixels: Vector2) -> void:
-	pending_yaw -= relative_pixels.x * MOUSE_RADIANS_PER_PIXEL
-	_pitch = clampf(_pitch - relative_pixels.y * MOUSE_RADIANS_PER_PIXEL, -1.4, 1.4)
+	pending_yaw -= relative_pixels.x * MOUSE_RADIANS_PER_PIXEL * GameSettings.instance().mouse_sensitivity
+	_pitch = clampf(_pitch - relative_pixels.y * MOUSE_RADIANS_PER_PIXEL * GameSettings.instance().mouse_sensitivity * GameSettings.instance().pitch_sign(), -1.4, 1.4)
 
 
 func take_pending_yaw() -> float:

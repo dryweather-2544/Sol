@@ -30,11 +30,13 @@ var _desired := {}
 var _pending := {}            # keys currently being built
 var _build_queue: Array[int] = [] # closest-first keys still to build
 var _build_state := BuildState.new()
+var _task_ids: Array[int] = []
 var _seconds_since_plan := PLAN_INTERVAL_SECONDS
 
 
 func _init(planet_body: PlanetBody = null) -> void:
 	name = "PlanetTerrain"
+	process_mode = Node.PROCESS_MODE_ALWAYS # keeps loading chunks behind the title screen / pause menu
 	planet = planet_body
 	planner = LodPlanner.new(planet_body)
 	_material.vertex_color_use_as_albedo = true
@@ -66,6 +68,8 @@ func displayed_chunk_count() -> int:
 
 ## True once every desired chunk is on screen (used by tests and a loading gate).
 func is_settled() -> bool:
+	if _desired.is_empty():
+		return false # nothing planned yet
 	for key in _desired:
 		if not _displayed.has(key):
 			return false
@@ -92,7 +96,7 @@ func _start_queued_builds() -> void:
 		if _pending.has(key) or _displayed.has(key) or not _desired.has(key):
 			continue
 		_pending[key] = true
-		WorkerThreadPool.add_task(PlanetTerrain._build_in_background.bind(key, planet, _build_state))
+		_task_ids.append(WorkerThreadPool.add_task(PlanetTerrain._build_in_background.bind(key, planet, _build_state)))
 
 
 static func _build_in_background(key: int, planet_body: PlanetBody, state: BuildState) -> void:
@@ -106,7 +110,11 @@ static func _build_in_background(key: int, planet_body: PlanetBody, state: Build
 
 
 func _exit_tree() -> void:
+	# Tasks skip their work once cancelled; wait for them so nothing runs against torn-down engine state.
 	_build_state.cancelled = true
+	for task_id in _task_ids:
+		WorkerThreadPool.wait_for_task_completion(task_id)
+	_task_ids.clear()
 
 
 func _collect_finished_builds() -> void:

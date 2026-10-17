@@ -11,7 +11,7 @@ Read this first when resuming. Keep it short and current; update it with every m
 M0 foundation, M1 planet/landing, M2 on foot, M3 ship interior + airlock + seat (full scripted loop passes headless), M4 saves (v3 now), M5 POIs + discovery, M6 solar system (see MILESTONES.md for per-item detail and what is *not* done).
 
 ## Tests (last actual run, Godot 4.7.2 on the Mac)
-114 tests, 45,902 assertions, 0 failures (on `m6-solar-system`). Includes full_loop, interior_moving, transition_fuzz, airlock fuzz, frame_switch (planet -> open space -> moon -> landed).
+see the latest commit message; last full run 0 failures. Includes full_loop, interior_moving, transition_fuzz, airlock fuzz, frame_switch (planet -> open space -> moon -> landed).
 
 ## Never checked by a human
 Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking speed, interior size, the look of POI props up close. Only screenshots and headless tests have been used. The user said they would play it; no feedback received yet.
@@ -26,7 +26,7 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 
 ## Next steps (in order)
 1. Merge M6 branch into the main branch after a full green run; push.
-2. M7 presentation: atmosphere/sky shader polish, terrain material masks, audio buses + cues, main menu / pause / settings, loading screen. (Audio needs licensed or self-made sounds: generate simple synthesized tones in code if no CC0 files can be vetted.)
+2. M7 remainder: atmosphere horizon/sunset shader, terrain material masks. (Audio, menus, settings done; all audio is synthesised in code, no files.)
 3. M8 ship systems depth (pressure, suit oxygen + jetpack, damage/repair).
 4. M9 POI interiors, items, inventory, loot.
 5. M10 AI pilots (`AIPilotSource` through `PilotCommand`), ground NPCs, weapons with `team_id`.
