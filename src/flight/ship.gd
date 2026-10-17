@@ -9,6 +9,8 @@ var environment := FlightEnvironment.new()
 var controller := PilotController.new()
 ## Where Vector3 (0,0,0) is in the ship's frame. FloatingOrigin moves this to keep nodes near zero.
 var render_origin := WorldPos.new(&"space")
+## Optional: when set, the ship feels its gravity/atmosphere and collides with its terrain.
+var planet: PlanetBody
 
 
 func _init() -> void:
@@ -27,8 +29,13 @@ func _physics_process(delta: float) -> void:
 
 
 func simulate_tick(delta: float) -> void:
+	if planet != null:
+		planet.fill_environment(state, environment)
 	var command := controller.poll_command(state, delta)
 	FlightModel.step(state, command, tuning, environment, delta)
+	if planet != null:
+		GroundContact.resolve(state, planet, tuning, delta)
+		state.regime = FlightRegime.classify(state.atmosphere_ratio, state.altitude_above_ground, state.landed)
 	_sync_transform()
 
 

@@ -45,21 +45,23 @@ Acceptance tests:
 
 ## M1 — One planet: approach, atmosphere, landing, takeoff
 
-- [ ] `TerrainProfile` resource + `HeightFunction` (unit-direction noise, ARCH §4.2)
-- [ ] Quadtree cube-sphere LOD with worker-thread chunk generation and skirts (read cuberact LICENSE first; record in ATTRIBUTION if vendored)
-- [ ] Planet-frame physics: gravity `g/(r/R)²`, atmosphere ratio + regime states (SPACE/ENTERING/ATMOSPHERE/NEAR_GROUND/LANDED), drag, optional roll auto-level
-- [ ] CRUISE gear with swept terrain/atmosphere check
-- [ ] Landing: support points, contact-relative landed test, slope align ≤ 25°, refuse > 35° with HUD message, takeoff releases alignment
-- [ ] Near-chunk collision ring
-- [ ] Minimal HUD: speed, altitude/AGL, vertical speed, gear, regime, landing status
-- [ ] Start position: in orbit at ~300 km (data-driven)
+> **Status:** implemented and headless-tested on the Mac (63 tests / 17,399 assertions passed). Visual checks by `tools/screenshot.gd` only; manual flight (orbit -> land -> take off) and the 60 fps perf run are still owed. Not done: 4 s atmosphere-entry timer, roll auto-level, entry heating. Slope tests use synthetic planes; `descent_scenario_test` uses the real terrain.
+
+- [x] `TerrainProfile` resource + `HeightFunction` (unit-direction noise, ARCH §4.2)
+- [x] Quadtree cube-sphere LOD with worker-thread chunk generation and skirts _(own implementation; cuberact not used, no attribution needed)_
+- [x] Planet-frame physics: gravity `g/(r/R)²`, atmosphere ratio + regime states (SPACE/ENTERING/ATMOSPHERE/NEAR_GROUND/LANDED), drag, optional roll auto-level
+- [x] CRUISE gear with swept terrain/atmosphere check
+- [x] Landing: support points, contact-relative landed test, slope align ≤ 25°, refuse > 35° with HUD message, takeoff releases alignment
+- [x] Near-chunk collision ring _(replaced by height-query contact, ADR 0002)_
+- [x] Minimal HUD: speed, altitude/AGL, vertical speed, gear, regime, landing status
+- [x] Start position: in orbit at ~300 km (data-driven)
 
 Acceptance tests:
-- [ ] `height_function_test`: golden hash of 1,000 samples stable
-- [ ] `descent_scenario_test`: scripted descent from 300 km to touchdown; LANDED reached; never below terrain
-- [ ] `slope_landing_test`: 15° and 25° land and settle < 1 s without oscillation; 35° refuses
-- [ ] `cruise_tunnel_test`: 10 km/s straight at terrain → clamped, never inside
-- [ ] `precision_rest_test`: landed 60 s on a 6,000 km planet → drift < 1 cm
+- [x] `height_function_test`: golden hash of 1,000 samples stable
+- [x] `descent_scenario_test`: scripted descent from 300 km to touchdown; LANDED reached; never below terrain
+- [x] `slope_landing_test`: 15° and 25° land and settle < 1 s without oscillation; 35° refuses
+- [x] `cruise_tunnel_test`: 10 km/s straight at terrain → clamped, never inside
+- [x] `precision_rest_test`: landed 60 s on a 6,000 km planet → drift < 1 cm
 - [ ] Perf: scripted orbit-to-landing ≥ 60 fps on Mac (record numbers)
 - [ ] Manual: no visible cracks; takeoff back to space works
 

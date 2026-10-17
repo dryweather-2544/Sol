@@ -4,3 +4,9 @@ extends RefCounted
 ## atmosphere and terrain queries.
 
 var gravity := Vector3.ZERO
+## Multiplies gear speed (atmosphere drag). 1 = none.
+var max_speed_factor := 1.0
+## Highest gear allowed here (cruise is refused near the ground).
+var max_gear := 99
+## Hard speed limit for cruise gear, m/s.
+var cruise_speed_limit := INF

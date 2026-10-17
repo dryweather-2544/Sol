@@ -12,6 +12,13 @@ var basis := Basis.IDENTITY
 var angular_velocity := Vector3.ZERO
 var gear := PilotCommand.GEAR_DOCK
 
+## Planet-relative telemetry, written by PlanetBody.fill_environment and GroundContact.
+var landed := false
+var altitude_above_ground := INF
+var atmosphere_ratio := INF
+var regime := FlightRegime.SPACE
+var status_message := ""
+
 
 func speed() -> float:
 	return velocity.length()

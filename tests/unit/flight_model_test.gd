@@ -95,7 +95,7 @@ func test_gear_changes_the_cap_and_is_clamped_to_available_gears() -> void:
 	assert_near(ship_state.speed(), 500.0, 1e-3)
 	combat_command.gear = 99
 	_fly(ship_state, combat_command, 1)
-	assert_eq(ship_state.gear, 1)
+	assert_eq(ship_state.gear, 2, "99 clamps to the highest gear (cruise)")
 
 
 func test_gravity_accelerates_a_coasting_ship() -> void:

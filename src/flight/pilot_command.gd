@@ -6,6 +6,7 @@ extends RefCounted
 
 const GEAR_DOCK := 0
 const GEAR_COMBAT := 1
+const GEAR_CRUISE := 2
 
 ## Ship-local, each axis -1..1, Godot axes: x right, y up, -z forward.
 var thrust := Vector3.ZERO

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless test runner.
-##   godot --headless --path . -s res://tests/run_tests.gd
+##   godot --headless --path . -s res://tests/run_tests.gd [-- name_substring]
 ## Finds every *_test.gd under tests/unit and tests/scenario, runs each test_* method, prints a
 ## summary and exits with status 1 if anything failed (or if no tests were found).
 
@@ -12,6 +12,9 @@ func _initialize() -> void:
 	for directory_path in TEST_DIRECTORIES:
 		_collect_test_files(directory_path, test_files)
 	test_files.sort()
+	var name_filter := "" if OS.get_cmdline_user_args().is_empty() else OS.get_cmdline_user_args()[0]
+	if name_filter != "":
+		test_files = test_files.filter(func(test_file: String) -> bool: return name_filter in test_file)
 
 	var tests_run := 0
 	var assertions_run := 0
@@ -19,7 +22,7 @@ func _initialize() -> void:
 
 	for test_file in test_files:
 		var test_script: GDScript = load(test_file)
-		if test_script == null:
+		if test_script == null or not test_script.can_instantiate():
 			failure_lines.append("%s: could not load script (parse error?)" % test_file)
 			continue
 		var test_case = test_script.new()
