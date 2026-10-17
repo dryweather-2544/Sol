@@ -5,8 +5,10 @@ extends RefCounted
 ## planet centre (passed as three doubles so nothing is rounded to 32 bits before the noise).
 ##
 ## Precision note: FastNoiseLite takes 32-bit coordinates. Macro noise uses unit-sphere
-## directions (fine). Metre-scale detail uses position / wavelength, which is rounded to about
-## 0.4 m at 6,000 km; with the small detail amplitudes that is a few centimetres of height error.
+## directions (fine). Metre-scale detail uses position / wavelength and goes through
+## _smooth_noise so the 32-bit rounding cannot make terraces.
+
+const LATTICE_STEPS_PER_UNIT := 64.0
 
 var profile: TerrainProfile
 var _macro: FastNoiseLite
@@ -44,9 +46,32 @@ func height_xyz(dx: float, dy: float, dz: float) -> float:
 	var height := profile.macro_amplitude * macro + profile.mountain_amplitude * ridged * ridged * mountain_mask
 	var to_hills := profile.radius / profile.hill_wavelength
 	var to_rough := profile.radius / profile.rough_wavelength
-	height += profile.hill_amplitude * _hills.get_noise_3d(dx * to_hills, dy * to_hills, dz * to_hills)
-	height += profile.rough_amplitude * _rough.get_noise_3d(dx * to_rough, dy * to_rough, dz * to_rough)
+	height += profile.hill_amplitude * _smooth_noise(_hills, dx * to_hills, dy * to_hills, dz * to_hills)
+	height += profile.rough_amplitude * _smooth_noise(_rough, dx * to_rough, dy * to_rough, dz * to_rough)
 	return height
+
+
+## FastNoiseLite rounds its input to 32 bits, which at these coordinate sizes (tens of thousands)
+## turns smooth ground into 0.5 m wide steps. Instead sample it only at exactly representable
+## lattice points (1/64 unit apart) and blend linearly in 64-bit, so height is continuous.
+func _smooth_noise(noise: FastNoiseLite, x: float, y: float, z: float) -> float:
+	var lattice_x := floorf(x * LATTICE_STEPS_PER_UNIT)
+	var lattice_y := floorf(y * LATTICE_STEPS_PER_UNIT)
+	var lattice_z := floorf(z * LATTICE_STEPS_PER_UNIT)
+	var blend_x := x * LATTICE_STEPS_PER_UNIT - lattice_x
+	var blend_y := y * LATTICE_STEPS_PER_UNIT - lattice_y
+	var blend_z := z * LATTICE_STEPS_PER_UNIT - lattice_z
+	var x0 := lattice_x / LATTICE_STEPS_PER_UNIT
+	var y0 := lattice_y / LATTICE_STEPS_PER_UNIT
+	var z0 := lattice_z / LATTICE_STEPS_PER_UNIT
+	var x1 := (lattice_x + 1.0) / LATTICE_STEPS_PER_UNIT
+	var y1 := (lattice_y + 1.0) / LATTICE_STEPS_PER_UNIT
+	var z1 := (lattice_z + 1.0) / LATTICE_STEPS_PER_UNIT
+	var along_x_near_low := lerpf(noise.get_noise_3d(x0, y0, z0), noise.get_noise_3d(x1, y0, z0), blend_x)
+	var along_x_near_high := lerpf(noise.get_noise_3d(x0, y1, z0), noise.get_noise_3d(x1, y1, z0), blend_x)
+	var along_x_far_low := lerpf(noise.get_noise_3d(x0, y0, z1), noise.get_noise_3d(x1, y0, z1), blend_x)
+	var along_x_far_high := lerpf(noise.get_noise_3d(x0, y1, z1), noise.get_noise_3d(x1, y1, z1), blend_x)
+	return lerpf(lerpf(along_x_near_low, along_x_near_high, blend_y), lerpf(along_x_far_low, along_x_far_high, blend_y), blend_z)
 
 
 func height(direction: Vector3) -> float:

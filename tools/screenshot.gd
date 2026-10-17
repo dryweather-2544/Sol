@@ -7,6 +7,7 @@ extends SceneTree
 var _frames := 0
 var _main: Node
 var _settled_frames := 0
+var _exited_at_frame := -1
 
 
 func _initialize() -> void:
@@ -20,11 +21,26 @@ func _process(_delta: float) -> bool:
 		_move_ship()
 	if _frames > 2:
 		_settled_frames = _settled_frames + 1 if _main.terrain.is_settled() else 0
+	var arguments_now := OS.get_cmdline_user_args()
+	if arguments_now.size() > 3 and arguments_now[3] == "exit":
+		# Wait for landing, step out, then walk forward a little before the shot.
+		if _exited_at_frame < 0 and _main.ship.state.landed and _settled_frames > 30:
+			_main._try_exit_ship()
+			_exited_at_frame = _frames
+		if _exited_at_frame < 0:
+			Input.action_press("move_down")
+			if _frames < 1400:
+				return false
+		Input.action_release("move_down")
+		if _exited_at_frame >= 0 and _frames < _exited_at_frame + 90:
+			Input.action_press("thrust_forward")
+			return false
+		Input.action_release("thrust_forward")
 	if _settled_frames > 30 or _frames > 1500:
 		var arguments := OS.get_cmdline_user_args()
 		var output_path: String = arguments[0] if arguments.size() > 0 else "screenshot.png"
 		root.get_viewport().get_texture().get_image().save_png(output_path)
-		print("saved ", output_path, " frames ", _frames, " chunks ", _main.terrain.displayed_chunk_count(), " settled ", _main.terrain.is_settled(), " agl ", _main.ship.state.altitude_above_ground, " desired ", _main.terrain._desired.size(), " pending ", _main.terrain._pending.size(), " results ", _main.terrain._ready_results.size())
+		print("saved ", output_path, " frames ", _frames, " chunks ", _main.terrain.displayed_chunk_count(), " settled ", _main.terrain.is_settled(), " agl ", _main.ship.state.altitude_above_ground, " desired ", _main.terrain._desired.size(), " pending ", _main.terrain._pending.size(), " results ", _main.terrain._ready_results.size(), " landed ", _main.ship.state.landed, " on_foot ", _main.on_foot.active)
 		quit()
 	return false
 

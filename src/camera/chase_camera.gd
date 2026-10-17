@@ -19,6 +19,10 @@ func apply_origin_shift(_shift: Vector3) -> void:
 	reset_physics_interpolation()
 
 
+func _ready() -> void:
+	add_to_group("origin_shift")
+
+
 func snap_to_target() -> void:
 	if target == null:
 		return

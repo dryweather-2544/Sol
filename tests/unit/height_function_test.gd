@@ -41,4 +41,4 @@ func test_golden_hash_of_1000_samples() -> void:
 	assert_eq(running_hash, GOLDEN_HASH, "height golden hash (re-record only for intended terrain changes)")
 
 
-const GOLDEN_HASH := 3890739618
+const GOLDEN_HASH := 3418202770

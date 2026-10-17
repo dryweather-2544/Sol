@@ -20,6 +20,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	add_to_group("origin_shift")
 	PlaceholderShipMesh.build(self)
 	_sync_transform()
 
@@ -41,3 +42,9 @@ func simulate_tick(delta: float) -> void:
 
 func _sync_transform() -> void:
 	transform = Transform3D(state.basis, state.position.to_local_vector3(render_origin))
+
+
+func apply_origin_shift(shift: Vector3) -> void:
+	render_origin = render_origin.offset_by(shift)
+	_sync_transform()
+	reset_physics_interpolation()

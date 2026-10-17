@@ -4,7 +4,11 @@ extends CanvasLayer
 
 var ship: Ship
 var terrain: PlanetTerrain
+## Set while walking; the overlay then shows on-foot numbers instead of flight numbers.
+var on_foot: OnFootController
+var prompt_text := ""
 var _label := Label.new()
+var _prompt_label := Label.new()
 
 
 func _ready() -> void:
@@ -13,10 +17,26 @@ func _ready() -> void:
 	_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_label.add_theme_constant_override("outline_size", 4)
 	add_child(_label)
+	_prompt_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_prompt_label.position.y -= 120
+	_prompt_label.add_theme_font_size_override("font_size", 26)
+	_prompt_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_prompt_label.add_theme_constant_override("outline_size", 6)
+	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_prompt_label)
 
 
 func _process(_delta: float) -> void:
 	if ship == null:
+		return
+	_prompt_label.text = prompt_text
+	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
+	if on_foot != null:
+		var body := on_foot.body
+		_label.text = "fps %d   chunks %d\nON FOOT   speed %.1f m/s   %s\nheight above ground %.2f m%s\nWASD move  Shift run  Space jump  mouse look\nF board ship (when close)  Esc release mouse" % [
+			Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
+			body.velocity.length(), "grounded" if body.grounded else "airborne", body.height_above_ground,
+			"   (slope too steep)" if body.blocked_by_slope else ""]
 		return
 	var state := ship.state
 	var source_text := "PARKED" if ship.controller.is_parked() else String(ship.controller.current_source.source_id)
