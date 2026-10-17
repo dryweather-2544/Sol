@@ -3,7 +3,7 @@
 Read this first when resuming. Keep it short and current; update it with every milestone commit.
 
 ## Where things are
-- **Branches:** `claude/eager-cannon-mrod2z` (pushed; M0-M5 verified). `m6-solar-system` (worktree `../Sol-m6`) holds M6 (solar system, travel); merge it into the main branch once the suite is green.
+- **Branches:** `claude/eager-cannon-mrod2z` (pushed; M0-M5 verified). M6 is merged into it.
 - **Run tests:** `tools/run_tests.sh` (imports first; filter with `-- name_substring`). Godot: `~/Downloads/Godot.app/Contents/MacOS/Godot` (4.7.2).
 - **Visual checks without a human:** `tools/screenshot.gd` (ground/interior/POI views) and `tools/travel_shots.gd` (interplanetary), both need a display.
 
