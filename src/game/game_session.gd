@@ -378,7 +378,7 @@ func _maybe_walk_in() -> void:
 
 func _keep_outside_body_out_of_hull() -> void:
 	var local := ShipFrame.local_from_world(ship.state, exterior_body.position)
-	var corrected := ShipHullCollision.push_out(local, 0.4, systems.layout.ramp_rect, systems.walkway.progress > 0.0)
+	var corrected := ShipHullCollision.push_out(local, 0.4, systems.layout.ramp_rect, systems.walkway.progress > 0.0, ship.exterior_hull.silhouette if ship.exterior_hull != null and ship.exterior_hull.active else null)
 	if corrected != local:
 		var corrected_world := ShipFrame.world_from_local(ship.state, corrected)
 		if exterior_body.grounded:

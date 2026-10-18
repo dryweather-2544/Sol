@@ -114,6 +114,8 @@ func _ready() -> void:
 	impostors.system = system
 	impostors.runtime = runtime
 	add_child(impostors)
+	if ship.exterior_hull != null and ship.exterior_hull.active:
+		ExteriorHull.apply_camera_masks([chase_camera, on_foot.camera], [cockpit_camera, interior_view.camera])
 	_update_active_camera()
 	audio = AudioService.new()
 	audio.session = session

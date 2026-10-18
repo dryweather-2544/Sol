@@ -25,6 +25,7 @@ func _initialize() -> void:
 		settings.asset_materials = false
 		settings.atmosphere_scattering = false
 		settings.clouds = false
+		settings.exterior_hull = false
 		settings.decals = false
 		settings.terrain_detail = false
 		settings.starfield = false
