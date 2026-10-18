@@ -86,7 +86,9 @@ func _power_text() -> String:
 	return "\nPWR E %d  W %d  L %d   T %d%%   coolant %d%%%s" % [
 		power.delivered(ShipPower.Conduit.ENGINES), power.delivered(ShipPower.Conduit.WEAPONS),
 		power.delivered(ShipPower.Conduit.LIFE_SUPPORT), power.temperature * 100.0, power.coolant * 100.0,
-		"   REACTOR SHUTDOWN" if power.is_shut_down() else ""]
+		"   REACTOR SHUTDOWN" if power.is_shut_down() else ""] + "\nENG %d%%  WPN %d%%  RCT %d%%  LIFE %d%%" % [
+		ship.systems.subsystems.value(0) * 100.0, ship.systems.subsystems.value(1) * 100.0,
+		ship.systems.subsystems.value(2) * 100.0, ship.systems.subsystems.value(3) * 100.0]
 
 
 func _nearest_signal_text() -> String:

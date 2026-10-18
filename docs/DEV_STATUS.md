@@ -38,3 +38,9 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 2. (done) primitive humanoid avatar + third-person on foot (V).
 3. Tuning from the user's play feedback: flight handling, landing assist, enemy damage/aim, oxygen/jetpack numbers.
 4. M12: export build, 1440p/memory perf numbers, real (not simulated) long play test.
+
+## Phase 2 (docs/NEXT_PHASE.md) - branch `n1-ship-power`
+- **N1 done** (ac3fb50): `ShipPower` reactor/conduits/heat.
+- **N2 done**: `ShipSubsystems` (engines/weapons/reactor/life support health). Hits split into a subsystem by direction (round-robin for unknown sources); touchdown shocks hit engines, reentry heat the reactor. Reactor health scales output; flight thrust and gun fire rate scale with power satisfaction x health (engines floor at 15 % "emergency thrust"). Repair panel and repair kit fix the worst subsystem as well as the hull. Save v9 (+ v8->v9 migration, fixture `v8_landed_damaged`). Tests: `tests/unit/ship_subsystems_test.gd`.
+  - Limits: a tripped reactor restarts itself once cooled (stand-in until the N4 reactor panel); life support health does nothing yet (N4); demand numbers (idle 15/5, thrust 35, boost 20, fire 25 of 100) and 80 % passive cooling are untuned guesses; only the player ship has `ShipSystems`, enemy ships are unaffected.
+- **Next:** N3 (ship layout v2 and stations).

@@ -48,6 +48,13 @@ func without_thrust() -> PilotCommand:
 	return copy
 
 
+## A copy with thrust scaled (used when engines are damaged or starved of power).
+func with_thrust_scaled(factor: float) -> PilotCommand:
+	var copy := without_thrust()
+	copy.thrust = thrust * factor
+	return copy
+
+
 ## A copy with boost off (used when the tank is empty).
 func without_boost() -> PilotCommand:
 	var copy := PilotCommand.new()

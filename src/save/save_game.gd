@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 8
+const SAVE_VERSION := 9
 const GAME_VERSION := "0.1"
 
 
@@ -41,6 +41,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"walkway": {"state": systems.walkway.state, "progress": systems.walkway.progress},
 			"ramp_end_y": systems.layout.ramp_end_y,
 		},
+		"systems": {"subsystems": systems.subsystems.to_array(), "power": systems.power.to_dictionary()},
 		"player": {
 			"mode": saved_mode,
 			"interior_position": _vector_to_array(interior_position),
@@ -90,6 +91,9 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	systems.walkway.state = int(interior_data["walkway"]["state"])
 	systems.walkway.progress = float(interior_data["walkway"]["progress"])
 	systems.walkway.occupied = false
+	var systems_data: Dictionary = data.get("systems", {})
+	systems.subsystems.restore(systems_data.get("subsystems", []))
+	systems.power.restore(systems_data.get("power", {}))
 	systems.layout.ramp_end_y = float(interior_data["ramp_end_y"])
 	systems.layout.ramp_walkable = systems.walkway.is_deployed()
 	systems.airlock.reset_cycle()

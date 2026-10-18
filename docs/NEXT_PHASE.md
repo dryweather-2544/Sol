@@ -99,7 +99,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests** (`tests/unit/ship_power_test.gd`): delivered ≤ limit × output ≤ output for random inputs (1,000 seeded cases); temperature rises monotonically under constant over-draw and falls with coolant; shutdown at threshold zeroes output; restart only below the restart threshold; same inputs → same state after 10,000 ticks.
 - **Inspect:** one debug-overlay line (`PWR E/W/L  T°  coolant`) fed by a `ShipPower` instance owned by `ShipSystems` but affecting nothing yet.
 
-### N2 — Subsystems and consequences (wire power + damage into flight/weapons)
+### N2 — DONE. Subsystems and consequences (wire power + damage into flight/weapons)
 - **Deliverable:** subsystem health (ENGINES, WEAPONS, REACTOR, LIFE_SUPPORT) in `ShipSystems`. Incoming hull damage is split into a subsystem by hit direction/room. Effects: engine power×health scales thrust/acceleration; weapon power×health gates fire rate; reactor health scales output; life support drives cabin O2 (N4). Existing repair panel repairs the most-damaged subsystem. Save v9 + migration + v8 fixture.
 - **Acceptance / tests:** flight replay with engines at 50 % reaches ≤ 55 % of the baseline speed change; weapons at 0 never fire; v8 fixture loads with full health; save round-trip preserves subsystem health and power state; full_loop + playthrough still pass.
 - **Inspect:** debug overlay; damage the ship with a debug key and fly.

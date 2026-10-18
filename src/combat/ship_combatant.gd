@@ -25,9 +25,16 @@ func team_id() -> int:
 	return team
 
 
-func apply_damage(amount: float, _source: Object) -> void:
+func apply_damage(amount: float, source: Object) -> void:
 	if ship.state.hull <= 0.0:
 		return
+	if ship.systems != null:
+		var subsystems := ship.systems.subsystems
+		var struck := subsystems.next_round_robin()
+		if source is Ship:
+			var to_attacker := ((source as Ship).state.position.vector_from(ship.state.position)).normalized()
+			struck = ShipSubsystems.subsystem_for_direction(ship.state.basis.transposed() * to_attacker)
+		subsystems.damage(struck, amount)
 	ship.state.hull = maxf(0.0, ship.state.hull - amount)
 	if ship.state.hull <= 0.0:
 		ship.destroyed.emit()

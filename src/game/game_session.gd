@@ -392,8 +392,8 @@ func _toggle_repair() -> String:
 		return ""
 	if not ship.state.landed:
 		return "Land before repairing"
-	if ship.state.hull >= 1.0:
-		return "Hull is undamaged"
+	if ship.state.hull >= 1.0 and systems.subsystems.is_undamaged():
+		return "Nothing to repair"
 	repairing = true
 	return ""
 
@@ -405,9 +405,10 @@ func _update_repair(delta: float) -> void:
 		repairing = false
 		return
 	ship.state.hull = minf(1.0, ship.state.hull + ShipDamage.REPAIR_PER_SECOND * delta)
-	if ship.state.hull >= 1.0:
+	systems.subsystems.repair_worst(ShipDamage.REPAIR_PER_SECOND * delta)
+	if ship.state.hull >= 1.0 and systems.subsystems.is_undamaged():
 		repairing = false
-		_say("Hull repaired")
+		_say("Ship repaired")
 
 
 func _update_suit(delta: float) -> void:
@@ -479,10 +480,11 @@ func use_item(item_id: StringName) -> String:
 		ItemDefinition.REPAIR_KIT:
 			if not near_ship:
 				return "Get closer to the ship"
-			if ship.state.hull >= 1.0:
-				return "Hull is undamaged"
+			if ship.state.hull >= 1.0 and systems.subsystems.is_undamaged():
+				return "Nothing to repair"
 			ship.state.hull = minf(1.0, ship.state.hull + 0.5)
-			message_text = "Hull repaired"
+			systems.subsystems.repair_worst(0.5)
+			message_text = "Ship repaired"
 		ItemDefinition.FUEL_CELL:
 			if not near_ship:
 				return "Get closer to the ship"

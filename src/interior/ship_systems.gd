@@ -17,6 +17,7 @@ var airlock_pressure := 1.0
 var ambient_pressure := 1.0
 ## Reactor and conduits; ticked here, not yet wired to flight or weapons.
 var power := ShipPower.new()
+var subsystems := ShipSubsystems.new()
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
 
@@ -36,11 +37,35 @@ func update(delta: float, ship_state: ShipState) -> void:
 	else:
 		airlock_pressure = move_toward(airlock_pressure, 1.0, delta / AirlockController.CYCLE_SECONDS)
 	seats.update(delta)
+	power.output_factor = subsystems.value(ShipSubsystems.Id.REACTOR)
 	power.update(delta)
+	# ponytail: stand-in until the reactor panel (N4) lets the crew restart by hand; a tripped reactor
+	# comes back by itself once it has cooled, so a shutdown costs time, never the run.
+	if power.is_shut_down():
+		power.request_restart()
 	layout.ramp_walkable = walkway.is_deployed()
 	if _outer_close_pending and walkway.is_stowed() and not _is_occupied(&"airlock_outer"):
 		airlock.request_close_outer(false)
 		_outer_close_pending = false
+
+
+## What the pilot is asking of the ship this tick, in power units. Idle systems still draw a little.
+func set_demand(command: PilotCommand) -> void:
+	var thrust_draw := 35.0 * command.thrust.limit_length(1.0).length() + (20.0 if command.boost else 0.0)
+	power.set_request(ShipPower.Conduit.ENGINES, 15.0 + thrust_draw)
+	power.set_request(ShipPower.Conduit.WEAPONS, 5.0 + (25.0 if command.fire else 0.0))
+
+
+## 0..1 multiplier on thrust: starved power and engine damage both slow the ship, but never below
+## EMERGENCY_THRUST, so a crippled ship can still limp down to the ground.
+func engine_factor() -> float:
+	var factor := power.satisfaction(ShipPower.Conduit.ENGINES) * subsystems.value(ShipSubsystems.Id.ENGINES)
+	return maxf(ShipSubsystems.EMERGENCY_THRUST, factor)
+
+
+## 0..1 multiplier on rate of fire; 0 means the guns are dead.
+func weapon_factor() -> float:
+	return power.satisfaction(ShipPower.Conduit.WEAPONS) * subsystems.value(ShipSubsystems.Id.WEAPONS)
 
 
 ## Empty string when the ship may lift off; otherwise why not.

@@ -70,6 +70,11 @@ func simulate_tick(delta: float) -> void:
 	var takeoff_block := systems.takeoff_block_reason() if systems != null and state.landed else ""
 	if takeoff_block != "":
 		command = command.without_thrust()
+	if systems != null:
+		systems.set_demand(command)
+		var engine_factor := systems.engine_factor()
+		if engine_factor < 1.0:
+			command = command.with_thrust_scaled(engine_factor)
 	last_command = command
 	FlightModel.step(state, command, tuning, environment, delta)
 	_burn_fuel(command, delta)
@@ -96,9 +101,16 @@ func apply_origin_shift(shift: Vector3) -> void:
 func _take_damage(delta: float) -> void:
 	if state.hull <= 0.0:
 		return
-	var loss := (ShipDamage.impact_damage(state.last_impact_speed) + ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta) * upgrades.damage_taken_multiplier()
+	var impact_loss := ShipDamage.impact_damage(state.last_impact_speed) * upgrades.damage_taken_multiplier()
+	var heating_loss := ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta * upgrades.damage_taken_multiplier()
+	var loss := impact_loss + heating_loss
 	if loss <= 0.0:
 		return
+	if systems != null:
+		if impact_loss > 0.0:
+			systems.subsystems.damage(ShipSubsystems.Id.ENGINES, impact_loss) # touchdown shocks hit the drive
+		if heating_loss > 0.0:
+			systems.subsystems.damage(ShipSubsystems.Id.REACTOR, heating_loss)
 	state.hull = maxf(0.0, state.hull - loss)
 	if state.hull <= 0.0:
 		destroyed.emit()
@@ -120,5 +132,5 @@ func _fire_weapon(command: PilotCommand, delta: float) -> void:
 	var muzzle := state.position.offset_by(state.basis * muzzle_offset)
 	var base_damage := weapon.damage
 	weapon.damage = base_damage * upgrades.gun_damage_multiplier()
-	weapon.try_fire(projectiles, muzzle, -state.basis.z, state.velocity, team_id, self)
+	weapon.try_fire(projectiles, muzzle, -state.basis.z, state.velocity, team_id, self, systems.weapon_factor() if systems != null else 1.0)
 	weapon.damage = base_damage

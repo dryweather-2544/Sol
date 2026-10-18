@@ -29,9 +29,9 @@ func update(delta: float) -> void:
 
 ## Fire if ready. direction must be a unit vector in the planet frame; muzzle_velocity_base is the
 ## shooter's own velocity (added so shots inherit it). Returns true if a shot was spawned.
-func try_fire(sim: ProjectileSim, muzzle: WorldPos, direction: Vector3, shooter_velocity: Vector3, team: int, source: Object) -> bool:
-	if _cooldown > 0.0:
+func try_fire(sim: ProjectileSim, muzzle: WorldPos, direction: Vector3, shooter_velocity: Vector3, team: int, source: Object, rate_scale: float = 1.0) -> bool:
+	if _cooldown > 0.0 or rate_scale <= 0.0:
 		return false
-	_cooldown = 1.0 / shots_per_second
+	_cooldown = 1.0 / (shots_per_second * rate_scale)
 	sim.spawn(muzzle, direction * projectile_speed + shooter_velocity, team, damage, source, projectile_lifetime)
 	return true
