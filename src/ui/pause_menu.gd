@@ -14,6 +14,8 @@ enum Page { TITLE, PAUSE, SETTINGS }
 var page := Page.TITLE
 ## Set by the scene: false while the first terrain is still loading.
 var world_ready := false
+## Evaluated every frame by the menu itself (it keeps running while the game is paused, the scene does not).
+var world_ready_check := Callable()
 var autosave_exists := false
 
 var _panel := PanelContainer.new()
@@ -37,6 +39,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if world_ready_check.is_valid():
+		world_ready = world_ready_check.call()
 	if visible and page == Page.TITLE:
 		for child in _box.get_children():
 			if child is Button and (child as Button).text.begins_with("New game"):

@@ -127,6 +127,7 @@ func _ready() -> void:
 	menu.save_requested.connect(func(): _save_to("quicksave"))
 	menu.quit_requested.connect(func(): get_tree().quit())
 	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
+	menu.world_ready_check = func() -> bool: return terrain != null and terrain.is_settled()
 	add_child(menu)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -158,7 +159,6 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
-	menu.world_ready = terrain != null and terrain.is_settled()
 	_apply_field_of_view()
 	var actor_position := session.player_world_position()
 	if terrain != null:
