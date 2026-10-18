@@ -13,6 +13,7 @@ var viewer_local := Vector3.ZERO
 var placement_distance := 1.0e6
 
 var _nodes := {} # body id -> MeshInstance3D
+var _shells := {} # body id -> AtmosphereShell (only for worlds with an atmosphere)
 
 
 func _ready() -> void:
@@ -34,6 +35,10 @@ func _ready() -> void:
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(node)
 		_nodes[body_id] = node
+		if body.atmosphere_height > 0.0:
+			var shell := AtmosphereShell.new()
+			add_child(shell)
+			_shells[body_id] = shell
 
 
 func _process(_delta: float) -> void:
@@ -43,6 +48,8 @@ func _process(_delta: float) -> void:
 		var node: MeshInstance3D = _nodes[body_id]
 		var body: BodyDef = system.bodies[body_id]
 		node.visible = body_id != runtime.active_frame
+		if _shells.has(body_id):
+			(_shells[body_id] as Node3D).visible = node.visible
 		if not node.visible:
 			continue
 		var center := system.body_position(body_id, runtime.time_seconds)
@@ -51,7 +58,16 @@ func _process(_delta: float) -> void:
 		if distance <= placement_distance:
 			node.position = viewer_local + offset
 			node.scale = Vector3.ONE * body.radius
+			_update_shell(body_id, body, node.position, 1.0)
 		else:
 			var scale_factor := placement_distance / distance
 			node.position = viewer_local + offset * scale_factor
 			node.scale = Vector3.ONE * (body.radius * scale_factor)
+			_update_shell(body_id, body, node.position, scale_factor)
+
+
+func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_factor: float) -> void:
+	if not _shells.has(body_id):
+		return
+	var sun := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds) if runtime.active_frame != StarSystem.SYSTEM_FRAME else Vector3(0, 0, -1)
+	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 1.6) * scale_factor, centre, sun, body.atmosphere_color)

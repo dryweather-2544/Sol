@@ -22,6 +22,8 @@ var orbit_phase := 0.0
 var spin_period := 6000.0
 var terrain_profile: TerrainProfile
 var color := Color(0.5, 0.5, 0.5)
+## Colour of the glowing rim around the atmosphere.
+var atmosphere_color := Color(0.35, 0.6, 1.0)
 
 
 ## Distance within which this body's own frame takes over (research PRC-01: 10 x radius).

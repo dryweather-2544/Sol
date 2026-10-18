@@ -24,10 +24,17 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - No 4 s atmosphere-entry timer, no reentry damage, no ship damage at all.
 - `docs/ARCHITECTURE.md` text predates ADRs 0002-0004; the ADRs win.
 
-## Next steps (in order)
-1. Merge M6 branch into the main branch after a full green run; push.
-2. M7 remainder: atmosphere horizon/sunset shader, terrain material masks. (Audio, menus, settings done; all audio is synthesised in code, no files.)
-3. (done) M8 ship systems depth.
-4. (partly done) M9: POI *interiors* with a room-template expander are still open.
-5. (done) M10 AI pilots, ground enemies, weapons with `team_id`.
-6. M11 progression + warp; M12 release quality (macOS export, 2-hour soak, perf budgets).
+## Tools (need a display unless noted)
+- `tools/playthrough.gd`: plays the whole loop through the real main scene with real input events (land, stand, doors, airlock, ramp, outside, back in, sit, take off to space). Last run: OK.
+- `tools/perf_run.gd`: frame times through a scripted descent (results in tests/perf/results.md).
+- `tools/screenshot.gd`, `tools/travel_shots.gd`: pictures of ground/interior/POI/interplanetary views.
+
+## Blocked / needs the user
+- **Manual play test** (docs/PLAYING.md has the checklist). Feel, balance and sound are all unjudged.
+- **macOS export**: no export templates installed (Editor > Manage Export Templates, ~1 GB). I did not download them without permission.
+
+## Open work, in order
+1. Terrain material masks (M7); POI interiors with a room-template expander (M9); interior layout editor / ship customization (M11).
+2. A humanoid avatar + third-person on-foot camera (needs a vetted CC0 model or a hand-built primitive one).
+3. Tuning from the user's play feedback: flight handling, landing assist, enemy damage/aim, oxygen/jetpack numbers.
+4. M12: export build, 1440p/memory perf numbers, real (not simulated) long play test.

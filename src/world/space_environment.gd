@@ -18,13 +18,14 @@ func _ready() -> void:
 	sky.sky_material = _sky_material
 	_environment.background_mode = Environment.BG_SKY
 	_environment.sky = sky
+	_environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	_environment.ambient_light_color = Color(0.12, 0.14, 0.2)
 	_environment.ambient_light_energy = 0.6
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = _environment
 	add_child(world_environment)
-	_sun.light_energy = 1.6
+	_sun.light_energy = 1.25
 	_sun.shadow_enabled = false
 	add_child(_sun)
 	set_sun_direction(sun_direction)

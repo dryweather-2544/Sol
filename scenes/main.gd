@@ -14,6 +14,7 @@ var runtime: WorldRuntime
 var planet: PlanetBody ## null while in the star-centred system frame
 var terrain: PlanetTerrain
 var impostors: BodyImpostors
+var atmosphere_shell: AtmosphereShell
 var space_environment: SpaceEnvironment
 var player_source := PlayerPilotSource.new()
 var session: GameSession
@@ -95,6 +96,8 @@ func _ready() -> void:
 	overlay.session = session
 	overlay.poi_manager = poi_manager
 	add_child(overlay)
+	atmosphere_shell = AtmosphereShell.new()
+	add_child(atmosphere_shell)
 	impostors = BodyImpostors.new()
 	impostors.system = system
 	impostors.runtime = runtime
@@ -180,6 +183,10 @@ func _process(_delta: float) -> void:
 		var here := system.convert_position(actor_position, StarSystem.SYSTEM_FRAME, runtime.time_seconds)
 		sun_direction = Vector3(here.x - to_star.x, here.y - to_star.y, here.z - to_star.z).normalized()
 	space_environment.set_sun_direction(sun_direction)
+	atmosphere_shell.visible = planet != null and planet.atmosphere_height > 0.0
+	if atmosphere_shell.visible:
+		var home_body: BodyDef = system.bodies[runtime.active_frame]
+		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color)
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
