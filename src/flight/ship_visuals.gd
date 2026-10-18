@@ -7,6 +7,8 @@ var ship: Ship
 var _door_nodes := {}   # portal id -> {node: MeshInstance3D, base_y: float}
 var _room_lights := {} # room id -> OmniLight3D
 var _fire_nodes := {}   # room id -> MeshInstance3D
+var _station_screens := {} # station id -> StandardMaterial3D (emission shows the station's state)
+var _smoke_nodes := {}    # room id -> CPUParticles3D
 var _turret_pivot := Node3D.new()
 var _ramp_pivot := Node3D.new()
 var _ramp_mesh := MeshInstance3D.new()
@@ -46,10 +48,12 @@ func _process(_delta: float) -> void:
 	for room_id in _fire_nodes:
 		var intensity := hazards.fire_in(room_id)
 		(_fire_nodes[room_id] as Node3D).visible = intensity > 0.0
+		(_smoke_nodes[room_id] as CPUParticles3D).emitting = intensity > 0.0
 		(_fire_nodes[room_id] as Node3D).scale = Vector3.ONE * (0.4 + 0.8 * intensity) * (0.9 + 0.2 * flicker)
 		var light: OmniLight3D = _room_lights[room_id]
 		light.light_color = Color(1.0, 0.35 + 0.2 * flicker, 0.2) if intensity > 0.0 else Color.WHITE
 		light.light_energy = 1.6 + 2.0 * intensity if intensity > 0.0 else 1.6
+	_update_screens()
 	var walkway := ship.systems.walkway
 	_ramp_pivot.visible = walkway.progress > 0.0
 	_ramp_mesh.scale.z = maxf(walkway.progress, 0.001)
@@ -152,6 +156,15 @@ func _build_panels(layout: InteriorLayout) -> void:
 	for point in layout.interact_points:
 		if layout.seats.has(point["id"]):
 			continue
+		if point["id"] in [&"reactor_panel", &"engine_station"]:
+			# A wall screen that shows the station's state (see _update_screens).
+			var screen_material := _emissive(Color(0.2, 1.0, 0.5), 2.0)
+			var screen := _box_instance(Vector3(0.06, 0.55, 0.8), screen_material)
+			var wall_side := 1.0 if point["position"].x > 0.0 else -1.0
+			screen.position = point["position"] + Vector3(wall_side * 0.42, 1.1, 0)
+			add_child(screen)
+			_station_screens[point["id"]] = screen_material
+			continue
 		var panel := _box_instance(Vector3(0.25, 0.35, 0.08), _panel_material)
 		panel.position = point["position"] + Vector3(0, 1.1, 0)
 		add_child(panel)
@@ -184,6 +197,21 @@ func _build_exterior_extras(layout: InteriorLayout) -> void:
 	var fin := _box_instance(Vector3(0.2, 1.6, 2.2), _accent_material)
 	fin.position = Vector3(0, ship.systems.layout.ceiling_y + 0.9, 6.0)
 	add_child(fin)
+
+
+## Station screens: reactor green -> red with core heat (dark when tripped); engine screen red -> green with engine health.
+func _update_screens() -> void:
+	var systems := ship.systems
+	if _station_screens.has(&"reactor_panel"):
+		var material: StandardMaterial3D = _station_screens[&"reactor_panel"]
+		var shade := Color(0.15, 0.15, 0.15) if systems.power.is_shut_down() else Color(0.2, 1.0, 0.5).lerp(Color(1.0, 0.2, 0.1), clampf(systems.power.temperature, 0.0, 1.0))
+		material.albedo_color = shade
+		material.emission = shade
+	if _station_screens.has(&"engine_station"):
+		var material: StandardMaterial3D = _station_screens[&"engine_station"]
+		var shade := Color(1.0, 0.2, 0.1).lerp(Color(0.2, 1.0, 0.5), systems.subsystems.value(ShipSubsystems.Id.ENGINES))
+		material.albedo_color = shade
+		material.emission = shade
 
 
 ## The dorsal gun above the turret room; the barrel follows ShipTurret's aim.
@@ -226,6 +254,23 @@ func _build_lights(layout: InteriorLayout) -> void:
 			flames.visible = false
 			add_child(flames)
 			_fire_nodes[room_id] = flames
+			var smoke := CPUParticles3D.new()
+			smoke.position = flames.position + Vector3(0, 0.4, 0)
+			smoke.amount = 28
+			smoke.lifetime = 1.6
+			smoke.direction = Vector3.UP
+			smoke.spread = 25.0
+			smoke.initial_velocity_min = 0.6
+			smoke.initial_velocity_max = 1.2
+			smoke.gravity = Vector3.ZERO
+			var puff := SphereMesh.new()
+			puff.radius = 0.12
+			puff.height = 0.24
+			smoke.mesh = puff
+			smoke.material_override = _emissive(Color(1.0, 0.55, 0.15), 3.0)
+			smoke.emitting = false
+			add_child(smoke)
+			_smoke_nodes[room_id] = smoke
 
 
 func _slab(area: Rect2, bottom_y: float, top_y: float, material: Material) -> void:

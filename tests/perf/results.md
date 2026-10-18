@@ -31,3 +31,8 @@ Other readings (maxima over the run): 371 draw calls, 490,208 primitives, physic
 frame family as the 85 ms worst frame near the start of the orbit phase). Memory: static 111 MB (peak 111 MB), video RAM 205 MB. The texture-memory
 monitor returned a nonsense value and is ignored. All within the ARCHITECTURE §11 budgets (60 fps, 2000 draw calls, 4 GB) except the one-off start-of-run spikes,
 which are not investigated. Draw calls with the interior in view, and fires/lights, were not measured (N8).
+
+### Interior in view with a fire (after N8, `tools/interior_perf.gd`, 1152x648)
+
+Landed, player in engineering, six per-room lights, station screens, flame prop and smoke particles, two crew: 600 frames avg 10.00 ms (100 fps cap),
+p95 11.41 ms, worst 15.51 ms, max 296 draw calls. (The engineer put the fire out during the measurement, so the particles ran for part of it.)

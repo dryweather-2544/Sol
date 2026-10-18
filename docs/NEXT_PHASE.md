@@ -129,7 +129,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests:** `slice_scenario_test` (headless): scripted pilot + scripted player + AI crew complete the mission; ends in a legal state; no teleports; save/load at each beat resumes. Existing story mission still completes. `tools/playthrough.gd slice` passes in the real scene.
 - **Inspect:** playthrough log + `tools/screenshot.gd` at each beat (5–6 images) committed to `tests/perf/` or a `docs/slice_shots/` folder.
 
-### N8 — Presentation pass for the slice spaces
+### N8 — DONE (small, see DEV_STATUS). Presentation pass for the slice spaces
 - **Deliverable:** interior lighting per room (non-shadowed omni lights; ≤ 4 shadowed), emissive station screens, alert-state lighting, fire particles, reactor hum tied to heat, exterior silhouette improved. Atmosphere sunset/scattering. Optional CC0 kit (Quaternius/Kenney, already named in ARCHITECTURE §13) — **only with Ariel's go-ahead and an `ATTRIBUTION.md` row per file**.
 - **Acceptance:** perf at 1440p within budget (≥ 60 fps p95, worst frame noted) on the slice playthrough; screenshot set regenerated.
 - **Inspect:** the screenshot set — this is the first milestone where Ariel's eye genuinely matters, but it still doesn't block.
