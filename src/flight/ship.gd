@@ -40,12 +40,21 @@ func _init() -> void:
 	add_child(controller)
 
 
+## Set by _ready on the player ship (the one with systems); null on hostile ships, which keep the placeholder mesh.
+var exterior_hull: ExteriorHull
+
+
 func _ready() -> void:
 	add_to_group("origin_shift")
 	if systems != null:
 		var visuals := ShipVisuals.new()
 		visuals.ship = self
 		add_child(visuals)
+		exterior_hull = ExteriorHull.new()
+		add_child(exterior_hull)
+		if exterior_hull.active:
+			ExteriorHull.hide_blockout_from_outside(visuals)
+			tuning.support_points = exterior_hull.support_points()
 	else:
 		PlaceholderShipMesh.build(self, hull_color)
 	_sync_transform()

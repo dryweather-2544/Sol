@@ -149,6 +149,8 @@ func _build_doors(layout: InteriorLayout) -> void:
 		var instance := _box_instance(Vector3(opening.size.x, door_height, opening.size.y * 0.9), _door_material)
 		instance.position = Vector3(opening.position.x + opening.size.x * 0.5, base_y, opening.position.y + opening.size.y * 0.5)
 		add_child(instance)
+		if portal.kind == Portal.Kind.AIRLOCK_OUTER:
+			instance.set_meta(ExteriorHull.SHARED_META, true) # the outer door is seen from outside too
 		_door_nodes[portal_id] = {"node": instance, "base_y": base_y}
 
 
@@ -264,6 +266,7 @@ func _build_ramp(layout: InteriorLayout) -> void:
 	mesh.size = Vector3(layout.ramp_rect.size.x, 0.08, layout.ramp_rect.size.y)
 	_ramp_mesh.mesh = mesh
 	_ramp_mesh.material_override = _door_material
+	_ramp_mesh.set_meta(ExteriorHull.SHARED_META, true) # the player walks down it
 	_ramp_mesh.position = Vector3(0, 0, layout.ramp_rect.size.y * 0.5)
 	_ramp_pivot.add_child(_ramp_mesh)
 	_ramp_pivot.visible = false

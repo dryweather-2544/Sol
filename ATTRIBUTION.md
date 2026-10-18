@@ -8,8 +8,8 @@ Anything else: ask the project owner first.
 
 | Date added | Item | Author / source URL | Licence | Licence checked at (URL or file) | Files / folder in repo | Modified? |
 |---|---|---|---|---|---|---|
-| — | (none yet) | | | | | |
+| 2026-10-18 | Cargo Spaceship (glTF, used as the player ship exterior in the hidden-interior prototype) | blaice (https://sketchfab.com/blaice), https://sketchfab.com/3d-models/cargo-spaceship-a53147cc2da943e7ae07f1e0b0a31518 | CC-BY 4.0 | Sketchfab download dialog ("CC Attribution") and license.txt in the zip | assets/third_party/ships/cargo_spaceship/ | Textures re-imported with VRAM compression and mipmaps (tools/third_party_texture_import.py); scaled and placed in code |
 
 ## Credits shown in-game (CC-BY and similar)
 
-_(none yet)_
+"Cargo Spaceship" by blaice, CC BY 4.0, https://sketchfab.com/3d-models/cargo-spaceship-a53147cc2da943e7ae07f1e0b0a31518 (needed in-game credits if this hull ships)
