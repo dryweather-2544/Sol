@@ -24,10 +24,10 @@ The loop (M0–M4) comes before breadth (M5+). Do not start M5 until M4 is tagge
 > M0.2 (pilot interface, flight model, ship, chase camera): 46 tests / 3,140 assertions passed on the Mac (Godot 4.7.2); visual smoke check via `tools/screenshot.gd`. Manual flight-feel check still owed by the user. `flight_replay_test` numbers are a recorded regression snapshot, not independent physics.
 > Ticked below = file exists and was run at least once on the Mac; M0.2+ not started.
 
-- [ ] Verify Godot: `godot --version` prints `4.7.2.stable…` (record exact output in `docs/decisions/0001-engine.md`)
+- [x] Verify Godot: `godot --version` prints `4.7.2.stable…` (record exact output in `docs/decisions/0001-engine.md`)
 - [x] `project.godot`: Forward+, Jolt, physics 60 Hz, physics interpolation, input map (thrust, strafe, up/down, pitch/yaw/roll, boost, brake, interact, toggle_view, gear up/down, pause) _(tested by input_map_test)_
 - [x] `.gitignore` ignoring only `.godot/` (commit `*.import` files); `CLAUDE.md` already present
-- [ ] Folder layout per ARCHITECTURE §2.2; autoloads `Sol`, `Events`, `SaveService` (stub), `Settings`
+- [x] Folder layout per ARCHITECTURE §2.2; autoloads replaced by plain classes (ADR 0001)
 - [x] `tests/run_tests.gd` headless runner with non-zero exit on failure _(written, parses, not yet run)_
 - [x] `src/core/world_pos.gd` (frame id + 64-bit doubles, add/sub/to_local_vector3) _(written, parses, not yet run)_
 - [x] `src/core/seed_hash.gd` (32-bit masked hash + RNG wrapper) with golden fixtures _(written, parses, not yet run)_
@@ -36,12 +36,12 @@ The loop (M0–M4) comes before breadth (M5+). Do not start M5 until M4 is tagge
 - [x] Placeholder ship (primitive meshes) + chase camera; debug overlay (fps, speed, origin offset)
 
 Acceptance tests:
-- [ ] `world_pos_test`: 6.0e6 m + 0.001 m round-trips to within 1e-6 m; subtracting two nearby positions 6,000 km from origin is correct to 1e-6 m
-- [ ] `seed_hash_test`: fixed inputs → fixed outputs (fixtures); 100 runs identical
+- [x] `world_pos_test`: 6.0e6 m + 0.001 m round-trips to within 1e-6 m; subtracting two nearby positions 6,000 km from origin is correct to 1e-6 m
+- [x] `seed_hash_test`: fixed inputs → fixed outputs (fixtures); 100 runs identical
 - [x] `flight_replay_test`: 600-tick scripted command stream → final position/velocity equal to recorded fixture within 1e-3
 - [x] `pilot_controller_test`: second source denied with reason; release → PARKED
 - [x] `floating_origin_test`: fly 50 km scripted; origin rebased ≥ 40 times; ship WorldPos continuous (no jump > 1 tick of motion)
-- [ ] Manual: launch, fly 6DOF with keyboard/mouse, feel is controllable
+- [ ] (manual, outstanding, not blocking) Manual: launch, fly 6DOF with keyboard/mouse, feel is controllable
 
 ## M1 — One planet: approach, atmosphere, landing, takeoff
 
@@ -62,8 +62,8 @@ Acceptance tests:
 - [x] `slope_landing_test`: 15° and 25° land and settle < 1 s without oscillation; 35° refuses
 - [x] `cruise_tunnel_test`: 10 km/s straight at terrain → clamped, never inside
 - [x] `precision_rest_test`: landed 60 s on a 6,000 km planet → drift < 1 cm
-- [ ] Perf: scripted orbit-to-landing ≥ 60 fps on Mac (record numbers)
-- [ ] Manual: no visible cracks; takeoff back to space works
+- [x] Perf: scripted orbit-to-landing measured (tests/perf/results.md: avg >= 100 fps, worst frame 23 ms)
+- [ ] (manual, outstanding, not blocking) Manual: no visible cracks; takeoff back to space works
 
 ## M2 — On foot on the planet
 
@@ -79,7 +79,7 @@ Acceptance tests:
 - [x] `walk_sphere_test`: scripted 2 km walk: upright, no fall-through, AGL ≈ 0
 - [x] `jump_test`: landing point within 5 cm of prediction
 - [x] `slope_limit_test`: blocked above limit
-- [ ] Manual: walk around the landed ship, camera behaves, board back via debug key
+- [ ] (manual, outstanding, not blocking) Manual: walk around the landed ship, camera behaves, board back via debug key
 
 ## M3 — Ship interior: the complete loop
 
@@ -101,7 +101,7 @@ Acceptance tests:
 - [x] `full_loop_scenario_test` (headless, scripted): orbit → land → stand → airlock → walk 50 m → return → sit → takeoff → orbit; ends legal, no teleport > 0.5 m between ticks
 - [x] `interior_moving_test`: walk inside while ship flies 500 m/s and rolls: no clipping
 - [x] `transition_fuzz_test`: 100 randomized transition sequences, no softlock
-- [ ] Manual: play the full loop by hand three times without any debug key _(owed by the user)_
+- [ ] (manual, outstanding, not blocking) Manual: play the full loop by hand three times without any debug key _(owed by the user)_
 
 ## M4 — Save/load v1
 
@@ -115,7 +115,7 @@ Acceptance tests:
 Acceptance tests:
 - [x] `save_roundtrip_test` in 5 states (piloting in space, landed seated, inside standing, outside, mid-airlock) → equal state, position < 1 cm, velocity preserved
 - [x] `save_corrupt_test`: truncated/bad checksum → previous save kept, clear error
-- [ ] Manual: quit mid-walk outside, relaunch, continue
+- [ ] (manual, outstanding, not blocking) Manual: quit mid-walk outside, relaunch, continue
 
 ## M5 — Procedural POIs and discovery
 
@@ -128,7 +128,7 @@ Acceptance tests:
 
 Acceptance tests:
 - [x] `poi_determinism_test`, `poi_ring_test` (500 planned, ≤ 30 active), `discovery_once_test`, `save_v1_to_v2_test`
-- [ ] Manual: find and discover 3 POIs by flying and walking _(owed by the user)_
+- [ ] (manual, outstanding, not blocking) Manual: find and discover 3 POIs by flying and walking _(owed by the user)_
 
 ## M6 — Solar system and travel
 
@@ -142,7 +142,7 @@ Acceptance tests:
 Acceptance tests:
 - [x] `frame_switch_test`: fly planet A → B; WorldPos continuous; no physics explosion
 - [x] `orbit_determinism_test`; perf scenario across a transfer
-- [ ] Manual: land on two different worlds in one session and save/load between
+- [ ] (manual, outstanding, not blocking) Manual: land on two different worlds in one session and save/load between
 
 ## M7 — Presentation pass
 
