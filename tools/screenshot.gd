@@ -9,6 +9,7 @@ extends SceneTree
 ##            (optional 8th argument: fire = engineering on fire, reactor = reactor panel open)
 ##   outside  land, walk out through the airlock instantly, outside first-person view
 ##   poi      (args: out altitude pitch poi type_index [side_offset_m [yaw_away_deg]]) hover above the nearest POI of that type
+## Env SOL_SHOT_SUN_ELEVATION=<degrees> places the ship where the sun is that high and faces it (SOL_SHOT_LOOK_AWAY=1 faces away).
 ## Chunk loading is awaited, so the picture is what the player sees once the world has loaded.
 
 var _frames := 0
@@ -129,6 +130,14 @@ func _move_ship() -> void:
 	var ship: Ship = _main.ship
 	var planet: PlanetBody = _main.planet
 	var up := planet.up_at(ship.state.position)
+	var sun_elevation_degrees := OS.get_environment("SOL_SHOT_SUN_ELEVATION") # optional: put the ship where the sun is this high (0 = sunrise) and face it
+	var toward_sun := Vector3.ZERO
+	if sun_elevation_degrees != "":
+		var light_direction: Vector3 = _main.system.sun_direction_in_frame(_main.runtime.active_frame, _main.runtime.time_seconds)
+		toward_sun = -light_direction.normalized()
+		var sideways := toward_sun.cross(Vector3.UP).normalized()
+		var elevation := deg_to_rad(float(sun_elevation_degrees))
+		up = (toward_sun * sin(elevation) + sideways.cross(toward_sun).normalized() * cos(elevation)).normalized()
 	var ground_radius := planet.surface_radius_xyz(up.x, up.y, up.z)
 	var target_radius := ground_radius + float(arguments[1])
 	ship.state.position = WorldPos.new(planet.frame_id, up.x * target_radius, up.y * target_radius, up.z * target_radius)
@@ -136,7 +145,11 @@ func _move_ship() -> void:
 	ship.position = Vector3.ZERO
 	var pitch_down := deg_to_rad(float(arguments[2])) if arguments.size() > 2 else 0.0
 	var forward := (Vector3.UP.cross(up).cross(up)).normalized()
-	forward = forward.rotated(Vector3.UP.cross(up).normalized(), pitch_down) if pitch_down != 0.0 else forward
+	if toward_sun != Vector3.ZERO:
+		forward = (toward_sun - up * toward_sun.dot(up)).normalized() # horizontal direction of the sun
+		if OS.get_environment("SOL_SHOT_LOOK_AWAY") == "1":
+			forward = -forward
+	forward = forward.rotated(up.cross(forward).normalized(), -pitch_down) if pitch_down != 0.0 and toward_sun != Vector3.ZERO else (forward.rotated(Vector3.UP.cross(up).normalized(), pitch_down) if pitch_down != 0.0 else forward)
 	ship.state.basis = Basis.looking_at(forward, up)
 	ship.state.velocity = Vector3.ZERO
 	_main.terrain.render_origin = ship.render_origin.duplicate_position()
