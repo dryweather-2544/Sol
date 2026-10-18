@@ -9,6 +9,7 @@ var _room_lights := {} # room id -> OmniLight3D
 var _fire_nodes := {}   # room id -> MeshInstance3D
 var _station_screens := {} # station id -> StandardMaterial3D (emission shows the station's state)
 var _smoke_nodes := {}    # room id -> CPUParticles3D
+var _scorch_decals := {}  # room id -> Decal, hidden until the room has had a fire this session (not saved: saves may not change in N9)
 var _turret_pivot := Node3D.new()
 var _ramp_pivot := Node3D.new()
 var _ramp_mesh := MeshInstance3D.new()
@@ -43,6 +44,7 @@ func _ready() -> void:
 	_build_lights(layout)
 	if _wall_material != _hull_material:
 		_build_reflection_probe(layout)
+	_build_decals(layout)
 
 
 func _process(_delta: float) -> void:
@@ -58,6 +60,8 @@ func _process(_delta: float) -> void:
 	var flicker := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
 	for room_id in _fire_nodes:
 		var intensity := hazards.fire_in(room_id)
+		if intensity > 0.0 and _scorch_decals.has(room_id):
+			(_scorch_decals[room_id] as Decal).visible = true
 		(_fire_nodes[room_id] as Node3D).visible = intensity > 0.0
 		(_smoke_nodes[room_id] as CPUParticles3D).emitting = intensity > 0.0
 		(_fire_nodes[room_id] as Node3D).scale = Vector3.ONE * (0.4 + 0.8 * intensity) * (0.9 + 0.2 * flicker)
@@ -161,7 +165,11 @@ func _build_seat_and_console(layout: InteriorLayout) -> void:
 	var console := _box_instance(Vector3(2.4, 0.9, 0.6), _console_material)
 	console.position = Vector3(0, layout.floor_y + 0.45, -6.5)
 	add_child(console)
-	var screen := _box_instance(Vector3(2.2, 0.05, 0.5), _glow_material)
+	var nav_material: Material = AssetLibrary.material_copy_or("mat_ship_screen_nav", _glow_material)
+	if nav_material != _glow_material and nav_material is StandardMaterial3D:
+		(nav_material as StandardMaterial3D).albedo_color = Color(0.3, 0.7, 1.0) # the tint contract: albedo_color AND emission carry the state colour
+		(nav_material as StandardMaterial3D).emission = Color(0.3, 0.7, 1.0)
+	var screen := _box_instance(Vector3(2.2, 0.05, 0.5), nav_material)
 	screen.position = Vector3(0, layout.floor_y + 0.92, -6.5)
 	add_child(screen)
 
@@ -173,9 +181,16 @@ func _build_panels(layout: InteriorLayout) -> void:
 		if point["id"] in [&"reactor_panel", &"engine_station"]:
 			# A wall screen that shows the station's state (see _update_screens).
 			var screen_material := _emissive(Color(0.2, 1.0, 0.5), 2.0)
+			# Reactor screen = west wall (+x face shows), generic = east wall (-x face): the layout puts the reactor panel at x = -2.7 and
+			# the engine station at x = +2.7, which is what the assets were authored for (mat_ship_screen SOURCE.md).
+			var asset_screen := AssetLibrary.material_copy_or("mat_ship_screen_reactor" if point["id"] == &"reactor_panel" else "mat_ship_screen_generic", null)
+			if asset_screen is StandardMaterial3D:
+				screen_material = asset_screen as StandardMaterial3D
 			var screen := _box_instance(Vector3(0.06, 0.55, 0.8), screen_material)
 			var wall_side := 1.0 if point["position"].x > 0.0 else -1.0
-			screen.position = point["position"] + Vector3(wall_side * 0.42, 1.1, 0)
+			# The wall skin is 0.2 m thick with its inner face 0.3 m behind the panel point, so the old offset of 0.42 put this 0.06 m box
+			# inside the wall (hidden). 0.27 puts its back flush with the wall face and its front 0.06 m proud of it.
+			screen.position = point["position"] + Vector3(wall_side * 0.27, 1.1, 0)
 			add_child(screen)
 			_station_screens[point["id"]] = screen_material
 			continue
@@ -287,6 +302,78 @@ func _build_lights(layout: InteriorLayout) -> void:
 			smoke.emitting = false
 			add_child(smoke)
 			_smoke_nodes[room_id] = smoke
+
+
+## Decals from the Sol-Assets sets: room names above the doors, hazard stripes at the airlock and reactor, station IDs on the walls, and
+## hidden scorch marks that appear in a room once it has burned. Positions come from the layout, never from hard-coded numbers.
+func _build_decals(layout: InteriorLayout) -> void:
+	if not GameSettings.instance().decals:
+		return
+	var plate_height := layout.floor_y + 2.3 # the lintel above a 2.1 m door spans 2.1 m up to the ceiling
+	# [decal, door, true = the wall face on the door's tail side (looks toward +z, into the room behind the door)]
+	var plates := [["room_cockpit", &"cockpit_door", false], ["room_cabin", &"cockpit_door", true], ["room_engineering", &"engineering_door", true],
+		["room_turret", &"turret_door", true], ["room_cargo", &"cargo_door", true], ["room_airlock", &"airlock_inner", true]]
+	for plate in plates:
+		var opening: Rect2 = (layout.portals[plate[1]] as Portal).opening
+		var tail_side: bool = plate[2]
+		var wall_z := opening.end.y if tail_side else opening.position.y
+		_add_decal("dec_ship_markings", plate[0], Vector3(opening.get_center().x, plate_height, wall_z), _wall_decal_basis(Vector3(0, 0, 1) if tail_side else Vector3(0, 0, -1)))
+	var airlock_door: Rect2 = (layout.portals[&"airlock_inner"] as Portal).opening
+	for offset_x in [-0.5, 0.5]:
+		_add_decal("dec_ship_markings", "hazard_stripe", Vector3(airlock_door.get_center().x + offset_x, layout.floor_y, airlock_door.get_center().y), Basis.IDENTITY)
+	var station_ids := {&"reactor_panel": "id_reactor", &"engine_station": "id_engine", &"repair_panel": "id_repair", &"workbench": "id_workbench", &"extinguisher_locker": "id_extinguisher"}
+	for point in layout.interact_points:
+		if not station_ids.has(point["id"]):
+			continue
+		var position: Vector3 = point["position"]
+		for room_id in layout.rooms:
+			var rect: Rect2 = layout.rooms[room_id]
+			if not rect.has_point(Vector2(position.x, position.z)):
+				continue
+			var on_west_wall := position.x < rect.get_center().x
+			var wall_x := rect.position.x if on_west_wall else rect.end.x
+			_add_decal("dec_ship_markings", station_ids[point["id"]], Vector3(wall_x, layout.floor_y + 1.5, position.z), _wall_decal_basis(Vector3.RIGHT if on_west_wall else Vector3.LEFT))
+			if point["id"] == &"reactor_panel":
+				_add_decal("dec_ship_markings", "hazard_stripe", Vector3(position.x + 0.4, layout.floor_y, position.z), Basis(Vector3.UP, PI * 0.5))
+	var scorch_index := 0
+	for room_id in layout.rooms:
+		if not ship.systems.hazards.has_room(room_id):
+			continue
+		var rect: Rect2 = layout.rooms[room_id]
+		var scorch := _add_decal("dec_ship_damage", "scorch_01" if scorch_index % 2 == 0 else "scorch_02", Vector3(rect.get_center().x, layout.floor_y, rect.get_center().y), Basis.IDENTITY)
+		scorch_index += 1
+		if scorch != null:
+			scorch.visible = false
+			_scorch_decals[room_id] = scorch
+
+
+## A Decal projects along its local -y with the texture's top at local -z. For a vertical wall the basis is: local y = the wall normal
+## (toward the viewer), local -z = up, local x = the viewer's right.
+static func _wall_decal_basis(normal: Vector3) -> Basis:
+	var right := -normal.cross(Vector3.UP).normalized()
+	return Basis(right, normal, -Vector3.UP)
+
+
+## Adds one catalogue decal at `center`, or returns null (decal skipped, logged once) when its texture is missing.
+func _add_decal(set_id: String, decal_name: String, center: Vector3, orientation: Basis) -> Decal:
+	var entry: Dictionary = DecalCatalog.SETS[set_id][decal_name]
+	var albedo := AssetLibrary.texture("decals/%s/%s_%s_albedo.png" % [set_id, set_id, decal_name])
+	if albedo == null:
+		return null
+	var decal := Decal.new()
+	decal.name = "Decal_" + decal_name
+	decal.size = Vector3(entry["size_x"], entry["depth"], entry["size_z"])
+	decal.texture_albedo = albedo
+	var maps: String = entry["maps"]
+	if maps.contains("normal"):
+		decal.texture_normal = AssetLibrary.texture("decals/%s/%s_%s_normal.png" % [set_id, set_id, decal_name])
+	if maps.contains("orm"):
+		decal.texture_orm = AssetLibrary.texture("decals/%s/%s_%s_orm.png" % [set_id, set_id, decal_name])
+	decal.modulate = Color.html(entry["modulate"])
+	decal.albedo_mix = entry["albedo_mix"]
+	decal.transform = Transform3D(orientation, center)
+	add_child(decal)
+	return decal
 
 
 ## The nozzle texture covers the whole nacelle, so the engine glow becomes a thin emissive disc in the exhaust mouth: the cylinder's top

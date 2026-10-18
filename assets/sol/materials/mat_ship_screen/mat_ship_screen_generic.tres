@@ -1,0 +1,16 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_screen/mat_ship_screen_generic.png" id="1_b8ujr"]
+
+[resource]
+albedo_texture = ExtResource("1_b8ujr")
+roughness = 0.2
+emission_enabled = true
+emission = Color(1, 1, 1, 1)
+emission_energy_multiplier = 1.5
+emission_operator = 1
+emission_texture = ExtResource("1_b8ujr")
+uv1_scale = Vector3(1, 1.8181819, -1.25)
+uv1_offset = Vector3(0, 0.5, 0.5)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0
