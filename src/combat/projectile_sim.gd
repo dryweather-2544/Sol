@@ -22,6 +22,10 @@ class Target extends RefCounted:
 	func combat_radius() -> float:
 		return 1.0
 
+	## Planet-frame velocity, for lead aiming (zero for things that stand still).
+	func combat_velocity() -> Vector3:
+		return Vector3.ZERO
+
 	func team_id() -> int:
 		return 0
 

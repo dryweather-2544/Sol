@@ -20,6 +20,9 @@ var power := ShipPower.new()
 var subsystems := ShipSubsystems.new()
 ## Room air and fire.
 var hazards := ShipHazards.new(layout)
+## The dorsal gun the gunner works; its firing adds to the weapons conduit demand.
+var turret := ShipTurret.new()
+var turret_firing := false
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
 
@@ -81,7 +84,7 @@ func request_restart_reactor(_actor_id: StringName) -> String:
 func set_demand(command: PilotCommand) -> void:
 	var thrust_draw := 35.0 * command.thrust.limit_length(1.0).length() + (20.0 if command.boost else 0.0)
 	power.set_request(ShipPower.Conduit.ENGINES, 15.0 + thrust_draw)
-	power.set_request(ShipPower.Conduit.WEAPONS, 5.0 + (25.0 if command.fire else 0.0))
+	power.set_request(ShipPower.Conduit.WEAPONS, 5.0 + (25.0 if command.fire else 0.0) + (15.0 if turret_firing else 0.0))
 
 
 ## 0..1 multiplier on thrust: starved power and engine damage both slow the ship, but never below

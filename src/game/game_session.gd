@@ -32,6 +32,7 @@ var inventory := Inventory.new()
 var loot_log := LootLog.new()
 ## The AI crew aboard (walking the interior; see ShipCrew).
 var crew := ShipCrew.new()
+var crew_brain := CrewBrain.new()
 ## POIs near the player, set by the scene each tick (for crates and solid props).
 var nearby_pois: Array = []
 ## Combat: one projectile world shared by every shooter; enemy_targets is filled by the encounter director.
@@ -97,6 +98,9 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	ship.simulate_tick(delta)
 	systems.update(delta, ship.state)
 	crew.update(delta, systems)
+	crew_brain.update(delta, crew, systems, ship, enemy_targets)
+	systems.turret.update(delta, ship, enemy_targets, systems.seats.state_of(&"gunner_seat") == SeatManager.SeatState.OCCUPIED, systems.weapon_factor(), projectiles)
+	systems.turret_firing = systems.turret.firing
 	_update_repair(delta)
 	var burning_now := systems.hazards.burning_rooms()
 	if burning_now.size() > _burning_room_count:
@@ -136,6 +140,19 @@ func interact() -> void:
 		Mode.OUTSIDE:
 			if not _try_open_crate():
 				_say("Walk up the ramp to board")
+
+
+## Captain's hotkeys: orders to the crew and the reactor's power split.
+func order_crew_fix() -> void:
+	_say(crew_brain.toggle_order(&"engineer", CrewBrain.Goal.ORDER_FIX, crew))
+
+
+func order_crew_turret() -> void:
+	_say(crew_brain.toggle_order(&"gunner", CrewBrain.Goal.ORDER_TURRET, crew))
+
+
+func cycle_power_preset() -> void:
+	_say("Power split: " + crew_brain.cycle_power_preset(systems, ACTOR))
 
 
 func prompt() -> String:

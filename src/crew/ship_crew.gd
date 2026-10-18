@@ -53,14 +53,35 @@ func order_to_station(systems: ShipSystems, member_id: StringName, station_id: S
 		target = layout.standing_spot_for(station_id)
 	if target == Vector2.INF:
 		return "no such station"
-	if person.seat_id != &"" and person.seat_id != station_id:
+	if person.seat_id == station_id:
+		return "" # already sitting there
+	if person.seat_id != &"":
 		systems.seats.stand(member_id)
 		systems.seats.cancel_sit(member_id)
 		var seat: Dictionary = layout.seats[person.seat_id]
 		person.body.place(seat["exit_position"], person.body.yaw)
 		person.seat_id = &""
-	var route := CrewNavigator.route(layout, Vector2(person.body.position.x, person.body.position.z), target)
-	if route.is_empty() and CrewNavigator.room_near(layout, Vector2(person.body.position.x, person.body.position.z)) != CrewNavigator.room_near(layout, target):
+	return _send(systems, person, target, station_id)
+
+
+## Send a person to any floor spot (ship-local x, z), not a station. Returns "" or why not.
+func order_to_spot(systems: ShipSystems, member_id: StringName, spot: Vector2) -> String:
+	var person := member(member_id)
+	if person == null:
+		return "no such crew member"
+	if person.seat_id != &"":
+		systems.seats.stand(member_id)
+		var seat: Dictionary = systems.layout.seats[person.seat_id]
+		person.body.place(seat["exit_position"], person.body.yaw)
+		person.seat_id = &""
+	return _send(systems, person, spot, &"")
+
+
+func _send(systems: ShipSystems, person: CrewMember, target: Vector2, station_id: StringName) -> String:
+	var layout := systems.layout
+	var here := Vector2(person.body.position.x, person.body.position.z)
+	var route := CrewNavigator.route(layout, here, target)
+	if route.is_empty() and CrewNavigator.room_near(layout, here) != CrewNavigator.room_near(layout, target):
 		return "no route"
 	person.path = route
 	person.station_id = station_id
@@ -140,7 +161,7 @@ func to_array() -> Array:
 	var saved: Array = []
 	for person in members:
 		saved.append({"id": String(person.id), "role": String(person.role), "position": [person.body.position.x, person.body.position.y, person.body.position.z],
-			"yaw": person.body.yaw, "seat": String(person.seat_id), "station": String(person.station_id)})
+			"yaw": person.body.yaw, "seat": String(person.seat_id), "station": String(person.station_id), "charges": person.extinguisher_charges})
 	return saved
 
 
@@ -151,6 +172,7 @@ func restore(systems: ShipSystems, saved: Array) -> void:
 		var position: Array = entry["position"]
 		person.body.place(Vector3(float(position[0]), float(position[1]), float(position[2])), float(entry["yaw"]))
 		person.station_id = StringName(entry["station"])
+		person.extinguisher_charges = int(entry.get("charges", 0))
 		var saved_seat := StringName(entry["seat"])
 		if saved_seat != &"" and systems.seats.try_sit(person.id, saved_seat):
 			person.seat_id = saved_seat

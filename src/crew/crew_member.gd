@@ -17,6 +17,7 @@ var arrived := true
 var blocked_seconds := 0.0
 var speed := 0.0
 var door_cooldown := 0.0
+var extinguisher_charges := 0
 
 
 func _init(member_id: StringName, member_role: StringName) -> void:

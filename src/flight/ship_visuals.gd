@@ -7,6 +7,7 @@ var ship: Ship
 var _door_nodes := {}   # portal id -> {node: MeshInstance3D, base_y: float}
 var _room_lights := {} # room id -> OmniLight3D
 var _fire_nodes := {}   # room id -> MeshInstance3D
+var _turret_pivot := Node3D.new()
 var _ramp_pivot := Node3D.new()
 var _ramp_mesh := MeshInstance3D.new()
 
@@ -27,6 +28,7 @@ func _ready() -> void:
 	_build_panels(layout)
 	_build_exterior_extras(layout)
 	_build_ramp(layout)
+	_build_turret()
 	_build_lights(layout)
 
 
@@ -36,6 +38,9 @@ func _process(_delta: float) -> void:
 		var portal: Portal = layout.portals[portal_id]
 		var record: Dictionary = _door_nodes[portal_id]
 		(record["node"] as Node3D).position.y = record["base_y"] + portal.open_factor * 2.3
+	var aim := ship.systems.turret.aim_local
+	if aim.length() > 0.5:
+		_turret_pivot.basis = Basis.looking_at(aim, Vector3.UP if absf(aim.y) < 0.99 else Vector3.FORWARD)
 	var hazards := ship.systems.hazards
 	var flicker := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
 	for room_id in _fire_nodes:
@@ -179,6 +184,18 @@ func _build_exterior_extras(layout: InteriorLayout) -> void:
 	var fin := _box_instance(Vector3(0.2, 1.6, 2.2), _accent_material)
 	fin.position = Vector3(0, ship.systems.layout.ceiling_y + 0.9, 6.0)
 	add_child(fin)
+
+
+## The dorsal gun above the turret room; the barrel follows ShipTurret's aim.
+func _build_turret() -> void:
+	_turret_pivot.position = ship.systems.turret.muzzle_offset - Vector3(0, 0.15, 0)
+	add_child(_turret_pivot)
+	var base := _box_instance(Vector3(0.7, 0.3, 0.7), _floor_material)
+	base.position = Vector3(0, -0.05, 0)
+	_turret_pivot.add_child(base)
+	var barrel := _box_instance(Vector3(0.14, 0.14, 1.1), _accent_material)
+	barrel.position = Vector3(0, 0.1, -0.6)
+	_turret_pivot.add_child(barrel)
 
 
 func _build_ramp(layout: InteriorLayout) -> void:

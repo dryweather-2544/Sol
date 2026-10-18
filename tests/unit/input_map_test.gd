@@ -3,7 +3,7 @@ extends "res://tests/test_case.gd"
 const REQUIRED_ACTIONS := [
 	"thrust_forward", "thrust_back", "strafe_left", "strafe_right", "move_up", "move_down",
 	"roll_left", "roll_right", "pitch_up", "pitch_down", "yaw_left", "yaw_right",
-	"boost", "brake", "interact", "toggle_view", "gear_up", "gear_down", "pause", "quicksave", "quickload", "nav_next", "inventory", "fire"]
+	"boost", "brake", "interact", "toggle_view", "gear_up", "gear_down", "pause", "quicksave", "quickload", "nav_next", "inventory", "fire", "crew_fix", "crew_turret", "crew_power"]
 
 
 func test_every_flight_action_exists_and_has_a_key() -> void:

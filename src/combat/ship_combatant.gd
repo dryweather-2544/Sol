@@ -21,6 +21,10 @@ func combat_radius() -> float:
 	return radius
 
 
+func combat_velocity() -> Vector3:
+	return ship.state.velocity
+
+
 func team_id() -> int:
 	return team
 

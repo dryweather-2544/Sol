@@ -251,6 +251,12 @@ func _input(event: InputEvent) -> void:
 		session.interact()
 		if session.mode != mode_before:
 			_on_mode_changed()
+	elif event.is_action_pressed("crew_fix"):
+		session.order_crew_fix()
+	elif event.is_action_pressed("crew_turret"):
+		session.order_crew_turret()
+	elif event.is_action_pressed("crew_power"):
+		session.cycle_power_preset()
 	elif event.is_action_pressed("nav_next"):
 		_cycle_nav_target()
 	elif event.is_action_pressed("toggle_view"):

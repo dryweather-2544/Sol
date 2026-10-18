@@ -119,7 +119,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests:** a crew member reaches every station from every room in ≤ N s; doors never close on anyone; airlock invariant holds with crew (extend the 10,000-step fuzz); seat contention player vs crew resolves to exactly one; `transition_fuzz` with 2 crew; save/load restores crew positions.
 - **Inspect:** screenshot inside showing two crew at stations.
 
-### N6 — Crew roles, orders, turret
+### N6 — DONE. Crew roles, orders, turret
 - **Deliverable:** small utility AI (`PULSAR 10` §8: score a fixed goal list, act at 5–10 Hz, not 60): Engineer goals = extinguish, repair worst subsystem, keep reactor under temperature (auto power policy); Gunner goals = man turret, shoot the nearest hostile. A turret weapon on the ship aimed independently (reuse `Weapon` + `ProjectileSim` + `AIPilotSource` lead-aim maths). Captain orders via hotkeys: power preset (Engines/Weapons/Balanced), "fix X", "man turret". Overlay shows each crew's goal + score.
 - **Acceptance / tests (headless scenarios):** fire in engineering → engineer extinguishes it within T s; engines at 30 % → repaired within T s; gunner destroys a scripted target drone within T s; an order overrides the utility choice until done; no goal oscillation (goal changes ≤ K per minute in a 10-minute soak).
 - **Inspect:** overlay + screenshot; a short real-scene run.

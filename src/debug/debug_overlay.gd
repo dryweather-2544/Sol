@@ -95,7 +95,12 @@ func _power_text() -> String:
 		return ""
 
 	var power := ship.systems.power
-	return "\nPWR E %d  W %d  L %d   T %d%%   coolant %d%%%s" % [
+	var crew_text := ""
+	if session != null:
+		for person in session.crew.members:
+			var goal: int = session.crew_brain.goals.get(person.id, CrewBrain.Goal.IDLE)
+			crew_text += "   %s (%s): %s" % [String(person.id).capitalize(), person.role, CrewBrain.goal_name(goal)]
+	return ("\nCREW" + crew_text if crew_text != "" else "") + "\nPWR E %d  W %d  L %d   T %d%%   coolant %d%%%s" % [
 		power.delivered(ShipPower.Conduit.ENGINES), power.delivered(ShipPower.Conduit.WEAPONS),
 		power.delivered(ShipPower.Conduit.LIFE_SUPPORT), power.temperature * 100.0, power.coolant * 100.0,
 		"   REACTOR SHUTDOWN" if power.is_shut_down() else ""] + "\nENG %d%%  WPN %d%%  RCT %d%%  LIFE %d%%" % [
