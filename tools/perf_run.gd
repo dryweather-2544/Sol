@@ -35,6 +35,7 @@ func _initialize() -> void:
 	if OS.get_environment("SOL_ASSETS") == "off": # N9 tooling: measure/photograph the placeholder look with the same build
 		var settings := GameSettings.instance()
 		settings.asset_materials = false
+		settings.atmosphere_scattering = false
 		settings.decals = false
 		settings.terrain_detail = false
 		settings.starfield = false

@@ -73,6 +73,7 @@ static func default_system() -> StarSystem:
 	inner.spin_period = 7500.0
 	inner.terrain_profile = _profile(4242, 4.2e6, 1800.0, 4800.0, 10.0, 2.0)
 	inner.color = Color(0.75, 0.35, 0.2)
+	inner.atmosphere_color = Color(0.95, 0.5, 0.22) # thin toxic haze: scatters orange
 	inner.terrain_profile.palette_low = Color(0.55, 0.25, 0.15)
 	inner.terrain_profile.palette_mid = Color(0.7, 0.4, 0.2)
 	inner.terrain_profile.palette_high = Color(0.35, 0.25, 0.22)
@@ -91,6 +92,7 @@ static func default_system() -> StarSystem:
 	outer.spin_period = 5400.0
 	outer.terrain_profile = _profile(9090, 8.5e6, 2000.0, 3000.0, 9.0, 1.8)
 	outer.color = Color(0.3, 0.5, 0.65)
+	outer.atmosphere_color = Color(0.4, 0.8, 0.85) # teal
 	outer.terrain_profile.palette_low = Color(0.15, 0.4, 0.3)
 	outer.terrain_profile.palette_mid = Color(0.3, 0.55, 0.35)
 	outer.terrain_profile.palette_high = Color(0.5, 0.5, 0.45)

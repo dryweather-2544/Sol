@@ -23,6 +23,8 @@ var decals := true
 var terrain_detail := true
 var starfield := true
 var sample_audio := true
+## Scattering atmosphere (data/shaders/atmosphere_scatter.gdshader) instead of the thin rim glow.
+var atmosphere_scattering := true
 
 
 static func instance() -> GameSettings:
@@ -50,6 +52,7 @@ func save_to_file() -> String:
 	config.set_value("assets", "terrain_detail", terrain_detail)
 	config.set_value("assets", "starfield", starfield)
 	config.set_value("assets", "sample_audio", sample_audio)
+	config.set_value("assets", "atmosphere_scattering", atmosphere_scattering)
 	var error := config.save(path)
 	return "" if error == OK else "could not save settings (error %d)" % error
 
@@ -70,3 +73,4 @@ func load_from_file() -> void:
 	terrain_detail = bool(config.get_value("assets", "terrain_detail", terrain_detail))
 	starfield = bool(config.get_value("assets", "starfield", starfield))
 	sample_audio = bool(config.get_value("assets", "sample_audio", sample_audio))
+	atmosphere_scattering = bool(config.get_value("assets", "atmosphere_scattering", atmosphere_scattering))

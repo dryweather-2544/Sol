@@ -8,7 +8,7 @@ Anything else: ask the project owner first.
 
 | Date added | Item | Author / source URL | Licence | Licence checked at (URL or file) | Files / folder in repo | Modified? |
 |---|---|---|---|---|---|---|
-| — | (none yet) | | | | | |
+| 2026-10-18 | Atmospheric scattering shader (adapted into data/shaders/atmosphere_scatter.gdshader) | Sean O'Neil (GPU Gems 2, 2004); Godot port by Cuberact, https://github.com/cuberact/godot-cuberact-planet-chunked-lod | MIT | repository LICENSE (checked via the GitHub API, licence MIT) | data/shaders/atmosphere_scatter.gdshader | Yes: normalised units, analytic entry/exit/planet hit, camera from the model matrix |
 
 ## Credits shown in-game (CC-BY and similar)
 

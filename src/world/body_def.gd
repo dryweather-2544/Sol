@@ -23,7 +23,7 @@ var spin_period := 6000.0
 var terrain_profile: TerrainProfile
 var color := Color(0.5, 0.5, 0.5)
 ## Colour of the glowing rim around the atmosphere.
-var atmosphere_color := Color(0.35, 0.6, 1.0)
+var atmosphere_color := Color(0.29, 0.48, 1.0) # default: Earth-like Rayleigh blue (ratio of 1 / wavelength^4 at 0.65 / 0.57 / 0.475 um)
 
 
 ## Distance within which this body's own frame takes over (research PRC-01: 10 x radius).

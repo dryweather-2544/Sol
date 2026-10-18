@@ -18,6 +18,7 @@ func _ready() -> void:
 	var starfield: Texture2D = AssetLibrary.texture("sky/tex_sky_starfield.png") if GameSettings.instance().starfield else null
 	_sky_material.set_shader_parameter("starfield", starfield)
 	_sky_material.set_shader_parameter("starfield_amount", 1.0 if starfield != null else 0.0)
+	_sky_material.set_shader_parameter("gradient_amount", 0.0 if GameSettings.instance().atmosphere_scattering else 1.0) # the atmosphere shell supplies the sky colour
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
 	_environment.background_mode = Environment.BG_SKY

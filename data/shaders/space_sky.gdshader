@@ -8,6 +8,8 @@ uniform sampler2D starfield : source_color, filter_linear, repeat_enable;
 uniform float starfield_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float daylight : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0);
+// 1 = the original gradient day sky; lowered when the scattering atmosphere shell supplies the sky colour.
+uniform float gradient_amount : hint_range(0.0, 1.0) = 1.0;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.1031);
@@ -30,5 +32,5 @@ void sky() {
 	float sun_amount = max(dot(EYEDIR, sun_direction), 0.0);
 	vec3 day_color = mix(vec3(0.55, 0.7, 0.9), vec3(0.15, 0.32, 0.65), clamp(EYEDIR.y * 0.5 + 0.5, 0.0, 1.0));
 	day_color += vec3(1.0, 0.9, 0.7) * pow(sun_amount, 64.0) * 0.8;
-	COLOR = mix(space_color, day_color, daylight);
+	COLOR = mix(space_color, day_color * gradient_amount, daylight);
 }
