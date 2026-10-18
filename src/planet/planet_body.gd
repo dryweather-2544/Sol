@@ -3,8 +3,14 @@ extends RefCounted
 ## One planet in its own frame (centre at the frame origin, non-rotating). Pure logic: gravity,
 ## atmosphere and terrain queries. Positions are WorldPos (64-bit).
 
-const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 2000.0
-const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 8000.0
+## Cruise gear is refused below this height. Combat gear in thick air is slow (a quarter of 500 m/s, half of that straight up), so a high
+## threshold meant a long crawl before the ship could move properly: 500 m keeps it clear of buildings and hills but gets you flying fast.
+const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 500.0
+## Cruise speed limit is this many metres per second per metre of height (so the limit grows 1/s of height climbed); was 0.3, which took
+## about 40 s just to reach the atmosphere cap.
+const CRUISE_SPEED_PER_METRE_OF_ALTITUDE := 1.0
+## Equal to ShipDamage.HEAT_START_SPEED: cruising up or down through the air never burns the hull; only arriving faster from space does.
+const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 12000.0
 ## Below LEVEL_ASSIST_START_ALTITUDE metres the ship eases itself upright; full strength at LEVEL_ASSIST_FULL_ALTITUDE.
 const LEVEL_ASSIST_START_ALTITUDE := 400.0
 const LEVEL_ASSIST_FULL_ALTITUDE := 150.0
@@ -88,7 +94,7 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 		environment.max_speed_factor = 1.0 if ratio >= 1.0 else lerpf(0.25, 1.0, smoothstep(0.1, 1.0, ratio))
 	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
 	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
-	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
+	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * CRUISE_SPEED_PER_METRE_OF_ALTITUDE)
 	if ratio < 1.0:
 		environment.cruise_speed_limit = minf(environment.cruise_speed_limit, CRUISE_SPEED_LIMIT_IN_ATMOSPHERE)
 	environment.level_up = up_at(ship_state.position)

@@ -31,7 +31,8 @@ func test_damage_curves() -> void:
 	assert_eq(ShipDamage.impact_damage(120.0), 1.0, "fast impact is fatal")
 	assert_eq(ShipDamage.heating_rate(20000.0, 2.0), 0.0, "no heat in space")
 	assert_eq(ShipDamage.heating_rate(1000.0, 0.5), 0.0, "slow in air is fine")
-	assert_true(ShipDamage.heating_rate(12000.0, 0.5) > 0.0)
+	assert_eq(ShipDamage.heating_rate(PlanetBody.CRUISE_SPEED_LIMIT_IN_ATMOSPHERE, 0.5), 0.0, "cruising at the atmosphere speed limit never burns the hull")
+	assert_true(ShipDamage.heating_rate(18000.0, 0.5) > 0.0, "arriving faster than the limit does")
 
 
 func test_hard_landing_hurts_the_hull_and_destruction_is_signalled_once() -> void:

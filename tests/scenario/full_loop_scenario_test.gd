@@ -23,7 +23,9 @@ class LoopPilot extends PilotSource:
 		var altitude := ship_state.altitude_above_ground
 		match phase:
 			Phase.DESCEND:
-				command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else PilotCommand.GEAR_DOCK
+				# Cruise down to 1500 m, then combat gear (about 60 m/s in thick air). It used to hand over to dock gear (about 2 m/s) at 4000 m and only
+				# reached the ground on leftover speed from the old slow cruise limit; with the faster cruise limit the ship brakes at the hand-over.
+				command.gear = PilotCommand.GEAR_CRUISE if altitude > 1500.0 else PilotCommand.GEAR_COMBAT
 				command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
 			Phase.TAKEOFF:
 				command.gear = PilotCommand.GEAR_CRUISE if altitude > 2500.0 else PilotCommand.GEAR_COMBAT

@@ -7,8 +7,8 @@ extends RefCounted
 
 const SAFE_IMPACT_SPEED := 15.0
 const LETHAL_IMPACT_SPEED := 90.0
-const HEAT_START_SPEED := 5000.0
-const HEAT_FULL_SPEED := 15000.0
+const HEAT_START_SPEED := 12000.0
+const HEAT_FULL_SPEED := 22000.0
 ## Hull fraction lost per second at HEAT_FULL_SPEED inside the atmosphere.
 const HEAT_RATE_AT_FULL := 0.1
 const REPAIR_PER_SECOND := 0.15
