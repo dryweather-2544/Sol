@@ -182,3 +182,22 @@ func test_v8_fixture_migrates_to_v9_with_intact_ship_and_keeps_its_data() -> voi
 	assert_true(session.systems.subsystems.is_undamaged())
 	assert_true(not session.systems.power.is_shut_down())
 	session.ship.free()
+
+
+func test_v9_save_with_someone_in_the_old_airlock_moves_them_with_it() -> void:
+	var v9 := {"save_version": 9, "player": {"interior_position": [0.0, -0.9, 4.7]}}
+	var migrated: Dictionary = SaveMigrations.migrate(v9)["data"]
+	assert_near(float(migrated["player"]["interior_position"][2]), 9.3, 1e-9, "old airlock z 4.7 is now 9.3")
+	var cabin := {"save_version": 9, "player": {"interior_position": [0.0, -0.9, -2.0]}}
+	assert_near(float((SaveMigrations.migrate(cabin)["data"] as Dictionary)["player"]["interior_position"][2]), -2.0, 1e-9, "cabin unchanged")
+
+
+func test_restoring_a_position_inside_a_wall_puts_the_player_at_the_pilot_seat() -> void:
+	var session := _session()
+	var data := SaveGame.capture(session, 42)
+	data["player"]["interior_position"] = [2.0, -0.9, -0.1] # in the wall between cabin and engineering
+	var fresh := _session()
+	assert_eq(SaveGame.restore(fresh, data), "")
+	assert_true(fresh.systems.layout.is_position_walkable(fresh.interior_body.position.x, fresh.interior_body.position.z, 0.0), "safe place")
+	session.ship.free()
+	fresh.ship.free()

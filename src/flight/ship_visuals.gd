@@ -50,6 +50,8 @@ func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
 		_slab((portal as Portal).opening, layout.ceiling_y, layout.ceiling_y + 0.12, _hull_material)
 
 
+## Walls are the 0.2 m skin just outside each room rectangle, with gaps where a portal opening crosses it.
+## The cockpit's nose wall is glass.
 func _build_walls(layout: InteriorLayout) -> void:
 	var bottom := layout.floor_y
 	var top := layout.ceiling_y
@@ -57,20 +59,47 @@ func _build_walls(layout: InteriorLayout) -> void:
 	glass.albedo_color = Color(0.5, 0.7, 0.9, 0.2)
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.roughness = 0.1
-	# Cockpit: side walls, windscreen
-	_wall_box(-2.2, -2.0, -7.2, -3.4, bottom, top)
-	_wall_box(2.0, 2.2, -7.2, -3.4, bottom, top)
-	_wall_box(-2.2, 2.2, -7.2, -7.0, bottom, top, glass)
-	# Cabin side walls
-	_wall_box(-3.2, -3.0, -3.6, 3.6, bottom, top)
-	_wall_box(3.0, 3.2, -3.6, 3.6, bottom, top)
-	# Bulkheads with door gaps: cockpit/cabin, cabin/airlock
-	_wall_with_gap(-3.0, 3.0, -3.6, -3.4, -0.7, 0.7, bottom, top)
-	_wall_with_gap(-3.0, 3.0, 3.4, 3.6, -0.7, 0.7, bottom, top)
-	# Airlock side walls and outer wall with gap
-	_wall_box(-1.6, -1.4, 3.6, 6.2, bottom, top)
-	_wall_box(1.4, 1.6, 3.6, 6.2, bottom, top)
-	_wall_with_gap(-1.6, 1.6, 6.0, 6.2, -0.7, 0.7, bottom, top)
+	var thickness := 0.2
+	for room_id in layout.rooms:
+		var room: Rect2 = layout.rooms[room_id]
+		var walls := {
+			"nose": [Rect2(room.position.x - thickness, room.position.y - thickness, room.size.x + 2.0 * thickness, thickness), true],
+			"tail": [Rect2(room.position.x - thickness, room.end.y, room.size.x + 2.0 * thickness, thickness), true],
+			"left": [Rect2(room.position.x - thickness, room.position.y, thickness, room.size.y), false],
+			"right": [Rect2(room.end.x, room.position.y, thickness, room.size.y), false]}
+		for side in walls:
+			var wall: Rect2 = walls[side][0]
+			var runs_along_x: bool = walls[side][1]
+			if room_id == &"cockpit" and side == "nose":
+				_wall_box(wall.position.x, wall.end.x, wall.position.y, wall.end.y, bottom, top, glass)
+				continue
+			_wall_with_portal_gaps(layout, wall, runs_along_x, bottom, top)
+
+
+func _wall_with_portal_gaps(layout: InteriorLayout, wall: Rect2, runs_along_x: bool, bottom: float, top: float) -> void:
+	var start := wall.position.x if runs_along_x else wall.position.y
+	var finish := wall.end.x if runs_along_x else wall.end.y
+	var gaps: Array = []
+	for portal in layout.portals.values():
+		var opening: Rect2 = (portal as Portal).opening
+		if opening.intersects(wall):
+			gaps.append(Vector2(opening.position.x, opening.end.x) if runs_along_x else Vector2(opening.position.y, opening.end.y))
+	gaps.sort_custom(func(first: Vector2, second: Vector2) -> bool: return first.x < second.x)
+	var cursor := start
+	for gap in gaps:
+		_wall_span(wall, runs_along_x, cursor, gap.x, bottom, top)
+		_wall_span(wall, runs_along_x, gap.x, gap.y, bottom + 2.1, top) # lintel above the door
+		cursor = gap.y
+	_wall_span(wall, runs_along_x, cursor, finish, bottom, top)
+
+
+func _wall_span(wall: Rect2, runs_along_x: bool, from_value: float, to_value: float, y_min: float, y_max: float) -> void:
+	if to_value - from_value < 0.001:
+		return
+	if runs_along_x:
+		_wall_box(from_value, to_value, wall.position.y, wall.end.y, y_min, y_max)
+	else:
+		_wall_box(wall.position.x, wall.end.x, from_value, to_value, y_min, y_max)
 
 
 func _build_doors(layout: InteriorLayout) -> void:
@@ -86,13 +115,15 @@ func _build_doors(layout: InteriorLayout) -> void:
 
 
 func _build_seat_and_console(layout: InteriorLayout) -> void:
-	var seat_position: Vector3 = layout.seats[&"pilot_seat"]["position"]
-	var seat := _box_instance(Vector3(0.7, 0.5, 0.7), _accent_material)
-	seat.position = seat_position + Vector3(0, 0.25, 0)
-	add_child(seat)
-	var back := _box_instance(Vector3(0.7, 1.0, 0.12), _accent_material)
-	back.position = seat_position + Vector3(0, 0.75, 0.38)
-	add_child(back)
+	for seat_id in layout.seats:
+		var seat_position: Vector3 = layout.seats[seat_id]["position"]
+		var behind := Vector3(0, 0, 0.38) if absf(layout.seats[seat_id]["facing_yaw"]) < 1.0 else Vector3(0, 0, -0.38)
+		var seat := _box_instance(Vector3(0.7, 0.5, 0.7), _accent_material)
+		seat.position = seat_position + Vector3(0, 0.25, 0)
+		add_child(seat)
+		var back := _box_instance(Vector3(0.7, 1.0, 0.12), _accent_material)
+		back.position = seat_position + Vector3(0, 0.75, 0) + behind
+		add_child(back)
 	var console := _box_instance(Vector3(2.4, 0.9, 0.6), _floor_material)
 	console.position = Vector3(0, layout.floor_y + 0.45, -6.5)
 	add_child(console)
@@ -103,7 +134,7 @@ func _build_seat_and_console(layout: InteriorLayout) -> void:
 
 func _build_panels(layout: InteriorLayout) -> void:
 	for point in layout.interact_points:
-		if point["id"] == &"pilot_seat":
+		if layout.seats.has(point["id"]):
 			continue
 		var panel := _box_instance(Vector3(0.25, 0.35, 0.08), _panel_material)
 		panel.position = point["position"] + Vector3(0, 1.1, 0)
@@ -113,10 +144,10 @@ func _build_panels(layout: InteriorLayout) -> void:
 func _build_exterior_extras(layout: InteriorLayout) -> void:
 	for side in [-1.0, 1.0]:
 		var wing := _box_instance(Vector3(4.6, 0.15, 3.4), _hull_material)
-		wing.position = Vector3(side * 5.5, 0.1, 0.6)
+		wing.position = Vector3(side * 5.5, 0.1, 2.0)
 		add_child(wing)
 		var tip := _box_instance(Vector3(0.3, 0.3, 3.4), _accent_material if side < 0.0 else _material(Color(0.1, 0.8, 0.2), 0.6, 0.2))
-		tip.position = Vector3(side * 7.8, 0.1, 0.6)
+		tip.position = Vector3(side * 7.8, 0.1, 2.0)
 		add_child(tip)
 		var engine := CylinderMesh.new()
 		engine.top_radius = 0.55
@@ -126,16 +157,16 @@ func _build_exterior_extras(layout: InteriorLayout) -> void:
 		nacelle.mesh = engine
 		nacelle.material_override = _glow_material
 		nacelle.rotation_degrees = Vector3(90, 0, 0)
-		nacelle.position = Vector3(side * 2.4, -0.3, 4.9)
+		nacelle.position = Vector3(side * 2.4, -0.3, 9.3)
 		add_child(nacelle)
 		var gear := _box_instance(Vector3(0.3, 1.2, 0.3), _floor_material)
-		gear.position = Vector3(side * 2.6, -1.4, 4.5)
+		gear.position = Vector3(side * 2.6, -1.4, 8.5)
 		add_child(gear)
 		var gear_front := _box_instance(Vector3(0.3, 1.2, 0.3), _floor_material)
 		gear_front.position = Vector3(side * 2.6, -1.4, -5.0)
 		add_child(gear_front)
 	var fin := _box_instance(Vector3(0.2, 1.6, 2.2), _accent_material)
-	fin.position = Vector3(0, ship.systems.layout.ceiling_y + 0.9, 2.4)
+	fin.position = Vector3(0, ship.systems.layout.ceiling_y + 0.9, 6.0)
 	add_child(fin)
 
 
@@ -152,10 +183,10 @@ func _build_ramp(layout: InteriorLayout) -> void:
 
 
 func _build_lights(layout: InteriorLayout) -> void:
-	for light_position in [Vector3(0, 1.3, -5.2), Vector3(0, 1.3, 0.0), Vector3(0, 1.3, 4.8)]:
+	for room in layout.rooms.values():
 		var light := OmniLight3D.new()
-		light.position = light_position
-		light.omni_range = 7.0
+		light.position = Vector3((room as Rect2).get_center().x, 1.3, (room as Rect2).get_center().y)
+		light.omni_range = 5.5
 		light.light_energy = 1.6
 		light.shadow_enabled = false
 		add_child(light)
@@ -173,13 +204,6 @@ func _wall_box(x_min: float, x_max: float, z_min: float, z_max: float, y_min: fl
 	var instance := _box_instance(Vector3(x_max - x_min, y_max - y_min, last_z - first_z), material if material != null else _hull_material)
 	instance.position = Vector3((x_min + x_max) * 0.5, (y_min + y_max) * 0.5, (first_z + last_z) * 0.5)
 	add_child(instance)
-
-
-## A wall spanning x_min..x_max with a doorway between gap_min..gap_max (door height 2.1).
-func _wall_with_gap(x_min: float, x_max: float, z_min: float, z_max: float, gap_min: float, gap_max: float, y_min: float, y_max: float) -> void:
-	_wall_box(x_min, gap_min, z_min, z_max, y_min, y_max)
-	_wall_box(gap_max, x_max, z_min, z_max, y_min, y_max)
-	_wall_box(gap_min, gap_max, z_min, z_max, y_min + 2.1, y_max)
 
 
 func _box_instance(size: Vector3, material: Material) -> MeshInstance3D:

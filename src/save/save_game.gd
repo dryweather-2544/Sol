@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 9
+const SAVE_VERSION := 10
 const GAME_VERSION := "0.1"
 
 
@@ -102,7 +102,12 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	var player_data: Dictionary = data["player"]
 	var mode := int(player_data["mode"])
 	var exterior: Dictionary = player_data["exterior"]
-	session.interior_body.place(_array_to_vector(player_data["interior_position"]), float(player_data["interior_yaw"]))
+	var saved_interior_position := _array_to_vector(player_data["interior_position"])
+	var saved_ramp_position_ok := systems.layout.ramp_walkable and systems.layout.ramp_rect.has_point(Vector2(saved_interior_position.x, saved_interior_position.z))
+	if not saved_ramp_position_ok and not systems.layout.is_position_walkable(saved_interior_position.x, saved_interior_position.z, 0.0):
+		# A save from an older layout can leave someone inside a wall; put them at the pilot seat instead.
+		saved_interior_position = systems.layout.seats[&"pilot_seat"]["exit_position"]
+	session.interior_body.place(saved_interior_position, float(player_data["interior_yaw"]))
 	session.exterior_body.position = WorldPos.from_dictionary(exterior["position"])
 	session.exterior_body.heading = _array_to_vector(exterior["heading"])
 	session.exterior_body.velocity = _array_to_vector(exterior["velocity"])

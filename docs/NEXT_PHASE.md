@@ -104,7 +104,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests:** flight replay with engines at 50 % reaches ≤ 55 % of the baseline speed change; weapons at 0 never fire; v8 fixture loads with full health; save round-trip preserves subsystem health and power state; full_loop + playthrough still pass.
 - **Inspect:** debug overlay; damage the ship with a debug key and fly.
 
-### N3 — Ship layout v2 and stations (Opus review of R2/R3 first)
+### N3 — DONE. Ship layout v2 and stations (Opus review of R2/R3 first)
 - **Deliverable:** `InteriorLayout.player_ship()` grows to ~6 rooms on one deck: cockpit, corridor/cabin, engineering (reactor), turret room (gunner seat), cargo, airlock. Stations become authored interact points with roles (`reactor_panel`, `engine_station`, `turret_seat`, `extinguisher_locker`). `ShipVisuals` already builds from the layout; exterior hull, ground-contact points, walkway and `ship_hull_collision` follow the new footprint.
 - **Acceptance / tests:** room graph is connected through portals (BFS test); every station point is walkable and reachable from the pilot seat; `airlock_invariant`, `interior_moving`, `transition_fuzz`, `full_loop`, `frame_switch` pass unchanged; playthrough waypoints updated and `PLAYTHROUGH OK`.
 - **Inspect:** `tools/screenshot.gd inside` at each station (add the coordinates to a list in the tool); one top-down frame.

@@ -32,7 +32,14 @@ var _frames := 0
 var _step := 0
 var _wait := 0
 var _log := []
-var _waypoints_inside := [Vector2(0.8, -4.0), Vector2(0.0, -3.9), Vector2(0.0, -2.5), Vector2(1.0, 2.6), Vector2(0.0, 2.9), Vector2(0.0, 4.7), Vector2(1.2, 4.3)]
+## Cockpit to airlock: a door panel (press use), then the two points that line up with and pass through the doorway.
+var _waypoints_inside := [Vector2(0.8, -4.0), Vector2(0.0, -3.9),
+	Vector2(1.0, -0.5), Vector2(0.0, -0.6), Vector2(0.0, 0.6),
+	Vector2(1.0, 2.9), Vector2(0.0, 3.0), Vector2(0.0, 3.9),
+	Vector2(1.0, 5.3), Vector2(0.0, 5.4), Vector2(0.0, 6.4),
+	Vector2(1.0, 7.6), Vector2(0.0, 7.9), Vector2(0.0, 9.3), Vector2(1.2, 8.9)]
+const _PANEL_WAYPOINTS := [0, 2, 5, 8, 11, 14]
+var _waypoint := 0
 
 
 func _initialize() -> void:
@@ -93,16 +100,17 @@ func _process(_delta: float) -> bool:
 				return _finish()
 			_say("standing inside the ship")
 			_step = 3
-		3, 4, 5, 6, 7, 8, 9: # walk the waypoint list, using doors at the door panels
-			var index := _step - 3
-			if _walk_to(_waypoints_inside[index]):
-				if index == 0 or index == 3 or index == 6:
+		3: # walk the waypoint list, using doors at the door panels
+			if _walk_to(_waypoints_inside[_waypoint]):
+				if _waypoint in _PANEL_WAYPOINTS:
 					_press_use()
 					_wait = 100
-				_say("waypoint %d reached at %s" % [index, str(session.interior_body.position)])
-				_step += 1
+				_say("waypoint %d reached at %s" % [_waypoint, str(session.interior_body.position)])
+				_waypoint += 1
+				if _waypoint >= _waypoints_inside.size():
+					_step = 10
 		10: # outer door
-			if _walk_to(Vector2(1.2, 5.2)):
+			if _walk_to(Vector2(1.2, 9.8)):
 				_press_use()
 				_wait = 220
 				_step = 11
@@ -111,9 +119,9 @@ func _process(_delta: float) -> bool:
 				_say("outside on foot")
 				_step = 12
 			else:
-				_walk_to(Vector2(0.0, 12.0))
+				_walk_to(Vector2(0.0, 16.6))
 		12: # back to the ramp
-			var target_world := ShipFrame.world_from_local(session.ship.state, Vector3(0, -2.0, 8.0))
+			var target_world := ShipFrame.world_from_local(session.ship.state, Vector3(0, -2.0, 12.6))
 			var to_target := target_world.vector_from(session.exterior_body.position)
 			var up := session.planet.up_at(session.exterior_body.position)
 			to_target -= up * to_target.dot(up)
@@ -126,7 +134,7 @@ func _process(_delta: float) -> bool:
 					session.exterior_body.heading = to_target.normalized()
 				Input.action_press("thrust_forward")
 		13:
-			var targets := [Vector2(0.0, 6.6), Vector2(0.0, 5.0), Vector2(1.2, 5.2)]
+			var targets := [Vector2(0.0, 11.2), Vector2(0.0, 9.6), Vector2(1.2, 9.8)]
 			if _walk_to(targets[_sub]):
 				_sub += 1
 				if _sub >= targets.size():
@@ -135,7 +143,7 @@ func _process(_delta: float) -> bool:
 					_step = 14
 					_sub = 0
 		14:
-			var path := [Vector2(1.2, 4.3), Vector2(0.0, 3.0), Vector2(0.0, 0.0), Vector2(0.0, -3.0), Vector2(0.0, -4.95)]
+			var path := [Vector2(1.2, 8.9), Vector2(0.0, 7.6), Vector2(0.0, 5.0), Vector2(0.0, 2.0), Vector2(0.0, 0.0), Vector2(0.0, -3.0), Vector2(0.0, -4.95)]
 			if _sub == 1 and not session.systems.airlock.inner.is_passable() and not session.systems.airlock.inner.target_open:
 				pass
 			if _walk_to(path[_sub]):

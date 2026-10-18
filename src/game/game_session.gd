@@ -15,6 +15,8 @@ const RAMP_EXIT_MARGIN := 0.1
 ## How far onto the ramp an outside walker must be before counting as boarded.
 const RAMP_ENTER_DEPTH := 0.8
 const DOORWAY_MARGIN := 0.5
+## Crew stations that exist in the layout but are not usable yet (reactor panel and fire gear come with N4, the gun with N6).
+const STATION_NAMES := {&"reactor_panel": "Reactor panel", &"engine_station": "Engine station", &"extinguisher_locker": "Extinguisher locker", &"gunner_seat": "Gunner seat"}
 
 var planet: PlanetBody
 var ship: Ship
@@ -130,9 +132,11 @@ func prompt() -> String:
 		Mode.SITTING:
 			return "Sitting down...  (F to cancel)"
 		Mode.INSIDE:
-			match systems.layout.nearest_interaction(interior_body.position):
+			var nearest := systems.layout.nearest_interaction(interior_body.position)
+			match nearest:
 				&"pilot_seat": return "F: sit in the pilot seat"
-				&"cockpit_door": return "F: cockpit door"
+				&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door": return "F: door"
+				&"reactor_panel", &"engine_station", &"extinguisher_locker", &"gunner_seat": return "F: " + STATION_NAMES[nearest]
 				&"airlock_inner": return "F: inner airlock door"
 				&"airlock_outer": return "F: outer door / walkway"
 				&"workbench": return "F: workbench (upgrades)"
@@ -220,8 +224,10 @@ func _interact_inside() -> void:
 				mode = Mode.SITTING
 				_sit_start_position = interior_body.position
 				_sit_elapsed = 0.0
-		&"cockpit_door":
-			failure = systems.toggle_cockpit_door()
+		&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door":
+			failure = systems.toggle_door(point)
+		&"reactor_panel", &"engine_station", &"extinguisher_locker", &"gunner_seat":
+			failure = STATION_NAMES[point] + " is not connected yet"
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
 		&"workbench":

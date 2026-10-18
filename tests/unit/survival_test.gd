@@ -61,7 +61,7 @@ func test_repair_panel_restores_the_hull_only_when_landed() -> void:
 	var session := _session_on_ground(_flat_planet())
 	session.ship.state.hull = 0.4
 	session.interact() # stand up
-	session.interior_body.place(Vector3(-2.0, -0.9, 0.0), 0.0)
+	session.interior_body.place(Vector3(-2.0, -0.9, -1.0), 0.0)
 	session.interact()
 	assert_true(session.repairing, "repair started")
 	for tick in 60 * 6:
@@ -126,13 +126,13 @@ func test_vacuum_world_airlock_vents_blocks_inner_door_and_costs_oxygen() -> voi
 		session.tick(DELTA, OnFootCommand.new())
 	assert_true(systems.airlock_pressure < 0.05, "airlock vented: %f" % systems.airlock_pressure)
 	assert_true(systems.toggle_inner_door() != "", "inner door refuses while the airlock is in vacuum")
-	session.interior_body.place(Vector3(0, -0.9, 4.7), 0.0)
+	session.interior_body.place(Vector3(0, -0.9, 9.3), 0.0)
 	var oxygen_before := session.suit.oxygen
 	for tick in 60 * 20:
 		session.tick(DELTA, OnFootCommand.new())
 	assert_true(session.suit.oxygen < oxygen_before, "standing in the vented airlock uses the suit tank")
 	# Close up and wait for the pressure to come back.
-	session.interior_body.place(Vector3(0, -0.9, 4.7), 0.0)
+	session.interior_body.place(Vector3(0, -0.9, 9.3), 0.0)
 	assert_eq(systems.toggle_outer_door(ship_state), "")
 	for tick in 60 * 8:
 		session.tick(DELTA, OnFootCommand.new())

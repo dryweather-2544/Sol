@@ -5,7 +5,7 @@ extends RefCounted
 
 const HULL_HALF_WIDTH := 3.2
 const HULL_FRONT_Z := -7.3
-const HULL_REAR_Z := 6.3
+const HULL_REAR_Z := 10.9
 const HULL_BOTTOM_Y := -1.2
 const HULL_TOP_Y := 1.9
 const PERSON_HEIGHT := 1.75

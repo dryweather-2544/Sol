@@ -7,7 +7,7 @@ extends RefCounted
 var layout := InteriorLayout.player_ship()
 var airlock: AirlockController
 var walkway := WalkwayController.new()
-var seats := SeatManager.new([&"pilot_seat"])
+var seats := SeatManager.new([&"pilot_seat", &"gunner_seat"])
 ## portal id -> true while a person is standing in (or beside) that doorway; set by the game each tick.
 ## A door never closes on someone.
 var occupied_portals := {}
@@ -104,9 +104,10 @@ func toggle_outer_door(ship_state: ShipState) -> String:
 	return AirlockController.describe(result)
 
 
-func toggle_cockpit_door() -> String:
-	var door: Portal = layout.portals[&"cockpit_door"]
-	if door.target_open and _is_occupied(&"cockpit_door"):
+## Interact with one of the plain interior doors (cockpit_door, engineering_door, ...).
+func toggle_door(portal_id: StringName) -> String:
+	var door: Portal = layout.portals[portal_id]
+	if door.target_open and _is_occupied(portal_id):
 		return "Someone is in the doorway"
 	door.target_open = not door.target_open
 	return ""

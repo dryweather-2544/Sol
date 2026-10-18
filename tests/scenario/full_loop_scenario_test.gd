@@ -133,7 +133,8 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 	_pilot.phase = LoopPilot.Phase.HOLD
 	_wait(1.0)
 
-	# 2. Stand up, open the cockpit door, cross the cabin.
+	# 2. Stand up and walk the length of the ship, opening each door at its panel: cockpit, engineering,
+	# turret room, cargo, then the airlock's inner door.
 	_session.interact()
 	assert_eq(_session.mode, GameSession.Mode.INSIDE, "stood up")
 	assert_true(ship.controller.is_parked(), "ship parked once the pilot stands")
@@ -141,56 +142,59 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 	_session.interact()
 	_wait(1.5)
 	assert_true(_walk_inside_to(0.0, -3.9), "lined up with the cockpit door")
-	assert_true(_walk_inside_to(0.0, -2.5), "through the cockpit door")
-	assert_true(_walk_inside_to(1.0, 2.6), "to the inner door panel")
+	for door in [[1.0, -0.5, -0.6, 0.6], [1.0, 2.9, 3.0, 3.9], [1.0, 5.3, 5.4, 6.4]]:
+		assert_true(_walk_inside_to(door[0], door[1]), "to the door panel at z=%f" % door[1])
+		_session.interact()
+		_wait(1.5)
+		assert_true(_walk_inside_to(0.0, door[2]), "lined up with the door at z=%f" % door[2])
+		assert_true(_walk_inside_to(0.0, door[3]), "through the door at z=%f" % door[2])
+	assert_true(_walk_inside_to(1.0, 7.6), "to the inner door panel")
 	_session.interact()
 	_wait(1.5)
 	assert_true(_session.systems.airlock.inner.is_passable(), "inner door open")
 
 	# 3. Into the airlock, close the inner door behind, open the outer door.
-	assert_true(_walk_inside_to(0.0, 2.9), "lined up with the inner door")
-	assert_true(_walk_inside_to(0.0, 4.7), "inside the airlock")
-	assert_true(_walk_inside_to(1.2, 4.3), "at the airlock-side inner panel")
+	assert_true(_walk_inside_to(0.0, 7.9), "lined up with the inner door")
+	assert_true(_walk_inside_to(0.0, 9.3), "inside the airlock")
+	assert_true(_walk_inside_to(1.2, 8.9), "at the airlock-side inner panel")
 	_session.interact()
 	_wait(1.5)
 	assert_true(_session.systems.airlock.inner.is_fully_closed(), "inner door closed")
 	_wait(AirlockController.CYCLE_SECONDS + 0.2)
-	assert_true(_walk_inside_to(1.2, 5.2), "at the outer door panel")
+	assert_true(_walk_inside_to(1.2, 9.8), "at the outer door panel")
 	_session.interact()
 	_wait(3.0)
 	assert_true(_session.systems.airlock.outer.is_passable() and _session.systems.walkway.is_deployed(), "outer door open and walkway out")
 
 	# 4. Walk out onto the ground, then 50 m away.
-	assert_true(_walk_inside_to(0.0, 6.4), "through the outer door")
+	assert_true(_walk_inside_to(0.0, 11.0), "through the outer door")
 	for tick in 60 * 20:
 		if _session.mode == GameSession.Mode.OUTSIDE:
 			break
-		_walk_inside_to(0.0, 12.0, 0.1)
+		_walk_inside_to(0.0, 16.6, 0.1)
 	assert_eq(_session.mode, GameSession.Mode.OUTSIDE, "stepped off the ramp")
 	assert_true(_walk_outside_away(50.0), "walked 50 m away")
 	var farthest := ShipFrame.local_from_world(ship.state, _session.exterior_body.position).length()
 	assert_true(farthest > 40.0, "really is far from the ship: %f" % farthest)
 
 	# 5. Come back and walk up the ramp.
-	assert_true(_walk_outside_to_local(Vector3(0, -2.0, 8.0), GameSession.Mode.INSIDE), "walked back up the ramp (mode %d)" % _session.mode)
+	assert_true(_walk_outside_to_local(Vector3(0, -2.0, 12.6), GameSession.Mode.INSIDE), "walked back up the ramp (mode %d)" % _session.mode)
 	assert_eq(_session.mode, GameSession.Mode.INSIDE)
 
-	# 6. Close the outer door behind, open the inner door, walk to the cockpit and sit.
-	assert_true(_walk_inside_to(0.0, 6.6), "off the ramp")
-	assert_true(_walk_inside_to(0.0, 5.0), "through the outer door")
-	assert_true(_walk_inside_to(1.2, 5.2), "at the outer door panel")
+	# 6. Close the outer door behind, open the inner door, walk to the cockpit (doors are still open) and sit.
+	assert_true(_walk_inside_to(0.0, 11.2), "off the ramp")
+	assert_true(_walk_inside_to(0.0, 9.6), "through the outer door")
+	assert_true(_walk_inside_to(1.2, 9.8), "at the outer door panel")
 	_session.interact()
 	_wait(5.0)
 	assert_true(_session.systems.airlock.outer.is_fully_closed() and _session.systems.walkway.is_stowed(), "outer door closed and walkway stowed")
-	assert_true(_walk_inside_to(1.2, 4.3), "at the airlock-side inner panel")
+	assert_true(_walk_inside_to(1.2, 8.9), "at the airlock-side inner panel")
 	_wait(AirlockController.CYCLE_SECONDS + 0.2)
 	_session.interact()
 	_wait(1.5)
 	assert_true(_session.systems.airlock.inner.is_passable(), "inner door open")
-	assert_true(_walk_inside_to(0.0, 3.0), "to the inner doorway")
-	assert_true(_walk_inside_to(0.0, 0.0), "across the cabin")
-	assert_true(_walk_inside_to(0.0, -3.0), "to the cockpit door")
-	assert_true(_walk_inside_to(0.0, -4.4), "to the seat")
+	for waypoint in [7.6, 5.0, 2.0, 0.0, -3.0, -4.4]:
+		assert_true(_walk_inside_to(0.0, waypoint), "walking forward through the ship to z=%f" % waypoint)
 	_session.interact()
 	assert_eq(_session.mode, GameSession.Mode.SITTING)
 	_wait(1.0)

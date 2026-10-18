@@ -4,7 +4,7 @@ extends Camera3D
 ## ship slide away); only the camera's *orientation reference* lags the ship's, so turns swing
 ## the view around the ship. Updated in the physics tick so physics interpolation smooths it.
 
-@export var offset_behind_up := Vector3(0.0, 2.8, 11.0)
+@export var offset_behind_up := Vector3(0.0, 3.4, 17.0)
 @export var look_ahead_distance := 40.0
 ## Bigger = camera orientation catches up with the ship faster (per second).
 @export var orientation_stiffness := 5.0

@@ -22,5 +22,5 @@ func gear_count() -> int:
 ## gear, in the order GroundContact uses to fit the ground plane: (-x,-z) (+x,-z) (-x,+z) (+x,+z).
 ## The rest (nose and tail underside) only stop the hull passing through terrain; wings are not solid.
 @export var support_points := PackedVector3Array([
-	Vector3(-2.6, -2.0, -5.0), Vector3(2.6, -2.0, -5.0), Vector3(-2.6, -2.0, 4.5), Vector3(2.6, -2.0, 4.5),
-	Vector3(0, -0.9, -7.3), Vector3(0, -0.9, 6.3)])
+	Vector3(-2.6, -2.0, -5.0), Vector3(2.6, -2.0, -5.0), Vector3(-2.6, -2.0, 8.5), Vector3(2.6, -2.0, 8.5),
+	Vector3(0, -0.9, -7.3), Vector3(0, -0.9, 10.9)])
