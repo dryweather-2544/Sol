@@ -160,6 +160,7 @@ func _process(_delta: float) -> void:
 		session.check_discovery(poi_manager.known_instances())
 		session.nearby_pois = poi_manager.known_instances()
 		session.apply_poi_blockers(session.nearby_pois)
+		session.apply_building_walls()
 	var far_plane := 40000.0
 	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the

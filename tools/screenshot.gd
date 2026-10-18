@@ -34,6 +34,10 @@ func _process(_delta: float) -> bool:
 	var mode := arguments[3] if arguments.size() > 3 else ""
 	if _frames == 2:
 		_move_ship()
+	if mode == "depot" and _frames == 3:
+		_move_to_poi(2) # teleport the ship beside the nearest outpost so its POI is planned and streamed
+	if mode == "depot" and _frames == 150:
+		_stand_in_depot(arguments[4] if arguments.size() > 4 else "6")
 	if mode == "poi" and _frames == 3:
 		_move_to_poi(int(arguments[4]) if arguments.size() > 4 else 0)
 	if _frames > 2:
@@ -64,6 +68,8 @@ func _process(_delta: float) -> bool:
 		_stage = 2
 		_stage_frame = _frames
 	if _stage == 2 and _frames < _stage_frame + 90:
+		return false
+	if mode == "depot" and _frames < 260:
 		return false
 	if mode == "poi" and _frames < 200:
 		return false
@@ -130,7 +136,7 @@ func _move_to_poi(type_index: int) -> void:
 	var target_radius := planet.distance_from_center(best.position) + float(_args()[1])
 	var side := poi_up.cross(Vector3.RIGHT).normalized()
 	# hover a little to the side of the POI, looking at it
-	var offset := side * 90.0
+	var offset := side * (float(_args()[5]) if _args().size() > 5 else 90.0)
 	ship.state.position = WorldPos.new(planet.frame_id, poi_up.x * target_radius + offset.x, poi_up.y * target_radius + offset.y, poi_up.z * target_radius + offset.z)
 	ship.render_origin = ship.state.position.duplicate_position()
 	ship.position = Vector3.ZERO
@@ -143,3 +149,23 @@ func _move_to_poi(type_index: int) -> void:
 	_main.poi_manager.apply_origin_shift(Vector3.ZERO)
 	_main.chase_camera.snap_to_target()
 	print("moved to ", best.display_name)
+
+
+## Put the player on foot at (0, z) in the nearest outpost depot's local frame, facing into the building.
+func _stand_in_depot(z_text: String) -> void:
+	var session: GameSession = _main.session
+	var nearest: PoiInstance
+	for instance in _main.poi_manager.known_instances():
+		if instance.type == PoiDefinition.Type.OUTPOST and (nearest == null or instance.position.distance_to(session.ship.state.position) < nearest.position.distance_to(session.ship.state.position)):
+			nearest = instance
+	if nearest == null:
+		print("no outpost known")
+		return
+	var frame := PoiBuilder.frame_basis(nearest)
+	var spot := PoiBuilder.DEPOT_ORIGIN + Vector2(0.0, float(z_text))
+	session.nearby_pois = _main.poi_manager.known_instances()
+	var world := nearest.position.offset_by(frame.x * spot.x + frame.z * spot.y)
+	session.exterior_body.place_on_ground(session.planet, world, -frame.z)
+	session.restore_mode(GameSession.Mode.OUTSIDE)
+	_main._on_mode_changed()
+	print("standing at depot of ", nearest.display_name)

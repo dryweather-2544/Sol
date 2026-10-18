@@ -149,7 +149,7 @@ Acceptance tests:
 > **Status:** partly done. Done: audio, menus/settings/loading gate. Not done: atmosphere horizon/sunset shader, terrain material masks (terrain is still height/slope vertex colours). Fixed on the way: crash at quit/frame switch from worker threads outliving the terrain node.
 
 - [x] Atmosphere: glowing rim shell seen from space (own shader), sky gradient + sun spot, ground haze, filmic tonemap _(no sunset palette, no scattering)_
-- [ ] Terrain material masks (altitude/latitude/slope/feature gates) _(NOT done: vertex colours by height/slope with patchy variation only)_
+- [x] Terrain material masks (altitude/latitude/slope gates) as CPU vertex-colour rules with a palette per world _(no feature masks, no texture blending)_
 - [x] Audio buses (Master/SFX/Ambience/Interior) and synthesised cues: engine, wind, doors, airlock, ramp, footsteps, landing thud, seat, discovery chime _(no music; no reentry feedback; never listened to by a human)_
 - [x] Title screen, pause menu (resume/save/load/settings/quit), settings (sensitivity, invert, FOV, volumes; persisted), loading gate on New game
 
@@ -165,7 +165,7 @@ Acceptance tests:
 
 > **Status:** items/inventory/loot/fuel done (138 tests, 51,005 assertions on the Mac; save v5). POI *interiors* are not built: crates stand in the open.
 
-- [ ] Typed room templates + graph expander for POI interiors (not EGSL; `05`) _(NOT done)_
+- [x] Typed room templates + graph expander for POI interiors (not EGSL; `05`): outposts have a walk-in depot of 2-6 typed rooms (hall/storage/control/quarters/vault) with crates; walls and doorways verified by tests _(no doors that open, no enemies inside, floor is a flat override so a depot built on a slope has a step at the door)_
 - [x] Items, pickup (crates at POIs, F), inventory (one ledger, Tab screen), loot tables from seeds _(5 items; seeded per POI/crate)_
 - [x] Ship fuel gates cruise/boost; fuel cells refuel _(no separate cargo hold or upgrades)_
 

@@ -29,6 +29,9 @@ var grounded := true
 ## Metres above the terrain directly below (0 while grounded).
 var height_above_ground := 0.0
 var blocked_by_slope := false
+## Optional: Callable(x, y, z) -> radial distance of a floor at that point (inside a building), or a negative
+## number for "use the terrain". Lets a flat floor replace the ground without any physics shapes.
+var floor_override := Callable()
 ## Set by the game: does the suit have fuel? jetpack_burning reports whether it fired this tick.
 var jetpack_fuel_available := true
 var jetpack_burning := false
@@ -71,7 +74,7 @@ func step(command: OnFootCommand, planet: PlanetBody, delta: float) -> void:
 	var direction_x := moved_x / moved_distance
 	var direction_y := moved_y / moved_distance
 	var direction_z := moved_z / moved_distance
-	var ground_distance := planet.surface_radius_xyz(direction_x, direction_y, direction_z)
+	var ground_distance := _ground_distance(planet, direction_x, direction_y, direction_z, moved_x, moved_y, moved_z)
 	var height := moved_distance - ground_distance
 
 	if grounded:
@@ -106,9 +109,9 @@ func _slope_ahead_degrees(planet: PlanetBody, travel_direction: Vector3) -> floa
 	var probe_y := position.y + travel_direction.y * SLOPE_PROBE_DISTANCE
 	var probe_z := position.z + travel_direction.z * SLOPE_PROBE_DISTANCE
 	var probe_distance := sqrt(probe_x * probe_x + probe_y * probe_y + probe_z * probe_z)
-	var ahead_ground := planet.surface_radius_xyz(probe_x / probe_distance, probe_y / probe_distance, probe_z / probe_distance)
+	var ahead_ground := _ground_distance(planet, probe_x / probe_distance, probe_y / probe_distance, probe_z / probe_distance, probe_x, probe_y, probe_z)
 	var here_distance := planet.distance_from_center(position)
-	var here_ground := planet.surface_radius_xyz(position.x / here_distance, position.y / here_distance, position.z / here_distance)
+	var here_ground := _ground_distance(planet, position.x / here_distance, position.y / here_distance, position.z / here_distance, position.x, position.y, position.z)
 	return rad_to_deg(atan2(ahead_ground - here_ground, SLOPE_PROBE_DISTANCE))
 
 
@@ -122,3 +125,12 @@ static func _tangent_unit(vector: Vector3, up: Vector3) -> Vector3:
 ## A short offset along local up (for placing a visual above the feet).
 func position_up_offset(metres: float) -> Vector3:
 	return Vector3(position.x, position.y, position.z).normalized() * metres
+
+
+## Radial distance of the ground under a point: a floor override (building) if there is one, else the terrain.
+func _ground_distance(planet: PlanetBody, direction_x: float, direction_y: float, direction_z: float, point_x: float, point_y: float, point_z: float) -> float:
+	if floor_override.is_valid():
+		var floor_distance: float = floor_override.call(point_x, point_y, point_z)
+		if floor_distance >= 0.0:
+			return floor_distance
+	return planet.surface_radius_xyz(direction_x, direction_y, direction_z)

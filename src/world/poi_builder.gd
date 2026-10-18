@@ -4,6 +4,9 @@ extends RefCounted
 ## primitives, no third-party assets. Local axes: x/z along the ground, y = away from the planet.
 
 const GROUND_SAMPLE_ARMS := 1
+## Where the depot's entrance sits in the outpost's local x, z (it extends toward -z from here).
+const DEPOT_ORIGIN := Vector2(-75.0, 0.0)
+const DEPOT_FLOOR_LIFT := 0.25
 
 
 ## Orientation of a POI's local frame at its position: y is up (away from the planet centre).
@@ -65,6 +68,8 @@ static func crate_positions(instance: PoiInstance) -> Array[Vector2]:
 			positions.append(Vector2(14.0, 0.0))
 			positions.append(Vector2(-14.0, 6.0))
 			positions.append(Vector2(2.0, -15.0))
+			for depot_crate in instance.building().crate_positions():
+				positions.append(DEPOT_ORIGIN + depot_crate)
 	return positions
 
 
@@ -83,6 +88,7 @@ static func build_content(instance: PoiInstance, planet: PlanetBody) -> Node3D:
 			_build_beacon(root, instance, planet)
 		_:
 			_build_outpost(root, instance, planet, rng)
+			_build_depot(root, instance, planet)
 	var crate_material := _material(Color(0.8, 0.55, 0.15), 0.6, 0.3)
 	var crate_index := 0
 	for crate_position in crate_positions(instance):
@@ -92,7 +98,8 @@ static func build_content(instance: PoiInstance, planet: PlanetBody) -> Node3D:
 		crate_node.mesh = crate_mesh
 		crate_node.material_override = crate_material
 		crate_node.name = "Crate%d" % crate_index
-		crate_node.position = Vector3(crate_position.x, ground_offset(planet, instance, crate_position.x, crate_position.y) + 0.5, crate_position.y)
+		var crate_ground := depot_floor_height(planet, instance) if is_in_depot(instance, crate_position.x, crate_position.y) else ground_offset(planet, instance, crate_position.x, crate_position.y)
+		crate_node.position = Vector3(crate_position.x, crate_ground + 0.5, crate_position.y)
 		root.add_child(crate_node)
 		crate_index += 1
 	return root
@@ -218,3 +225,61 @@ static func _material(color: Color, roughness: float, metallic: float) -> Standa
 	material.roughness = roughness
 	material.metallic = metallic
 	return material
+
+
+## Height (relative to the POI's own ground point) of the depot's floor: above the highest ground under it,
+## so terrain never pokes through.
+static func depot_floor_height(planet: PlanetBody, instance: PoiInstance) -> float:
+	var building := instance.building()
+	var area := building.footprint()
+	var highest := -INF
+	for sample_x in 5:
+		for sample_z in 5:
+			var local_x := DEPOT_ORIGIN.x + area.position.x + area.size.x * sample_x / 4.0
+			var local_z := DEPOT_ORIGIN.y + area.position.y + area.size.y * sample_z / 4.0
+			highest = maxf(highest, ground_offset(planet, instance, local_x, local_z))
+	return highest + DEPOT_FLOOR_LIFT
+
+
+static func is_in_depot(instance: PoiInstance, local_x: float, local_z: float, margin: float = 0.0) -> bool:
+	var building := instance.building()
+	return building != null and building.footprint(margin).has_point(Vector2(local_x, local_z) - DEPOT_ORIGIN)
+
+
+static func _build_depot(root: Node3D, instance: PoiInstance, planet: PlanetBody) -> void:
+	var building := instance.building()
+	var floor_height := depot_floor_height(planet, instance)
+	var concrete := _material(Color(0.55, 0.56, 0.58), 0.9, 0.0)
+	var floor_material := _material(Color(0.22, 0.23, 0.25), 0.8, 0.1)
+	var roof_material := _material(Color(0.4, 0.42, 0.45), 0.8, 0.2)
+	var area := building.footprint()
+	# Foundation block from below the ground up to the floor.
+	var foundation_depth := 6.0
+	_box_at(root, Rect2(DEPOT_ORIGIN + area.position, area.size), floor_height - foundation_depth, floor_height - 0.05, concrete)
+	for room in building.rooms:
+		var room_area := Rect2(DEPOT_ORIGIN + room.rect.position, room.rect.size)
+		_box_at(root, room_area, floor_height - 0.1, floor_height, floor_material)
+		_box_at(root, room_area, floor_height + PoiBuilding.WALL_HEIGHT, floor_height + PoiBuilding.WALL_HEIGHT + 0.3, roof_material)
+		var light := OmniLight3D.new()
+		light.position = Vector3(room_area.get_center().x, floor_height + 2.6, room_area.get_center().y)
+		light.omni_range = maxf(room_area.size.x, room_area.size.y) * 1.1
+		light.light_energy = 1.4
+		root.add_child(light)
+	for wall in building.walls:
+		_box_at(root, Rect2(DEPOT_ORIGIN + wall.position, wall.size), floor_height, floor_height + PoiBuilding.WALL_HEIGHT, concrete)
+	# Doorway lintels and the entrance sign light.
+	for door in building.doorways:
+		var door_rect: Rect2 = door["rect"]
+		_box_at(root, Rect2(DEPOT_ORIGIN + door_rect.position, door_rect.size), floor_height + 2.5, floor_height + PoiBuilding.WALL_HEIGHT, concrete)
+	var sign_material := StandardMaterial3D.new()
+	sign_material.albedo_color = Color(0.3, 1.0, 0.5)
+	sign_material.emission_enabled = true
+	sign_material.emission = Color(0.3, 1.0, 0.5)
+	sign_material.emission_energy_multiplier = 3.0
+	_box_at(root, Rect2(DEPOT_ORIGIN + Vector2(-0.4, 0.3), Vector2(0.8, 0.2)), floor_height + 2.7, floor_height + 3.1, sign_material)
+
+
+static func _box_at(parent: Node3D, area: Rect2, bottom_y: float, top_y: float, material: Material) -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(area.size.x, top_y - bottom_y, area.size.y)
+	_mesh(parent, mesh, material, Vector3(area.get_center().x, (bottom_y + top_y) * 0.5, area.get_center().y))

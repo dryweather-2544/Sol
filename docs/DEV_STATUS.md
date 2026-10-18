@@ -34,7 +34,7 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - **macOS export**: no export templates installed (Editor > Manage Export Templates, ~1 GB). I did not download them without permission.
 
 ## Open work, in order
-1. Terrain material masks (M7); POI interiors with a room-template expander (M9); interior layout editor / ship customization (M11).
+1. (done) terrain masks, outpost depots. Remaining: interior layout editor / ship customization (M11).
 2. A humanoid avatar + third-person on-foot camera (needs a vetted CC0 model or a hand-built primitive one).
 3. Tuning from the user's play feedback: flight handling, landing assist, enemy damage/aim, oxygen/jetpack numbers.
 4. M12: export build, 1440p/memory perf numbers, real (not simulated) long play test.

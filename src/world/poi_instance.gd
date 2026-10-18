@@ -18,3 +18,14 @@ func data_hash() -> int:
 	hashed = SeedHash.combine(hashed, int(round(position.y * 1000.0)) & 0xFFFFFFFF)
 	hashed = SeedHash.combine(hashed, int(round(position.z * 1000.0)) & 0xFFFFFFFF)
 	return SeedHash.combine(hashed, SeedHash.string_hash(String(id)))
+
+## Walk-in depot (outposts only), created on first use from the POI seed.
+var _building: PoiBuilding
+
+
+func building() -> PoiBuilding:
+	if type != PoiDefinition.Type.OUTPOST:
+		return null
+	if _building == null:
+		_building = PoiBuilding.generate(seed_value)
+	return _building

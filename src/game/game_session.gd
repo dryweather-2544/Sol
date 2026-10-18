@@ -34,6 +34,8 @@ var nearby_pois: Array = []
 var projectiles := ProjectileSim.new()
 var enemy_targets: Array = []
 var pistol := Weapon.pistol()
+## True while the walker is inside an outpost depot (sealed and pressurised).
+var in_building := false
 var cleared_log := LootLog.new() ## POIs whose guards were destroyed (same id-set ledger as looted crates)
 var _player_ship_target: ShipCombatant
 var _player_foot_target: CombatTargets.OnFootTarget
@@ -58,6 +60,7 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 	systems.seats.seat_occupied.connect(_on_seat_occupied)
 	ship.destroyed.connect(func(): player_lost.emit("Ship destroyed"))
 	ship.projectiles = projectiles
+	exterior_body.floor_override = Callable(self, "_floor_override")
 	ship.team_id = 0
 	_player_ship_target = ShipCombatant.new(ship, 0)
 	_player_foot_target = CombatTargets.OnFootTarget.new(self)
@@ -406,7 +409,7 @@ func _update_suit(delta: float) -> void:
 	var breathable := true
 	match mode:
 		Mode.OUTSIDE:
-			breathable = planet != null and planet.breathable
+			breathable = in_building or (planet != null and planet.breathable)
 		Mode.INSIDE:
 			breathable = not (systems.layout.room_at(interior_body.position.x, interior_body.position.z) == &"airlock" and systems.airlock_pressure < 0.5)
 	suit.update(delta, breathable, mode == Mode.OUTSIDE and exterior_body.jetpack_burning, mode != Mode.OUTSIDE or exterior_body.grounded)
@@ -501,3 +504,43 @@ func player_fire(aim_direction: Vector3) -> void:
 		return
 	var muzzle := exterior_body.position.offset_by(Vector3(exterior_body.position.x, exterior_body.position.y, exterior_body.position.z).normalized() * 1.5)
 	pistol.try_fire(projectiles, muzzle, aim_direction, exterior_body.velocity, 0, self)
+
+
+## Floor radius under a point if it is inside an outpost depot, else -1 (use the terrain).
+func _floor_override(point_x: float, point_y: float, point_z: float) -> float:
+	for instance in nearby_pois:
+		if instance.type != PoiDefinition.Type.OUTPOST:
+			continue
+		var point := WorldPos.new(instance.position.frame_id, point_x, point_y, point_z)
+		var offset := point.vector_from(instance.position)
+		if offset.length() > 150.0:
+			continue
+		var frame := PoiBuilder.frame_basis(instance)
+		if PoiBuilder.is_in_depot(instance, offset.dot(frame.x), offset.dot(frame.z)):
+			return planet.distance_from_center(instance.position) + PoiBuilder.depot_floor_height(planet, instance)
+	return -1.0
+
+
+## Keep the walker inside depot walls, and tell the suit when it is indoors. Call once per tick.
+func apply_building_walls() -> void:
+	in_building = false
+	if mode != Mode.OUTSIDE:
+		return
+	for instance in nearby_pois:
+		if instance.type != PoiDefinition.Type.OUTPOST:
+			continue
+		var offset := exterior_body.position.vector_from(instance.position)
+		if offset.length() > 150.0:
+			continue
+		var frame := PoiBuilder.frame_basis(instance)
+		var local_point := Vector2(offset.dot(frame.x), offset.dot(frame.z))
+		if not PoiBuilder.is_in_depot(instance, local_point.x, local_point.y, 2.0):
+			continue
+		var building: PoiBuilding = instance.building()
+		var building_point: Vector2 = local_point - PoiBuilder.DEPOT_ORIGIN
+		var corrected: Vector2 = building.push_out_of_walls(building_point, 0.45)
+		if corrected != building_point:
+			var shift: Vector3 = frame.x * (corrected.x - building_point.x) + frame.z * (corrected.y - building_point.y)
+			exterior_body.position = exterior_body.position.offset_by(shift)
+		in_building = building.room_index_at(corrected) >= 0 and PoiBuilder.is_in_depot(instance, local_point.x, local_point.y)
+		return
