@@ -19,6 +19,13 @@ var _stage_frame := 0
 
 
 func _initialize() -> void:
+	if OS.get_environment("SOL_ASSETS") == "off": # N9 tooling: measure/photograph the placeholder look with the same build
+		var settings := GameSettings.instance()
+		settings.asset_materials = false
+		settings.decals = false
+		settings.terrain_detail = false
+		settings.starfield = false
+		settings.sample_audio = false
 	_main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(_main)
 

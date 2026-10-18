@@ -32,6 +32,13 @@ var _max_process_ms := 0.0
 
 
 func _initialize() -> void:
+	if OS.get_environment("SOL_ASSETS") == "off": # N9 tooling: measure/photograph the placeholder look with the same build
+		var settings := GameSettings.instance()
+		settings.asset_materials = false
+		settings.decals = false
+		settings.terrain_detail = false
+		settings.starfield = false
+		settings.sample_audio = false
 	# Optional argument WxH (e.g. 2560x1440) sets the window size: godot ... -s res://tools/perf_run.gd -- 2560x1440
 	for argument in OS.get_cmdline_user_args():
 		if argument.contains("x") and argument.split("x").size() == 2 and argument.split("x")[0].is_valid_int():

@@ -425,6 +425,9 @@ truncated file fails safely and falls back to `.bak`; v1 fixture loads in every 
   Seat transitions are posture states with locks and cancel.
 - **Audio:** buses Master/Music/SFX/UI/Ambience/Interior; engine hum by thrust; wind by
   atmosphere ratio × speed; interior low-pass when inside; landing/door/airlock cues.
+  *(N9: recorded samples via `AudioLibrary` replace the synthesised sounds when `GameSettings.sample_audio` is on, with `SoundSynth`
+  as the fallback; buses `Ship`, `Suit`, `Radio` are added (UI exists), all following the SFX slider; Interior low-pass is 1200 Hz with
+  samples. Ship-placed loops are 2D, scaled by distance to the player, not 3D players. See `docs/N9_STATUS.md`.)*
 - **Feedback:** camera shake on touchdown/reentry, FOV with speed, reentry glow.
 
 ---
@@ -475,6 +478,7 @@ with frame-time recorded in `tests/perf/results.md`. A regression > 15 % blocks 
 | Quaternius Modular Sci-Fi MegaKit | ship interior modules | CC0 (listing) | check author page at download |
 | Kenney Modular Space Kit | props/exterior pieces | CC0 (listing) | check author page at download |
 | Characters, animations, SFX, fonts | to be chosen | must be CC0/CC-BY/OFL | **unverified**; pick in M2/M7 and record |
+| `assets/sol/**` (materials, decals, sky, audio; N9) | ship, POI, terrain, sky and sound art copied by `tools/import_assets.py` from the Sol-Assets repo (`assets/sol/SOURCE.txt` records its commit and every file's sha256) | Sol original (procedural), no third-party rows | status `review` in Sol-Assets; nobody has seen or heard them in the game yet |
 
 Rules: record every third-party file in `ATTRIBUTION.md` (source URL, author, licence,
 date, files) **before** committing it; no Rodina assets, code, or data files ever; no
