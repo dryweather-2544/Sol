@@ -15,11 +15,27 @@ ASSETS = ROOT / "assets" / "sol"
 HASHED_SUFFIXES = (".png", ".tres", ".wav", ".md")
 
 
+def strip_comments(source: str) -> str:
+    """Drops # (GDScript) and // (shader) comments so a mention in a comment cannot make an unused asset look integrated.
+    A comment marker only counts when an even number of quotes precedes it (i.e. it is not inside a string)."""
+    kept = []
+    for line in source.splitlines():
+        for marker in ("#", "//"):
+            position = line.find(marker)
+            while position != -1:
+                if line[:position].count('"') % 2 == 0:
+                    line = line[:position]
+                    break
+                position = line.find(marker, position + 1)
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def code_text() -> str:
     parts = []
     for folder, pattern in (("src", "**/*.gd"), ("scenes", "*.gd"), ("data", "**/*.gdshader")):
         for path in sorted((ROOT / folder).glob(pattern)):
-            parts.append(path.read_text(errors="replace"))
+            parts.append(strip_comments(path.read_text(errors="replace")))
     return "\n".join(parts)
 
 

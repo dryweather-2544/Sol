@@ -1,0 +1,13 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_rubber_mat/mat_ship_rubber_mat_albedo.png" id="1_xidet"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_rubber_mat/mat_ship_rubber_mat_normal.png" id="2_355ju"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_rubber_mat/mat_ship_rubber_mat_orm.png" id="3_mafjq"]
+
+[resource]
+albedo_texture = ExtResource("1_xidet")
+orm_texture = ExtResource("3_mafjq")
+normal_enabled = true
+normal_texture = ExtResource("2_355ju")
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0

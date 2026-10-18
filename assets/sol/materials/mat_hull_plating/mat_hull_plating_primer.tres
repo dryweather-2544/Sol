@@ -1,0 +1,15 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_hull_plating/mat_hull_plating_albedo.png" id="1_68ri8"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_hull_plating/mat_hull_plating_normal.png" id="2_ujyfu"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_hull_plating/mat_hull_plating_orm.png" id="3_y5q6a"]
+
+[resource]
+albedo_color = Color(0.5081081, 0.58241755, 0.5549133, 1)
+albedo_texture = ExtResource("1_68ri8")
+orm_texture = ExtResource("3_y5q6a")
+normal_enabled = true
+normal_texture = ExtResource("2_ujyfu")
+uv1_scale = Vector3(0.125, 0.125, 0.125)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0

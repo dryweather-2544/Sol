@@ -16,9 +16,18 @@ var _ramp_mesh := MeshInstance3D.new()
 var _hull_material := _material(Color(0.55, 0.6, 0.68), 0.55, 0.35)
 var _floor_material := _material(Color(0.25, 0.27, 0.3), 0.8, 0.1)
 var _accent_material := _material(Color(0.9, 0.35, 0.1), 0.6, 0.2)
-var _door_material := _material(Color(0.75, 0.78, 0.82), 0.4, 0.5)
+var _door_material: Material = AssetLibrary.material_or("mat_ship_brushed_metal", _material(Color(0.75, 0.78, 0.82), 0.4, 0.5))
 var _glow_material := _emissive(Color(0.3, 0.7, 1.0), 3.0)
 var _panel_material := _emissive(Color(0.2, 1.0, 0.5), 2.5)
+# N9: textured versions of the roles above. Each falls back to its code material when the asset is missing or GameSettings.asset_materials
+# is off, so the original look is always one switch away. Interiors and exterior hull plating share boxes, so walls use the paint panel.
+var _wall_material: Material = AssetLibrary.material_or("mat_ship_paint_panel", _hull_material)
+var _exterior_material: Material = AssetLibrary.material_or("mat_hull_plating", _hull_material)
+var _floor_slab_material: Material = AssetLibrary.material_or("mat_ship_floor_plate", _floor_material)
+var _rubber_floor_material: Material = AssetLibrary.material_or("mat_ship_rubber_mat", _floor_slab_material)
+var _console_material: Material = AssetLibrary.material_or("mat_ship_composite_dark", _floor_material)
+var _metal_material: Material = AssetLibrary.material_or("mat_ship_brushed_metal", _floor_material)
+var _nozzle_material: Material = AssetLibrary.material_or("mat_hull_nozzle", _glow_material)
 
 
 func _ready() -> void:
@@ -32,6 +41,8 @@ func _ready() -> void:
 	_build_ramp(layout)
 	_build_turret()
 	_build_lights(layout)
+	if _wall_material != _hull_material:
+		_build_reflection_probe(layout)
 
 
 func _process(_delta: float) -> void:
@@ -62,12 +73,14 @@ func _process(_delta: float) -> void:
 
 
 func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
-	for room in layout.rooms.values():
-		_slab(room, layout.floor_y - 0.12, layout.floor_y, _floor_material)
-		_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, _hull_material)
+	for room_id in layout.rooms:
+		var room: Rect2 = layout.rooms[room_id]
+		var rubber_floor := room_id == &"airlock" or room_id == &"cargo"
+		_slab(room, layout.floor_y - 0.12, layout.floor_y, _rubber_floor_material if rubber_floor else _floor_slab_material)
+		_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
 	for portal in layout.portals.values():
-		_slab((portal as Portal).opening, layout.floor_y - 0.12, layout.floor_y, _floor_material)
-		_slab((portal as Portal).opening, layout.ceiling_y, layout.ceiling_y + 0.12, _hull_material)
+		_slab((portal as Portal).opening, layout.floor_y - 0.12, layout.floor_y, _floor_slab_material)
+		_slab((portal as Portal).opening, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
 
 
 ## Walls are the 0.2 m skin just outside each room rectangle, with gaps where a portal opening crosses it.
@@ -79,6 +92,7 @@ func _build_walls(layout: InteriorLayout) -> void:
 	glass.albedo_color = Color(0.5, 0.7, 0.9, 0.2)
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.roughness = 0.1
+	var glass_material: Material = AssetLibrary.material_or("mat_ship_glass", glass)
 	var thickness := 0.2
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
@@ -91,7 +105,7 @@ func _build_walls(layout: InteriorLayout) -> void:
 			var wall: Rect2 = walls[side][0]
 			var runs_along_x: bool = walls[side][1]
 			if room_id == &"cockpit" and side == "nose":
-				_wall_box(wall.position.x, wall.end.x, wall.position.y, wall.end.y, bottom, top, glass)
+				_wall_box(wall.position.x, wall.end.x, wall.position.y, wall.end.y, bottom, top, glass_material)
 				continue
 			_wall_with_portal_gaps(layout, wall, runs_along_x, bottom, top)
 
@@ -144,7 +158,7 @@ func _build_seat_and_console(layout: InteriorLayout) -> void:
 		var back := _box_instance(Vector3(0.7, 1.0, 0.12), _accent_material)
 		back.position = seat_position + Vector3(0, 0.75, 0) + behind
 		add_child(back)
-	var console := _box_instance(Vector3(2.4, 0.9, 0.6), _floor_material)
+	var console := _box_instance(Vector3(2.4, 0.9, 0.6), _console_material)
 	console.position = Vector3(0, layout.floor_y + 0.45, -6.5)
 	add_child(console)
 	var screen := _box_instance(Vector3(2.2, 0.05, 0.5), _glow_material)
@@ -172,7 +186,7 @@ func _build_panels(layout: InteriorLayout) -> void:
 
 func _build_exterior_extras(layout: InteriorLayout) -> void:
 	for side in [-1.0, 1.0]:
-		var wing := _box_instance(Vector3(4.6, 0.15, 3.4), _hull_material)
+		var wing := _box_instance(Vector3(4.6, 0.15, 3.4), _exterior_material)
 		wing.position = Vector3(side * 5.5, 0.1, 2.0)
 		add_child(wing)
 		var tip := _box_instance(Vector3(0.3, 0.3, 3.4), _accent_material if side < 0.0 else _material(Color(0.1, 0.8, 0.2), 0.6, 0.2))
@@ -184,14 +198,16 @@ func _build_exterior_extras(layout: InteriorLayout) -> void:
 		engine.height = 2.4
 		var nacelle := MeshInstance3D.new()
 		nacelle.mesh = engine
-		nacelle.material_override = _glow_material
+		nacelle.material_override = _nozzle_material
+		if _nozzle_material != _glow_material:
+			nacelle.add_child(_exhaust_disc())
 		nacelle.rotation_degrees = Vector3(90, 0, 0)
 		nacelle.position = Vector3(side * 2.4, -0.3, 9.3)
 		add_child(nacelle)
-		var gear := _box_instance(Vector3(0.3, 1.2, 0.3), _floor_material)
+		var gear := _box_instance(Vector3(0.3, 1.2, 0.3), _metal_material)
 		gear.position = Vector3(side * 2.6, -1.4, 8.5)
 		add_child(gear)
-		var gear_front := _box_instance(Vector3(0.3, 1.2, 0.3), _floor_material)
+		var gear_front := _box_instance(Vector3(0.3, 1.2, 0.3), _metal_material)
 		gear_front.position = Vector3(side * 2.6, -1.4, -5.0)
 		add_child(gear_front)
 	var fin := _box_instance(Vector3(0.2, 1.6, 2.2), _accent_material)
@@ -218,7 +234,7 @@ func _update_screens() -> void:
 func _build_turret() -> void:
 	_turret_pivot.position = ship.systems.turret.muzzle_offset - Vector3(0, 0.15, 0)
 	add_child(_turret_pivot)
-	var base := _box_instance(Vector3(0.7, 0.3, 0.7), _floor_material)
+	var base := _box_instance(Vector3(0.7, 0.3, 0.7), _metal_material)
 	base.position = Vector3(0, -0.05, 0)
 	_turret_pivot.add_child(base)
 	var barrel := _box_instance(Vector3(0.14, 0.14, 1.1), _accent_material)
@@ -273,6 +289,34 @@ func _build_lights(layout: InteriorLayout) -> void:
 			_smoke_nodes[room_id] = smoke
 
 
+## The nozzle texture covers the whole nacelle, so the engine glow becomes a thin emissive disc in the exhaust mouth: the cylinder's top
+## cap (+y before the nacelle is rotated 90 degrees about x, which sends +y to +z, the rear).
+func _exhaust_disc() -> MeshInstance3D:
+	var disc_mesh := CylinderMesh.new()
+	disc_mesh.top_radius = 0.5
+	disc_mesh.bottom_radius = 0.5
+	disc_mesh.height = 0.04
+	var disc := MeshInstance3D.new()
+	disc.mesh = disc_mesh
+	disc.material_override = _glow_material
+	disc.position = Vector3(0.0, 1.19, 0.0)
+	return disc
+
+
+## Bare metal (metallic 1) reflects the sky, which is black space, so the textured interior would render near-black. One interior
+## probe over the ship, captured once, gives metal something to reflect.
+func _build_reflection_probe(layout: InteriorLayout) -> void:
+	var height := layout.ceiling_y - layout.floor_y
+	var probe := ReflectionProbe.new()
+	probe.size = Vector3(8.0, height + 0.5, 20.0)
+	probe.position = Vector3(0.0, layout.floor_y + height * 0.5, 1.8)
+	probe.interior = true
+	probe.box_projection = true
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	probe.intensity = 0.6
+	add_child(probe)
+
+
 func _slab(area: Rect2, bottom_y: float, top_y: float, material: Material) -> void:
 	var instance := _box_instance(Vector3(area.size.x, top_y - bottom_y, area.size.y), material)
 	instance.position = Vector3(area.position.x + area.size.x * 0.5, (bottom_y + top_y) * 0.5, area.position.y + area.size.y * 0.5)
@@ -282,7 +326,7 @@ func _slab(area: Rect2, bottom_y: float, top_y: float, material: Material) -> vo
 func _wall_box(x_min: float, x_max: float, z_min: float, z_max: float, y_min: float, y_max: float, material: Material = null) -> void:
 	var first_z := minf(z_min, z_max)
 	var last_z := maxf(z_min, z_max)
-	var instance := _box_instance(Vector3(x_max - x_min, y_max - y_min, last_z - first_z), material if material != null else _hull_material)
+	var instance := _box_instance(Vector3(x_max - x_min, y_max - y_min, last_z - first_z), material if material != null else _wall_material)
 	instance.position = Vector3((x_min + x_max) * 0.5, (y_min + y_max) * 0.5, (first_z + last_z) * 0.5)
 	add_child(instance)
 

@@ -1,0 +1,15 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_paint_panel/mat_ship_paint_panel_albedo.png" id="1_fc3kk"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_paint_panel/mat_ship_paint_panel_normal.png" id="2_uak05"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_ship_paint_panel/mat_ship_paint_panel_orm.png" id="3_1hn2w"]
+
+[resource]
+albedo_color = Color(0.5081081, 0.58241755, 0.5549133, 1)
+albedo_texture = ExtResource("1_fc3kk")
+orm_texture = ExtResource("3_1hn2w")
+normal_enabled = true
+normal_texture = ExtResource("2_uak05")
+uv1_scale = Vector3(0.5, 0.5, 0.5)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0

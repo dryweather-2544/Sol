@@ -1,0 +1,11 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_hull_nozzle/mat_hull_nozzle_albedo.png" id="1_lxsmd"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_hull_nozzle/mat_hull_nozzle_normal.png" id="2_3rsd2"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_hull_nozzle/mat_hull_nozzle_orm.png" id="3_iji4a"]
+
+[resource]
+albedo_texture = ExtResource("1_lxsmd")
+orm_texture = ExtResource("3_iji4a")
+normal_enabled = true
+normal_texture = ExtResource("2_3rsd2")
