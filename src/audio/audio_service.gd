@@ -18,6 +18,7 @@ var _previous_door_targets := {}
 var _previous_landed := false
 var _previous_walkway_state := -1
 var _footstep_clock := 0.0
+var _alarm_clock := 0.0
 var _smoothed_throttle := 0.0
 
 
@@ -32,6 +33,7 @@ func _ready() -> void:
 		"thud": SoundSynth.to_stream(SoundSynth.noise_burst(0.35, 31, 0.93, 0.9, 5.0)),
 		"seat": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(300.0, 0.05, 0.5), SoundSynth.tone(200.0, 0.07, 0.5))),
 		"chime": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(660.0, 0.15, 0.4), SoundSynth.join(SoundSynth.tone(880.0, 0.15, 0.4), SoundSynth.tone(1320.0, 0.35, 0.4)))),
+		"alarm": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(880.0, 0.22, 0.35), SoundSynth.tone(620.0, 0.22, 0.35))),
 		"ramp": SoundSynth.to_stream(SoundSynth.sweep(120.0, 90.0, 0.8, 0.3)),
 	}
 	for player_index in 6:
@@ -55,6 +57,13 @@ func _process(delta: float) -> void:
 	if session == null:
 		return
 	_apply_volumes()
+	if session.systems.hazards.any_fire() or session.systems.power.is_shut_down():
+		_alarm_clock -= delta
+		if _alarm_clock <= 0.0:
+			play_cue("alarm")
+			_alarm_clock = 2.0
+	else:
+		_alarm_clock = 0.0
 	var inside := session.mode == GameSession.Mode.INSIDE or session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
 	var engine_bus: StringName = &"Interior" if inside else &"Ambience"
 	_engine_player.bus = engine_bus

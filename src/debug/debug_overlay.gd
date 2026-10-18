@@ -11,6 +11,7 @@ var _label := Label.new()
 var _prompt_label := Label.new()
 var _signal_label := Label.new()
 var _objective_label := Label.new()
+var _alert_label := Label.new()
 
 
 func _ready() -> void:
@@ -36,12 +37,22 @@ func _ready() -> void:
 	_objective_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_objective_label.add_theme_constant_override("outline_size", 4)
 	add_child(_objective_label)
+	_alert_label.position = Vector2(12, 480)
+	_alert_label.add_theme_font_size_override("font_size", 24)
+	_alert_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+	_alert_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_alert_label.add_theme_constant_override("outline_size", 6)
+	_alert_label.visible = false
+	add_child(_alert_label)
 
 
 func _process(_delta: float) -> void:
 	if ship == null:
 		return
 	_prompt_label.text = session.prompt() if session != null else ""
+	var alert := session.alert_text() if session != null else ""
+	_alert_label.text = alert
+	_alert_label.visible = alert != ""
 	_objective_label.text = "Objective: " + session.progress.current_text() if session != null else ""
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
@@ -60,7 +71,7 @@ func _process(_delta: float) -> void:
 			session.systems.layout.room_at(session.interior_body.position.x, session.interior_body.position.z), ship.state.speed(),
 			FlightRegime.label(ship.state.regime), airlock.inner.open_factor * 100.0, airlock.outer.open_factor * 100.0,
 			WalkwayController.State.keys()[session.systems.walkway.state]]
-		_label.text += "\nhull %d%%   O2 %d%%   airlock pressure %d%%" % [ship.state.hull * 100.0, session.suit.oxygen * 100.0, session.systems.airlock_pressure * 100.0]
+		_label.text += "\nhull %d%%   O2 %d%%   airlock pressure %d%%   room air %d%%" % [ship.state.hull * 100.0, session.suit.oxygen * 100.0, session.systems.airlock_pressure * 100.0, session.systems.hazards.oxygen_in(session.player_room()) * 100.0]
 		_label.text += _power_text()
 		return
 	var state := ship.state
@@ -82,6 +93,7 @@ func _process(_delta: float) -> void:
 func _power_text() -> String:
 	if ship.systems == null:
 		return ""
+
 	var power := ship.systems.power
 	return "\nPWR E %d  W %d  L %d   T %d%%   coolant %d%%%s" % [
 		power.delivered(ShipPower.Conduit.ENGINES), power.delivered(ShipPower.Conduit.WEAPONS),

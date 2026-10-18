@@ -109,7 +109,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests:** room graph is connected through portals (BFS test); every station point is walkable and reachable from the pilot seat; `airlock_invariant`, `interior_moving`, `transition_fuzz`, `full_loop`, `frame_switch` pass unchanged; playthrough waypoints updated and `PLAYTHROUGH OK`.
 - **Inspect:** `tools/screenshot.gd inside` at each station (add the coordinates to a list in the tool); one top-down frame.
 
-### N4 — Stations you use + fire + room air
+### N4 — DONE. Stations you use + fire + room air
 - **Deliverable:** reactor panel UI (reuse the `WorkbenchMenu` pattern): set conduit limits, vent coolant, restart reactor. Per-room fire (seeded ignition from damage), spread only through open portals, burns room O2 and damages the subsystem in that room; extinguisher item (hold F). Per-room O2 generalises the airlock pressure; a player in a low-O2 room drains suit O2 (existing `SuitState`). Alert feedback: red room light + synth alarm + HUD line.
 - **Acceptance / tests:** closed doors contain fire; fire in a sealed room stops at O2 = 0; extinguishing clears it within the stated time; ignition is deterministic per seed; all mutations go through `ShipSystems.request_*(actor_id, …)` (see R1) and return a result; save round-trip mid-fire.
 - **Inspect:** screenshot of engineering on fire; overlay per-room O2/fire.

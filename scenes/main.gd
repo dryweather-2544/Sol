@@ -28,6 +28,7 @@ var poi_manager: PoiManager
 var menu: PauseMenu
 var inventory_menu: InventoryMenu
 var workbench_menu: WorkbenchMenu
+var reactor_menu: ReactorMenu
 var audio: AudioService
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
@@ -120,6 +121,13 @@ func _ready() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		workbench_menu.open())
 	add_child(workbench_menu)
+	reactor_menu = ReactorMenu.new()
+	reactor_menu.session = session
+	reactor_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	session.reactor_requested.connect(func():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		reactor_menu.open())
+	add_child(reactor_menu)
 	menu = PauseMenu.new()
 	menu.resume_requested.connect(_on_menu_resume)
 	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
@@ -210,6 +218,10 @@ func _input(event: InputEvent) -> void:
 	if workbench_menu.visible:
 		if event.is_action_pressed("pause"):
 			workbench_menu.close()
+		return
+	if reactor_menu.visible:
+		if event.is_action_pressed("pause"):
+			reactor_menu.close()
 		return
 	if inventory_menu.visible:
 		if event.is_action_pressed("inventory") or event.is_action_pressed("pause"):

@@ -108,9 +108,9 @@ func _take_damage(delta: float) -> void:
 		return
 	if systems != null:
 		if impact_loss > 0.0:
-			systems.subsystems.damage(ShipSubsystems.Id.ENGINES, impact_loss) # touchdown shocks hit the drive
+			systems.damage_subsystem(ShipSubsystems.Id.ENGINES, impact_loss) # touchdown shocks hit the drive
 		if heating_loss > 0.0:
-			systems.subsystems.damage(ShipSubsystems.Id.REACTOR, heating_loss)
+			systems.damage_subsystem(ShipSubsystems.Id.REACTOR, heating_loss)
 	state.hull = maxf(0.0, state.hull - loss)
 	if state.hull <= 0.0:
 		destroyed.emit()

@@ -18,8 +18,12 @@ var ambient_pressure := 1.0
 ## Reactor and conduits; ticked here, not yet wired to flight or weapons.
 var power := ShipPower.new()
 var subsystems := ShipSubsystems.new()
+## Room air and fire.
+var hazards := ShipHazards.new(layout)
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
+
+const AUTO_RESTART_BELOW_TEMPERATURE := 0.2
 
 
 func _init() -> void:
@@ -39,14 +43,38 @@ func update(delta: float, ship_state: ShipState) -> void:
 	seats.update(delta)
 	power.output_factor = subsystems.value(ShipSubsystems.Id.REACTOR)
 	power.update(delta)
-	# ponytail: stand-in until the reactor panel (N4) lets the crew restart by hand; a tripped reactor
-	# comes back by itself once it has cooled, so a shutdown costs time, never the run.
-	if power.is_shut_down():
+	# A tripped reactor comes back by itself once it is properly cool (so a shutdown costs time, never the
+	# run); the reactor panel can restart it earlier, from RESTART_BELOW_TEMPERATURE.
+	if power.is_shut_down() and power.temperature < AUTO_RESTART_BELOW_TEMPERATURE:
 		power.request_restart()
+	var life_support_factor := power.satisfaction(ShipPower.Conduit.LIFE_SUPPORT) * subsystems.value(ShipSubsystems.Id.LIFE_SUPPORT)
+	var burned := hazards.update(delta, layout, life_support_factor)
+	for subsystem_id in burned:
+		subsystems.drain(subsystem_id, burned[subsystem_id])
 	layout.ramp_walkable = walkway.is_deployed()
 	if _outer_close_pending and walkway.is_stowed() and not _is_occupied(&"airlock_outer"):
 		airlock.request_close_outer(false)
 		_outer_close_pending = false
+
+
+## Hull damage that reached a subsystem; enough of it starts a fire in the room that houses it.
+func damage_subsystem(subsystem_id: int, hull_damage: float) -> void:
+	subsystems.damage(subsystem_id, hull_damage)
+	hazards.add_ignition_risk(ShipHazards.SUBSYSTEM_ROOM[subsystem_id], hull_damage)
+
+
+## The reactor panel's controls. Every ship change a crew member makes goes through a request_*(actor_id, ...)
+## that returns "" on success or the reason it was refused, so a host-authoritative layer could sit here later.
+func request_set_limit(_actor_id: StringName, conduit: ShipPower.Conduit, limit: float) -> String:
+	return power.set_limit(conduit, limit)
+
+
+func request_vent_coolant(_actor_id: StringName) -> String:
+	return power.vent_coolant()
+
+
+func request_restart_reactor(_actor_id: StringName) -> String:
+	return power.request_restart()
 
 
 ## What the pilot is asking of the ship this tick, in power units. Idle systems still draw a little.

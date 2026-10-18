@@ -41,6 +41,11 @@ func damage(id: int, hull_damage: float) -> void:
 	health[id] = maxf(0.0, health[id] - hull_damage * SYSTEM_DAMAGE_SHARE)
 
 
+## Direct loss of health (fire), not scaled like a hull hit.
+func drain(id: int, amount: float) -> void:
+	health[id] = maxf(0.0, health[id] - amount)
+
+
 func value(id: int) -> float:
 	return health[id]
 

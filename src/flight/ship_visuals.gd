@@ -5,6 +5,8 @@ extends Node3D
 
 var ship: Ship
 var _door_nodes := {}   # portal id -> {node: MeshInstance3D, base_y: float}
+var _room_lights := {} # room id -> OmniLight3D
+var _fire_nodes := {}   # room id -> MeshInstance3D
 var _ramp_pivot := Node3D.new()
 var _ramp_mesh := MeshInstance3D.new()
 
@@ -34,6 +36,15 @@ func _process(_delta: float) -> void:
 		var portal: Portal = layout.portals[portal_id]
 		var record: Dictionary = _door_nodes[portal_id]
 		(record["node"] as Node3D).position.y = record["base_y"] + portal.open_factor * 2.3
+	var hazards := ship.systems.hazards
+	var flicker := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
+	for room_id in _fire_nodes:
+		var intensity := hazards.fire_in(room_id)
+		(_fire_nodes[room_id] as Node3D).visible = intensity > 0.0
+		(_fire_nodes[room_id] as Node3D).scale = Vector3.ONE * (0.4 + 0.8 * intensity) * (0.9 + 0.2 * flicker)
+		var light: OmniLight3D = _room_lights[room_id]
+		light.light_color = Color(1.0, 0.35 + 0.2 * flicker, 0.2) if intensity > 0.0 else Color.WHITE
+		light.light_energy = 1.6 + 2.0 * intensity if intensity > 0.0 else 1.6
 	var walkway := ship.systems.walkway
 	_ramp_pivot.visible = walkway.progress > 0.0
 	_ramp_mesh.scale.z = maxf(walkway.progress, 0.001)
@@ -183,13 +194,21 @@ func _build_ramp(layout: InteriorLayout) -> void:
 
 
 func _build_lights(layout: InteriorLayout) -> void:
-	for room in layout.rooms.values():
+	for room_id in layout.rooms:
+		var rect: Rect2 = layout.rooms[room_id]
 		var light := OmniLight3D.new()
-		light.position = Vector3((room as Rect2).get_center().x, 1.3, (room as Rect2).get_center().y)
+		light.position = Vector3(rect.get_center().x, 1.3, rect.get_center().y)
 		light.omni_range = 5.5
 		light.light_energy = 1.6
 		light.shadow_enabled = false
 		add_child(light)
+		_room_lights[room_id] = light
+		if ship.systems.hazards.has_room(room_id):
+			var flames := _box_instance(Vector3(0.9, 1.0, 0.9), _emissive(Color(1.0, 0.45, 0.1), 4.0))
+			flames.position = Vector3((rect as Rect2).get_center().x, layout.floor_y + 0.5, (rect as Rect2).get_center().y)
+			flames.visible = false
+			add_child(flames)
+			_fire_nodes[room_id] = flames
 
 
 func _slab(area: Rect2, bottom_y: float, top_y: float, material: Material) -> void:

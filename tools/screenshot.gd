@@ -6,6 +6,7 @@ extends SceneTree
 ##   (none)   chase-camera view
 ##   cockpit  cockpit camera view
 ##   inside   land, stand up, put the player at ship-local (x, z) facing yaw_deg, interior view
+##            (optional 8th argument: fire = engineering on fire, reactor = reactor panel open)
 ##   outside  land, walk out through the airlock instantly, outside first-person view
 ##   poi      (args: out altitude pitch poi type_index) hover above the nearest POI of that type
 ## Chunk loading is awaited, so the picture is what the player sees once the world has loaded.
@@ -65,6 +66,13 @@ func _process(_delta: float) -> bool:
 		elif arguments.size() > 5:
 			var yaw := deg_to_rad(float(arguments[6])) if arguments.size() > 6 else 0.0
 			_main.session.interior_body.place(Vector3(float(arguments[4]), -0.9, float(arguments[5])), yaw)
+		var extra := arguments[7] if arguments.size() > 7 else ""
+		if extra == "fire": # 8th argument: start a fire in engineering
+			_main.session.systems.hazards.ignite(&"engineering")
+			_main.session.systems.hazards.fire[&"engineering"] = 0.8
+		elif extra == "reactor": # 8th argument: open the reactor panel
+			_main.session.systems.power.temperature = 0.62
+			_main.reactor_menu.open()
 		_main._on_mode_changed()
 		_stage = 2
 		_stage_frame = _frames

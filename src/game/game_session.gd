@@ -16,7 +16,7 @@ const RAMP_EXIT_MARGIN := 0.1
 const RAMP_ENTER_DEPTH := 0.8
 const DOORWAY_MARGIN := 0.5
 ## Crew stations that exist in the layout but are not usable yet (reactor panel and fire gear come with N4, the gun with N6).
-const STATION_NAMES := {&"reactor_panel": "Reactor panel", &"engine_station": "Engine station", &"extinguisher_locker": "Extinguisher locker", &"gunner_seat": "Gunner seat"}
+const STATION_NAMES := {&"engine_station": "Engine station", &"gunner_seat": "Gunner seat"}
 
 var planet: PlanetBody
 var ship: Ship
@@ -47,6 +47,13 @@ var repairing := false
 signal player_lost(reason: String)
 ## The player used the workbench; the scene opens the upgrade screen.
 signal workbench_requested
+## The player used the reactor panel; the scene opens the reactor screen.
+signal reactor_requested
+## Sprays left in the carried fire extinguisher (refilled at the locker in engineering).
+const EXTINGUISHER_CHARGES := 6
+const EXTINGUISHER_STRENGTH := 0.35
+var extinguisher_charges := 0
+var _burning_room_count := 0
 var mode := Mode.SEATED
 var message := ""
 var message_seconds_left := 0.0
@@ -87,6 +94,10 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	ship.simulate_tick(delta)
 	systems.update(delta, ship.state)
 	_update_repair(delta)
+	var burning_now := systems.hazards.burning_rooms()
+	if burning_now.size() > _burning_room_count:
+		_say("FIRE in the %s!" % String(burning_now[-1]).replace("_", " "))
+	_burning_room_count = burning_now.size()
 	match mode:
 		Mode.SITTING:
 			# Glide into the seat instead of snapping, so the camera and body move continuously.
@@ -132,11 +143,15 @@ func prompt() -> String:
 		Mode.SITTING:
 			return "Sitting down...  (F to cancel)"
 		Mode.INSIDE:
+			if systems.hazards.fire_in(player_room()) > 0.0 and extinguisher_charges > 0:
+				return "F: spray the fire (%d sprays left)" % extinguisher_charges
 			var nearest := systems.layout.nearest_interaction(interior_body.position)
 			match nearest:
 				&"pilot_seat": return "F: sit in the pilot seat"
 				&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door": return "F: door"
-				&"reactor_panel", &"engine_station", &"extinguisher_locker", &"gunner_seat": return "F: " + STATION_NAMES[nearest]
+				&"reactor_panel": return "F: reactor panel"
+				&"extinguisher_locker": return "F: take the fire extinguisher"
+				&"engine_station", &"gunner_seat": return "F: " + STATION_NAMES[nearest]
 				&"airlock_inner": return "F: inner airlock door"
 				&"airlock_outer": return "F: outer door / walkway"
 				&"workbench": return "F: workbench (upgrades)"
@@ -213,6 +228,11 @@ func _on_seat_occupied(_seat_id: StringName, _actor_id: StringName) -> void:
 func _interact_inside() -> void:
 	var point := systems.layout.nearest_interaction(interior_body.position)
 	var failure := ""
+	if point != &"extinguisher_locker" and extinguisher_charges > 0 and systems.hazards.fire_in(player_room()) > 0.0:
+		extinguisher_charges -= 1
+		systems.hazards.extinguish(player_room(), EXTINGUISHER_STRENGTH)
+		_say("Sprayed (%d left)" % extinguisher_charges if systems.hazards.fire_in(player_room()) > 0.0 else "Fire out")
+		return
 	match point:
 		&"pilot_seat":
 			if not player_state.try_begin_sit().ok():
@@ -226,7 +246,12 @@ func _interact_inside() -> void:
 				_sit_elapsed = 0.0
 		&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door":
 			failure = systems.toggle_door(point)
-		&"reactor_panel", &"engine_station", &"extinguisher_locker", &"gunner_seat":
+		&"reactor_panel":
+			reactor_requested.emit()
+		&"extinguisher_locker":
+			extinguisher_charges = EXTINGUISHER_CHARGES
+			_say("Extinguisher ready (%d sprays)" % extinguisher_charges)
+		&"engine_station", &"gunner_seat":
 			failure = STATION_NAMES[point] + " is not connected yet"
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
@@ -417,13 +442,39 @@ func _update_repair(delta: float) -> void:
 		_say("Ship repaired")
 
 
+## The ship room the player is in; &"" when outside.
+func player_room() -> StringName:
+	match mode:
+		Mode.SEATED, Mode.SITTING:
+			return &"cockpit"
+		Mode.INSIDE:
+			return systems.layout.room_at(interior_body.position.x, interior_body.position.z)
+	return &""
+
+
+## One line for the HUD when the ship is in trouble, "" otherwise.
+func alert_text() -> String:
+	var burning := systems.hazards.burning_rooms()
+	if not burning.is_empty():
+		return "FIRE in " + ", ".join(burning.map(func(room): return String(room).replace("_", " ")))
+	if systems.power.is_shut_down():
+		return "REACTOR SHUTDOWN - cooling down"
+	return ""
+
+
 func _update_suit(delta: float) -> void:
 	var breathable := true
+	var room := player_room()
+	if room != &"" and systems.hazards.has_room(room):
+		breathable = systems.hazards.is_breathable(room)
+		var heat := systems.hazards.fire_in(room)
+		if heat >= 0.5:
+			suit.burn(0.05 * heat * delta)
 	match mode:
 		Mode.OUTSIDE:
 			breathable = in_building or (planet != null and planet.breathable)
 		Mode.INSIDE:
-			breathable = not (systems.layout.room_at(interior_body.position.x, interior_body.position.z) == &"airlock" and systems.airlock_pressure < 0.5)
+			breathable = breathable and not (room == &"airlock" and systems.airlock_pressure < 0.5)
 	suit.update(delta, breathable, mode == Mode.OUTSIDE and exterior_body.jetpack_burning, mode != Mode.OUTSIDE or exterior_body.grounded)
 
 

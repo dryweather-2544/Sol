@@ -37,6 +37,15 @@ func update(delta: float, breathable: bool, jetpack_burning: bool, grounded: boo
 		fuel = minf(1.0, fuel + delta / FUEL_RECHARGE_SECONDS)
 
 
+## Heat from a fire in the room: costs health directly, whatever the air is like.
+func burn(amount: float) -> void:
+	if health <= 0.0:
+		return
+	health = maxf(0.0, health - amount)
+	if health <= 0.0:
+		died.emit()
+
+
 func has_fuel() -> bool:
 	return fuel > 0.0
 

@@ -41,11 +41,12 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"walkway": {"state": systems.walkway.state, "progress": systems.walkway.progress},
 			"ramp_end_y": systems.layout.ramp_end_y,
 		},
-		"systems": {"subsystems": systems.subsystems.to_array(), "power": systems.power.to_dictionary()},
+		"systems": {"subsystems": systems.subsystems.to_array(), "power": systems.power.to_dictionary(), "hazards": systems.hazards.to_dictionary()},
 		"player": {
 			"mode": saved_mode,
 			"interior_position": _vector_to_array(interior_position),
 			"interior_yaw": session.interior_body.yaw,
+			"extinguisher": session.extinguisher_charges,
 			"suit": {"oxygen": session.suit.oxygen, "fuel": session.suit.fuel, "health": session.suit.health},
 			"exterior": {
 				"position": session.exterior_body.position.to_dictionary(),
@@ -94,6 +95,7 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	var systems_data: Dictionary = data.get("systems", {})
 	systems.subsystems.restore(systems_data.get("subsystems", []))
 	systems.power.restore(systems_data.get("power", {}))
+	systems.hazards.restore(systems_data.get("hazards", {}))
 	systems.layout.ramp_end_y = float(interior_data["ramp_end_y"])
 	systems.layout.ramp_walkable = systems.walkway.is_deployed()
 	systems.airlock.reset_cycle()
@@ -118,6 +120,7 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	session.suit.fuel = float(suit_data.get("fuel", 1.0))
 	session.suit.health = float(suit_data.get("health", 1.0))
 	session.repairing = false
+	session.extinguisher_charges = int(player_data.get("extinguisher", 0))
 	session.restore_mode(mode)
 	var poi_data: Dictionary = data.get("pois", {})
 	session.discovery_log.restore(poi_data.get("discovered", []))
