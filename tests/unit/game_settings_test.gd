@@ -47,3 +47,29 @@ func test_out_of_range_values_are_clamped() -> void:
 	assert_near(loaded.mouse_sensitivity, 3.0, 1e-9)
 	assert_near(loaded.field_of_view, 50.0, 1e-9)
 	assert_near(loaded.master_volume, 0.0, 1e-9)
+
+
+func test_asset_switches_default_on_and_survive_save_and_load() -> void:
+	var settings := _fresh()
+	assert_true(settings.asset_materials and settings.decals and settings.terrain_detail and settings.starfield and settings.sample_audio, "all N9 switches default on")
+	settings.decals = false
+	settings.sample_audio = false
+	assert_eq(settings.save_to_file(), "")
+	var loaded := GameSettings.new()
+	loaded.path = PATH
+	loaded.load_from_file()
+	assert_true(not loaded.decals and not loaded.sample_audio, "switched-off values survive")
+	assert_true(loaded.asset_materials and loaded.terrain_detail and loaded.starfield, "the others stay on")
+
+
+func test_old_settings_file_without_asset_section_keeps_defaults() -> void:
+	DirAccess.remove_absolute(PATH)
+	var config := ConfigFile.new()
+	config.set_value("audio", "master_volume", 0.5)
+	config.save(PATH)
+	var loaded := GameSettings.new()
+	loaded.path = PATH
+	loaded.load_from_file()
+	assert_near(loaded.master_volume, 0.5, 1e-9)
+	assert_true(loaded.asset_materials and loaded.decals and loaded.terrain_detail and loaded.starfield and loaded.sample_audio, "missing keys keep the defaults")
+

@@ -1,2 +1,5 @@
 # Godot's generated import cache. Commit *.import files, not this folder.
 .godot/
+
+# Visual-check screenshots (tools/visual_check.gd) are local review material, not source.
+tests/visual/out/

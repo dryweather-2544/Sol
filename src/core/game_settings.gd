@@ -16,6 +16,13 @@ var field_of_view := 75.0
 var master_volume := 0.8
 var sfx_volume := 1.0
 var ambience_volume := 1.0
+## N9 kill switches for the integrated art and audio (assets/sol). Each one off, or its file missing, means the original
+## placeholder is used (code materials, the old terrain/sky shaders, SoundSynth). Settings only, never saved in game saves.
+var asset_materials := true
+var decals := true
+var terrain_detail := true
+var starfield := true
+var sample_audio := true
 
 
 static func instance() -> GameSettings:
@@ -38,6 +45,11 @@ func save_to_file() -> String:
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
 	config.set_value("audio", "ambience_volume", ambience_volume)
+	config.set_value("assets", "asset_materials", asset_materials)
+	config.set_value("assets", "decals", decals)
+	config.set_value("assets", "terrain_detail", terrain_detail)
+	config.set_value("assets", "starfield", starfield)
+	config.set_value("assets", "sample_audio", sample_audio)
 	var error := config.save(path)
 	return "" if error == OK else "could not save settings (error %d)" % error
 
@@ -53,3 +65,8 @@ func load_from_file() -> void:
 	master_volume = clampf(float(config.get_value("audio", "master_volume", master_volume)), 0.0, 1.0)
 	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", sfx_volume)), 0.0, 1.0)
 	ambience_volume = clampf(float(config.get_value("audio", "ambience_volume", ambience_volume)), 0.0, 1.0)
+	asset_materials = bool(config.get_value("assets", "asset_materials", asset_materials))
+	decals = bool(config.get_value("assets", "decals", decals))
+	terrain_detail = bool(config.get_value("assets", "terrain_detail", terrain_detail))
+	starfield = bool(config.get_value("assets", "starfield", starfield))
+	sample_audio = bool(config.get_value("assets", "sample_audio", sample_audio))
