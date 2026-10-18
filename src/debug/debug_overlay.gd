@@ -61,6 +61,7 @@ func _process(_delta: float) -> void:
 			FlightRegime.label(ship.state.regime), airlock.inner.open_factor * 100.0, airlock.outer.open_factor * 100.0,
 			WalkwayController.State.keys()[session.systems.walkway.state]]
 		_label.text += "\nhull %d%%   O2 %d%%   airlock pressure %d%%" % [ship.state.hull * 100.0, session.suit.oxygen * 100.0, session.systems.airlock_pressure * 100.0]
+		_label.text += _power_text()
 		return
 	var state := ship.state
 	var source_text := "PARKED" if ship.controller.is_parked() else String(ship.controller.current_source.source_id)
@@ -75,6 +76,17 @@ func _process(_delta: float) -> void:
 		state.speed(), vertical_speed, altitude_text, FlightRegime.label(state.regime),
 		gear_names[state.gear], source_text, state.status_message]
 	_label.text += "\nfuel %d%%   hull %d%%%s   Tab inventory" % [state.fuel * 100.0, state.hull * 100.0, "   REENTRY HEAT" if ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) > 0.0 else ""]
+	_label.text += _power_text()
+
+
+func _power_text() -> String:
+	if ship.systems == null:
+		return ""
+	var power := ship.systems.power
+	return "\nPWR E %d  W %d  L %d   T %d%%   coolant %d%%%s" % [
+		power.delivered(ShipPower.Conduit.ENGINES), power.delivered(ShipPower.Conduit.WEAPONS),
+		power.delivered(ShipPower.Conduit.LIFE_SUPPORT), power.temperature * 100.0, power.coolant * 100.0,
+		"   REACTOR SHUTDOWN" if power.is_shut_down() else ""]
 
 
 func _nearest_signal_text() -> String:

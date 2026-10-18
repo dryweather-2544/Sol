@@ -15,6 +15,8 @@ var occupied_portals := {}
 var airlock_pressure := 1.0
 ## Pressure outside (1 on a breathable world, 0 in vacuum or toxic air); set by the game each tick.
 var ambient_pressure := 1.0
+## Reactor and conduits; ticked here, not yet wired to flight or weapons.
+var power := ShipPower.new()
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
 
@@ -34,6 +36,7 @@ func update(delta: float, ship_state: ShipState) -> void:
 	else:
 		airlock_pressure = move_toward(airlock_pressure, 1.0, delta / AirlockController.CYCLE_SECONDS)
 	seats.update(delta)
+	power.update(delta)
 	layout.ramp_walkable = walkway.is_deployed()
 	if _outer_close_pending and walkway.is_stowed() and not _is_occupied(&"airlock_outer"):
 		airlock.request_close_outer(false)
