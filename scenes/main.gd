@@ -30,6 +30,7 @@ var audio: AudioService
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
 var _cockpit_view := false
+var _welcomed := false
 var _nav_target_index := -1
 var save_manager := SaveManager.new()
 var _was_landed := false
@@ -51,6 +52,7 @@ func _ready() -> void:
 	ship.state.position = WorldPos.new(planet.frame_id, start_up.x * (planet.radius + START_ALTITUDE), start_up.y * (planet.radius + START_ALTITUDE), start_up.z * (planet.radius + START_ALTITUDE))
 	ship.state.basis = Basis.looking_at(-start_up, Vector3.UP) # nose toward the planet
 	ship.render_origin = ship.state.position.duplicate_position()
+	ship.state.gear = PilotCommand.GEAR_CRUISE # start in orbit, 300 km up: cruise gets you down in half a minute
 	session = GameSession.new(planet, ship, player_source) # gives the ship its interior systems
 	runtime = WorldRuntime.new(system, session, system.home_id)
 	runtime.frame_changed.connect(_on_frame_changed)
@@ -405,6 +407,9 @@ func _frame_and_nav_text() -> String:
 
 
 func _on_menu_resume() -> void:
+	if not _welcomed:
+		_welcomed = true
+		session.say("W thrusts, mouse steers, [ ] change gear. Aim down at the planet, thrust, and land belly-down.")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
 
