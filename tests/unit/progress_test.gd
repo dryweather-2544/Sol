@@ -74,7 +74,8 @@ func test_story_objectives_complete_by_landing_on_the_target_worlds() -> void:
 	progress.update(session, &"planet")
 	assert_eq(progress.current, 3, "landing on the home world is not Selene")
 	progress.update(session, &"selene")
-	assert_eq(progress.current, 4)
+	assert_eq(progress.current, 4, "landing on Selene starts the Mayday errand")
+	progress.current = 7
 	progress.update(session, &"verdant")
 	assert_true(progress.is_finished())
 	assert_true(progress.current_text().contains("complete"))

@@ -124,7 +124,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests (headless scenarios):** fire in engineering → engineer extinguishes it within T s; engines at 30 % → repaired within T s; gunner destroys a scripted target drone within T s; an order overrides the utility choice until done; no goal oscillation (goal changes ≤ K per minute in a 10-minute soak).
 - **Inspect:** overlay + screenshot; a short real-scene run.
 
-### N7 — Mission data + the slice
+### N7 — DONE. Mission data + the slice
 - **Deliverable:** generalise `ProgressTracker` into typed objectives (REACH_BODY, REACH_POI, RETRIEVE_ITEM, INSTALL_PART, RETURN) driven by a small data dict; keep the existing 5-step story as one mission. Author "Mayday on Selene": beacon POI forced at a fixed Selene site, scripted ambush via `EnemyDirector`, a guaranteed engine-damage + engineering fire on first hit, the coupling item, install at `engine_station`. Save v10.
 - **Acceptance / tests:** `slice_scenario_test` (headless): scripted pilot + scripted player + AI crew complete the mission; ends in a legal state; no teleports; save/load at each beat resumes. Existing story mission still completes. `tools/playthrough.gd slice` passes in the real scene.
 - **Inspect:** playthrough log + `tools/screenshot.gd` at each beat (5–6 images) committed to `tests/perf/` or a `docs/slice_shots/` folder.

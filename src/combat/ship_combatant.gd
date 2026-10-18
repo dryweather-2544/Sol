@@ -33,6 +33,7 @@ func apply_damage(amount: float, source: Object) -> void:
 	if ship.state.hull <= 0.0:
 		return
 	if ship.systems != null:
+		ship.systems.take_ambush_hit()
 		var subsystems := ship.systems.subsystems
 		var struck := subsystems.next_round_robin()
 		if source is Ship:

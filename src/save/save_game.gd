@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 10
+const SAVE_VERSION := 11
 const GAME_VERSION := "0.1"
 
 
@@ -41,7 +41,8 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"walkway": {"state": systems.walkway.state, "progress": systems.walkway.progress},
 			"ramp_end_y": systems.layout.ramp_end_y,
 		},
-		"systems": {"subsystems": systems.subsystems.to_array(), "power": systems.power.to_dictionary(), "hazards": systems.hazards.to_dictionary()},
+		"systems": {"subsystems": systems.subsystems.to_array(), "power": systems.power.to_dictionary(), "hazards": systems.hazards.to_dictionary(),
+			"caps": systems.subsystems.caps_to_array(), "ambush_armed": systems.ambush_armed},
 		"player": {
 			"mode": saved_mode,
 			"interior_position": _vector_to_array(interior_position),
@@ -65,7 +66,8 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 		"crew": session.crew.to_array(),
 		"inventory": session.inventory.to_dictionary(),
 		"upgrades": session.ship.upgrades.to_array(),
-		"progress": {"objective": session.progress.current, "warp_installed": session.progress.warp_installed},
+		"progress": {"objective": session.progress.current, "warp_installed": session.progress.warp_installed, "coupling_installed": session.progress.coupling_installed,
+			"ambush_started": session.progress.ambush_started, "beacon_direction": _vector_to_array(session.progress.beacon_direction)},
 	}
 
 
@@ -97,6 +99,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	systems.subsystems.restore(systems_data.get("subsystems", []))
 	systems.power.restore(systems_data.get("power", {}))
 	systems.hazards.restore(systems_data.get("hazards", {}))
+	systems.subsystems.restore_caps(systems_data.get("caps", []))
+	systems.ambush_armed = bool(systems_data.get("ambush_armed", false))
 	systems.layout.ramp_end_y = float(interior_data["ramp_end_y"])
 	systems.layout.ramp_walkable = systems.walkway.is_deployed()
 	systems.airlock.reset_cycle()
@@ -133,6 +137,10 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	var progress_data: Dictionary = data.get("progress", {})
 	session.progress.current = int(progress_data.get("objective", 0))
 	session.progress.warp_installed = bool(progress_data.get("warp_installed", false))
+	session.progress.coupling_installed = bool(progress_data.get("coupling_installed", false))
+	session.progress.ambush_started = bool(progress_data.get("ambush_started", false))
+	var saved_beacon: Array = progress_data.get("beacon_direction", [0.0, 0.0, 0.0])
+	session.progress.beacon_direction = _array_to_vector(saved_beacon)
 	if data.has("crew"): # older saves have none: keep whoever the game started with
 		session.crew.restore(session.systems, data["crew"])
 	session.inventory.restore(data.get("inventory", {"oxygen_tank": 1, "repair_kit": 1}))

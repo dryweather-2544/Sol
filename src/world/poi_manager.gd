@@ -44,6 +44,11 @@ func apply_origin_shift(shift: Vector3) -> void:
 		_place(_markers[poi_id], _known[poi_id])
 
 
+## Forget the planned region so the next update plans again (after a POI was pinned by hand).
+func invalidate_plan() -> void:
+	_replan_center = null
+
+
 func known_instances() -> Array[PoiInstance]:
 	var instances: Array[PoiInstance] = []
 	for instance in _known.values():

@@ -29,6 +29,7 @@ var menu: PauseMenu
 var inventory_menu: InventoryMenu
 var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
+var _ambush_pending := false
 var audio: AudioService
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
@@ -66,6 +67,7 @@ func _ready() -> void:
 	ship.add_child(interior_view)
 	cockpit_camera = CockpitCamera.new()
 	ship.add_child(cockpit_camera)
+	session.ambush_requested.connect(func(_beacon_direction: Vector3): _ambush_pending = true)
 	session.crew.add_member(session.systems, &"mara", &"engineer", &"reactor_panel")
 	session.crew.add_member(session.systems, &"kit", &"gunner", &"gunner_seat")
 	var crew_view := CrewView.new()
@@ -161,6 +163,7 @@ func _physics_process(delta: float) -> void:
 	var mode_before := session.mode
 	runtime.advance(delta)
 	runtime.update_frame()
+	_update_mission()
 	session.tick(delta, command)
 	on_foot.sync_transform()
 	interior_view.sync_view()
@@ -363,6 +366,17 @@ func _recentre_everything_on_ship() -> void:
 		enemy_director.render_origin = new_origin.duplicate_position()
 	on_foot.planet = planet
 	on_foot.render_origin = new_origin.duplicate_position()
+
+
+## Mission glue: put the Mayday beacon on Selene once the ambush has fixed where it is, and spawn the raider.
+func _update_mission() -> void:
+	if _ambush_pending and enemy_director != null:
+		_ambush_pending = false
+		enemy_director.spawn_ambush()
+	if poi_manager != null and session.progress.beacon_direction != Vector3.ZERO and runtime.active_frame == &"selene":
+		if not poi_manager.planner.pinned.has(ProgressTracker.BEACON_ID):
+			poi_manager.planner.pin_beacon(ProgressTracker.BEACON_ID, session.progress.beacon_direction, SeedHash.string_hash("mayday"))
+			poi_manager.invalidate_plan()
 
 
 func _build_poi_manager() -> void:

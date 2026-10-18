@@ -56,7 +56,7 @@ func _blackboard(systems: ShipSystems, ship: Ship, targets: Array) -> Dictionary
 			hostile_close = true
 			break
 	var worst := systems.subsystems.worst_id()
-	return {"fires": systems.hazards.burning_rooms(), "worst_value": systems.subsystems.value(worst), "hostile": hostile_close,
+	return {"fires": systems.hazards.burning_rooms(), "worst_value": systems.subsystems.value(worst) / maxf(systems.subsystems.cap[worst], 0.01), "hostile": hostile_close,
 		"reactor_needs_attention": (systems.power.is_shut_down() and systems.power.temperature < ShipPower.RESTART_BELOW_TEMPERATURE) \
 			or (systems.power.temperature > OVERHEAT and systems.power.coolant >= ShipPower.COOLANT_PER_VENT)}
 

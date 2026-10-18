@@ -52,6 +52,8 @@ signal player_lost(reason: String)
 signal workbench_requested
 ## The player used the reactor panel; the scene opens the reactor screen.
 signal reactor_requested
+## The Mayday ambush has started; the scene spawns the hostile ship(s). Carries the beacon direction on Selene.
+signal ambush_requested(beacon_direction: Vector3)
 ## Sprays left in the carried fire extinguisher (refilled at the locker in engineering).
 const EXTINGUISHER_CHARGES := 6
 const EXTINGUISHER_STRENGTH := 0.35
@@ -72,6 +74,10 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 	ship.systems = systems
 	ship.auto_tick = false
 	systems.seats.seat_occupied.connect(_on_seat_occupied)
+	progress.ambush_triggered.connect(func(beacon_direction: Vector3):
+		systems.ambush_armed = true
+		ambush_requested.emit(beacon_direction))
+	systems.ambush_hit.connect(func(): _say("Engines hit! Fire in engineering!"))
 	ship.destroyed.connect(func(): player_lost.emit("Ship destroyed"))
 	ship.projectiles = projectiles
 	exterior_body.floor_override = Callable(self, "_floor_override")
@@ -172,7 +178,8 @@ func prompt() -> String:
 				&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door": return "F: door"
 				&"reactor_panel": return "F: reactor panel"
 				&"extinguisher_locker": return "F: take the fire extinguisher"
-				&"engine_station", &"gunner_seat": return "F: " + STATION_NAMES[nearest]
+				&"engine_station": return "F: engine station (install a part)"
+				&"gunner_seat": return "F: " + STATION_NAMES[nearest]
 				&"airlock_inner": return "F: inner airlock door"
 				&"airlock_outer": return "F: outer door / walkway"
 				&"workbench": return "F: workbench (upgrades)"
@@ -253,6 +260,16 @@ func _on_seat_occupied(_seat_id: StringName, actor_id: StringName) -> void:
 		pass
 
 
+## The engine station takes the engine coupling; otherwise it only reports the engines' state.
+func _use_engine_station() -> String:
+	if inventory.count(ItemDefinition.ENGINE_COUPLING) > 0:
+		_say(progress.install_engine_coupling(self))
+		return ""
+	if systems.subsystems.cap[ShipSubsystems.Id.ENGINES] < 1.0:
+		return "The engine coupling is burnt out - you need a new one"
+	return "Engines nominal (%d%%)" % (systems.subsystems.value(ShipSubsystems.Id.ENGINES) * 100.0)
+
+
 func _interact_inside() -> void:
 	var point := systems.layout.nearest_interaction(interior_body.position)
 	var failure := ""
@@ -279,7 +296,9 @@ func _interact_inside() -> void:
 		&"extinguisher_locker":
 			extinguisher_charges = EXTINGUISHER_CHARGES
 			_say("Extinguisher ready (%d sprays)" % extinguisher_charges)
-		&"engine_station", &"gunner_seat":
+		&"engine_station":
+			failure = _use_engine_station()
+		&"gunner_seat":
 			failure = STATION_NAMES[point] + " is not connected yet"
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
@@ -537,6 +556,8 @@ func _try_open_crate() -> bool:
 		return false
 	var instance: PoiInstance = crate["poi"]
 	var contents := LootTable.roll(instance.seed_value, instance.type, crate["index"])
+	if instance.id == ProgressTracker.BEACON_ID and crate["index"] == 0:
+		contents.append({"item": ItemDefinition.ENGINE_COUPLING, "count": 1})
 	for entry in contents:
 		if not inventory.can_fit(entry["item"], entry["count"]):
 			_say("Inventory full - make room first")

@@ -1,7 +1,7 @@
 class_name SaveMigrations
 extends RefCounted
 ## Upgrades old save data one version at a time (v1 -> v2 -> ...). Fixtures of every released
-## version live in tests/fixtures/saves/ and must keep loading. v1 to v10 exist.
+## version live in tests/fixtures/saves/ and must keep loading. v1 to v11 exist.
 
 
 ## Returns {ok: bool, data: Dictionary, error: String}.
@@ -34,6 +34,11 @@ static func _step_up(data: Dictionary) -> Dictionary:
 			upgraded["inventory"] = {"oxygen_tank": 1, "repair_kit": 1}
 		5:
 			upgraded["pois"]["cleared"] = [] # v6 added destroyed POI guards
+		10:
+			# v11 put the Mayday mission (3 more objectives) before the last story step.
+			var progress_data: Dictionary = upgraded.get("progress", {})
+			if int(progress_data.get("objective", 0)) >= 4:
+				progress_data["objective"] = int(progress_data["objective"]) + 3
 		9:
 			# v10 rebuilt the ship: six rooms instead of three. The airlock and ramp moved 4.6 m aft, so anyone saved
 			# in them moves with them; the old cabin is now cabin + engineering and needs no change.

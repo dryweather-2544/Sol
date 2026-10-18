@@ -23,10 +23,14 @@ var hazards := ShipHazards.new(layout)
 ## The dorsal gun the gunner works; its firing adds to the weapons conduit demand.
 var turret := ShipTurret.new()
 var turret_firing := false
+## Set when the Mayday ambush starts: the next hit on the ship is a guaranteed engine hit and engineering fire.
+var ambush_armed := false
+signal ambush_hit
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
 
 const AUTO_RESTART_BELOW_TEMPERATURE := 0.2
+const ENGINE_CAP_AFTER_AMBUSH := 0.6
 
 
 func _init() -> void:
@@ -64,6 +68,18 @@ func update(delta: float, ship_state: ShipState) -> void:
 func damage_subsystem(subsystem_id: int, hull_damage: float) -> void:
 	subsystems.damage(subsystem_id, hull_damage)
 	hazards.add_ignition_risk(ShipHazards.SUBSYSTEM_ROOM[subsystem_id], hull_damage)
+
+
+## Called when the ship is hit. Returns true if it was the scripted ambush hit.
+func take_ambush_hit() -> bool:
+	if not ambush_armed:
+		return false
+	ambush_armed = false
+	subsystems.cap[ShipSubsystems.Id.ENGINES] = ENGINE_CAP_AFTER_AMBUSH # the coupling is burnt out: repairs cannot fully fix it
+	damage_subsystem(ShipSubsystems.Id.ENGINES, 0.5)
+	hazards.ignite(&"engineering")
+	ambush_hit.emit()
+	return true
 
 
 ## The reactor panel's controls. Every ship change a crew member makes goes through a request_*(actor_id, ...)

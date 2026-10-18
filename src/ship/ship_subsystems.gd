@@ -13,6 +13,8 @@ const SYSTEM_DAMAGE_SHARE := 1.5
 const EMERGENCY_THRUST := 0.15
 
 var health := [1.0, 1.0, 1.0, 1.0]
+## The most health a subsystem can be repaired to. A burnt part (engine coupling) lowers it until replaced.
+var cap := [1.0, 1.0, 1.0, 1.0]
 var _round_robin := 0
 
 
@@ -50,17 +52,19 @@ func value(id: int) -> float:
 	return health[id]
 
 
+## The subsystem furthest below what it could be repaired to.
 func worst_id() -> int:
 	var worst := 0
 	for id in 4:
-		if health[id] < health[worst]:
+		if cap[id] - health[id] > cap[worst] - health[worst]:
 			worst = id
 	return worst
 
 
+## True when everything is as good as repairs can make it (a capped subsystem at its cap counts).
 func is_undamaged() -> bool:
 	for id in 4:
-		if health[id] < 1.0:
+		if health[id] < cap[id] - 1e-6:
 			return false
 	return true
 
@@ -70,12 +74,21 @@ func repair_worst(amount: float) -> String:
 	if is_undamaged():
 		return ""
 	var id := worst_id()
-	health[id] = minf(1.0, health[id] + amount)
+	health[id] = minf(cap[id], health[id] + amount)
 	return label(id)
 
 
 func to_array() -> Array:
 	return health.duplicate()
+
+
+func caps_to_array() -> Array:
+	return cap.duplicate()
+
+
+func restore_caps(values: Array) -> void:
+	for id in 4:
+		cap[id] = clampf(float(values[id]), 0.0, 1.0) if id < values.size() else 1.0
 
 
 func restore(values: Array) -> void:

@@ -72,6 +72,10 @@ func _refresh(player_position: WorldPos) -> void:
 			_spawn(instance)
 	for poi_id in _encounters.keys():
 		var encounter: Encounter = _encounters[poi_id]
+		if encounter.poi == null: # the scripted ambush: gone once the raider is dead
+			if encounter.ships[0].state.hull <= 0.0:
+				_remove_encounter(poi_id)
+			continue
 		if encounter.poi.position.distance_to(player_position) > PoiRings.CONTENT_EXIT:
 			_remove_encounter(poi_id)
 			continue
@@ -94,24 +98,10 @@ func _spawn(instance: PoiInstance) -> void:
 	var rng := SeedRng.new(SeedHash.combine(instance.seed_value, SeedHash.string_hash("guards")))
 	var frame := PoiBuilder.frame_basis(instance)
 	for ship_index in SHIPS_PER_OUTPOST:
-		var ship := Ship.new()
-		ship.name = "Guard%d" % ship_index
-		ship.planet = planet
-		ship.team_id = 1
-		ship.hull_color = Color(0.75, 0.15, 0.12)
-		ship.weapon.damage = 0.012 # guards are a nuisance, not an instant kill
-		ship.weapon.shots_per_second = 4.0
-		ship.projectiles = session.projectiles
 		var hover_position := instance.position.offset_by(frame.y * 140.0 + frame.x * (ship_index * 60.0 - 30.0) + frame.z * 40.0)
-		ship.state.position = hover_position
-		ship.state.basis = Basis.looking_at(frame.x, frame.y)
-		ship.render_origin = render_origin.duplicate_position()
-		var ai := AIPilotSource.new(AIPilotSource.Mode.ATTACK)
-		ai.target_provider = func():
+		var ship := _make_hostile_ship("Guard%d" % ship_index, hover_position, Basis.looking_at(frame.x, frame.y), func():
 			var player_position := session.player_world_position()
-			return player_position if player_position.distance_to(ship.state.position) < SHIP_ALERT_RANGE else instance.position.offset_by(frame.y * 140.0)
-		ai.target_velocity_provider = func(): return session.ship.state.velocity if session.mode != GameSession.Mode.OUTSIDE else session.exterior_body.velocity
-		ship.controller.request_control(ai, &"guard_ai")
+			return player_position if player_position.distance_to(hover_position) < SHIP_ALERT_RANGE else instance.position.offset_by(frame.y * 140.0))
 		ship.destroyed.connect(func(): session.say("Guard ship destroyed"))
 		add_child(ship)
 		encounter.ships.append(ship)
@@ -136,6 +126,41 @@ func _spawn(instance: PoiInstance) -> void:
 		encounter.drone_nodes.append(node)
 	session.enemy_targets.append_array(encounter.targets)
 	_encounters[instance.id] = encounter
+
+
+## A hostile ship flown by an AIPilotSource that attacks whatever target_provider returns (not yet added to the tree).
+func _make_hostile_ship(ship_name: String, hover_position: WorldPos, facing: Basis, target_provider: Callable) -> Ship:
+	var ship := Ship.new()
+	ship.name = ship_name
+	ship.planet = planet
+	ship.team_id = 1
+	ship.hull_color = Color(0.75, 0.15, 0.12)
+	ship.weapon.damage = 0.012 # hostiles are a nuisance, not an instant kill
+	ship.weapon.shots_per_second = 4.0
+	ship.projectiles = session.projectiles
+	ship.state.position = hover_position
+	ship.state.basis = facing
+	ship.render_origin = render_origin.duplicate_position()
+	var ai := AIPilotSource.new(AIPilotSource.Mode.ATTACK)
+	ai.target_provider = target_provider
+	ai.target_velocity_provider = func(): return session.ship.state.velocity if session.mode != GameSession.Mode.OUTSIDE else session.exterior_body.velocity
+	ship.controller.request_control(ai, &"hostile_ai")
+	return ship
+
+
+## The Mayday ambush: one raider comes in from ahead and above the player's ship and attacks it.
+func spawn_ambush() -> void:
+	var player_ship := session.ship.state
+	var start := player_ship.position.offset_by(-player_ship.basis.z * 800.0 + player_ship.basis.y * 150.0)
+	var raider := _make_hostile_ship("Raider", start, Basis.looking_at(player_ship.basis.z, player_ship.basis.y), func(): return session.ship.state.position)
+	raider.destroyed.connect(func(): session.say("Raider destroyed"))
+	add_child(raider)
+	var encounter := Encounter.new()
+	encounter.poi = null
+	encounter.ships.append(raider)
+	encounter.targets.append(ShipCombatant.new(raider, 1))
+	session.enemy_targets.append_array(encounter.targets)
+	_encounters[&"ambush"] = encounter
 
 
 func _remove_encounter(poi_id: StringName) -> void:

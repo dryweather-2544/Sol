@@ -15,6 +15,8 @@ var density := 0.22
 ## Put in POI ids so worlds never share ids; empty keeps the original home-planet ids (and saves).
 var id_prefix := ""
 var _cache := {} # cell id -> PoiInstance or null
+## Mission POIs placed by hand (id -> PoiInstance), reported by plan_region like any other.
+var pinned := {}
 
 
 func _init(planet_body: PlanetBody, seed_for_planet: int, cell_density: float = 0.22, poi_id_prefix: String = "") -> void:
@@ -42,7 +44,27 @@ func plan_region(center: WorldPos, radius_metres: float) -> Array[PoiInstance]:
 				var instance := plan_cell(cell_i, cell_j, cell_k)
 				if instance != null and instance.position.distance_to(center) <= radius_metres:
 					found.append(instance)
+	for instance in pinned.values():
+		if instance.position.distance_to(center) <= radius_metres:
+			found.append(instance)
 	return found
+
+
+## Places a beacon at the given direction from the planet's centre (idempotent per id).
+func pin_beacon(poi_id: StringName, direction: Vector3, beacon_seed: int) -> PoiInstance:
+	if pinned.has(poi_id):
+		return pinned[poi_id]
+	var unit := direction.normalized()
+	var ground := planet.surface_radius_xyz(unit.x, unit.y, unit.z)
+	var instance := PoiInstance.new()
+	instance.id = poi_id
+	instance.type = PoiDefinition.Type.BEACON
+	instance.seed_value = beacon_seed
+	instance.generation_version = GENERATION_VERSION
+	instance.position = WorldPos.new(planet.frame_id, unit.x * ground, unit.y * ground, unit.z * ground)
+	instance.display_name = "Distress Beacon"
+	pinned[poi_id] = instance
+	return instance
 
 
 func plan_cell(cell_i: int, cell_j: int, cell_k: int) -> PoiInstance:
