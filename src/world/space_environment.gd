@@ -14,6 +14,10 @@ var _sun := DirectionalLight3D.new()
 
 func _ready() -> void:
 	_sky_material.shader = load("res://data/shaders/space_sky.gdshader")
+	# The panorama replaces the hash stars only if the switch is on and the texture loads; otherwise starfield_amount stays 0.
+	var starfield: Texture2D = AssetLibrary.texture("sky/tex_sky_starfield.png") if GameSettings.instance().starfield else null
+	_sky_material.set_shader_parameter("starfield", starfield)
+	_sky_material.set_shader_parameter("starfield_amount", 1.0 if starfield != null else 0.0)
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
 	_environment.background_mode = Environment.BG_SKY
