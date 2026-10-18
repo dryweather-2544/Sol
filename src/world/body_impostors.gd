@@ -14,6 +14,7 @@ var placement_distance := 1.0e6
 
 var _nodes := {} # body id -> MeshInstance3D
 var _shells := {} # body id -> AtmosphereShell (only for worlds with an atmosphere)
+var _cloud_shells := {} # body id -> CloudShell (only for worlds with clouds)
 
 
 func _ready() -> void:
@@ -39,6 +40,10 @@ func _ready() -> void:
 			var shell := AtmosphereShell.new()
 			add_child(shell)
 			_shells[body_id] = shell
+			if body.cloud_coverage > 0.0:
+				var clouds := CloudShell.new()
+				add_child(clouds)
+				_cloud_shells[body_id] = clouds
 
 
 func _process(_delta: float) -> void:
@@ -50,6 +55,8 @@ func _process(_delta: float) -> void:
 		node.visible = body_id != runtime.active_frame
 		if _shells.has(body_id):
 			(_shells[body_id] as Node3D).visible = node.visible
+		if _cloud_shells.has(body_id):
+			(_cloud_shells[body_id] as Node3D).visible = node.visible and GameSettings.instance().clouds
 		if not node.visible:
 			continue
 		var center := system.body_position(body_id, runtime.time_seconds)
@@ -71,3 +78,5 @@ func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_fa
 		return
 	var sun := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds) if runtime.active_frame != StarSystem.SYSTEM_FRAME else Vector3(0, 0, -1)
 	(_shells[body_id] as AtmosphereShell).update_shell(body.radius * scale_factor, body.atmosphere_height * scale_factor, centre, sun, body.atmosphere_color)
+	if _cloud_shells.has(body_id):
+		(_cloud_shells[body_id] as CloudShell).update_shell(body.radius * scale_factor, body.cloud_altitude * scale_factor, centre, sun, body, runtime.time_seconds)

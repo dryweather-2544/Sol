@@ -35,6 +35,7 @@ static func default_system() -> StarSystem:
 	home.spin_period = 6000.0
 	home.terrain_profile = TerrainProfile.new()
 	home.color = Color(0.4, 0.55, 0.35)
+	home.cloud_coverage = 0.42
 	system.bodies[home.id] = home
 
 	var moon := BodyDef.new()
@@ -74,6 +75,9 @@ static func default_system() -> StarSystem:
 	inner.terrain_profile = _profile(4242, 4.2e6, 1800.0, 4800.0, 10.0, 2.0)
 	inner.color = Color(0.75, 0.35, 0.2)
 	inner.atmosphere_color = Color(0.95, 0.5, 0.22) # thin toxic haze: scatters orange
+	inner.cloud_coverage = 0.75 # a thick ochre deck
+	inner.cloud_color = Color(0.85, 0.66, 0.45)
+	inner.cloud_altitude = 6000.0
 	inner.terrain_profile.palette_low = Color(0.55, 0.25, 0.15)
 	inner.terrain_profile.palette_mid = Color(0.7, 0.4, 0.2)
 	inner.terrain_profile.palette_high = Color(0.35, 0.25, 0.22)
@@ -93,6 +97,9 @@ static func default_system() -> StarSystem:
 	outer.terrain_profile = _profile(9090, 8.5e6, 2000.0, 3000.0, 9.0, 1.8)
 	outer.color = Color(0.3, 0.5, 0.65)
 	outer.atmosphere_color = Color(0.4, 0.8, 0.85) # teal
+	outer.cloud_coverage = 0.4
+	outer.cloud_color = Color(0.95, 1.0, 1.0)
+	outer.cloud_altitude = 12000.0
 	outer.terrain_profile.palette_low = Color(0.15, 0.4, 0.3)
 	outer.terrain_profile.palette_mid = Color(0.3, 0.55, 0.35)
 	outer.terrain_profile.palette_high = Color(0.5, 0.5, 0.45)

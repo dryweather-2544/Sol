@@ -15,6 +15,7 @@ var planet: PlanetBody ## null while in the star-centred system frame
 var terrain: PlanetTerrain
 var impostors: BodyImpostors
 var atmosphere_shell: AtmosphereShell
+var cloud_shell: CloudShell
 var space_environment: SpaceEnvironment
 var player_source := PlayerPilotSource.new()
 var session: GameSession
@@ -107,6 +108,8 @@ func _ready() -> void:
 	add_child(overlay)
 	atmosphere_shell = AtmosphereShell.new()
 	add_child(atmosphere_shell)
+	cloud_shell = CloudShell.new()
+	add_child(cloud_shell)
 	impostors = BodyImpostors.new()
 	impostors.system = system
 	impostors.runtime = runtime
@@ -209,6 +212,14 @@ func _process(_delta: float) -> void:
 		sun_direction = Vector3(here.x - to_star.x, here.y - to_star.y, here.z - to_star.z).normalized()
 	space_environment.set_sun_direction(sun_direction)
 	atmosphere_shell.visible = planet != null and planet.atmosphere_height > 0.0
+	var planet_centre := WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if planet != null and terrain != null else Vector3.ZERO
+	if atmosphere_shell.visible:
+		var cloud_body: BodyDef = system.bodies[runtime.active_frame]
+		cloud_shell.visible = GameSettings.instance().clouds and cloud_body.cloud_coverage > 0.0
+		if cloud_shell.visible:
+			cloud_shell.update_shell(planet.radius, cloud_body.cloud_altitude, planet_centre, sun_direction, cloud_body, runtime.time_seconds)
+	else:
+		cloud_shell.visible = false
 	if atmosphere_shell.visible:
 		var home_body: BodyDef = system.bodies[runtime.active_frame]
 		atmosphere_shell.update_shell(planet.radius, planet.atmosphere_height, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color)

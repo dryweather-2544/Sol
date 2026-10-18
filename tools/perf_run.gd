@@ -36,6 +36,7 @@ func _initialize() -> void:
 		var settings := GameSettings.instance()
 		settings.asset_materials = false
 		settings.atmosphere_scattering = false
+		settings.clouds = false
 		settings.decals = false
 		settings.terrain_detail = false
 		settings.starfield = false

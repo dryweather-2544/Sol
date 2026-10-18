@@ -29,3 +29,7 @@ var atmosphere_color := Color(0.29, 0.48, 1.0) # default: Earth-like Rayleigh bl
 ## Distance within which this body's own frame takes over (research PRC-01: 10 x radius).
 func sphere_of_influence() -> float:
 	return radius * 10.0
+## Cloud layer: coverage 0 = none (airless worlds), up to 1 = overcast; altitude in metres above the surface.
+var cloud_coverage := 0.0
+var cloud_color := Color(1.0, 1.0, 1.0)
+var cloud_altitude := 10000.0

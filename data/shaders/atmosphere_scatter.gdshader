@@ -20,7 +20,7 @@ render_mode blend_premul_alpha, unshaded, depth_draw_never, cull_disabled;
 group_uniforms scattering;
 uniform float kr : hint_range(0.0, 0.02) = 0.0035;          // Rayleigh scattering coefficient
 uniform float km : hint_range(0.0, 0.02) = 0.001;           // Mie scattering coefficient
-uniform float sun_intensity : hint_range(0.0, 120.0) = 30.0;
+uniform float sun_intensity : hint_range(0.0, 120.0) = 16.0;
 uniform float g : hint_range(-1.0, 0.0) = -0.95;            // Mie phase asymmetry
 uniform float scale_depth : hint_range(0.01, 1.0) = 0.25;   // altitude fraction of average density
 uniform int num_samples : hint_range(1, 12) = 5;
