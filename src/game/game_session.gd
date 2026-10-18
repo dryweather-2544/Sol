@@ -50,6 +50,8 @@ var repairing := false
 signal player_lost(reason: String)
 ## The player used the workbench; the scene opens the upgrade screen.
 signal workbench_requested
+## Observer only (audio): the player used something inside the ship and it was refused; `reason` is the message shown.
+signal interaction_refused(point_id: StringName, reason: String)
 ## The player used the reactor panel; the scene opens the reactor screen.
 signal reactor_requested
 ## The Mayday ambush has started; the scene spawns the hostile ship(s). Carries the beacon direction on Selene.
@@ -314,6 +316,7 @@ func _interact_inside() -> void:
 			failure = "Nothing to use here"
 	if failure != "":
 		_say(failure)
+		interaction_refused.emit(point, failure)
 
 
 ## Ramp end height so the walkway meets the ground (ship-local y), clamped to a usable range.

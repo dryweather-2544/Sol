@@ -41,10 +41,34 @@ const SOUNDS := {
 	"sfx_suit_o2_warning_critical": {"folder": "sfx/suit", "bus": &"Suit", "db": 0.0},
 	"sfx_item_pickup": {"folder": "sfx/item", "bus": &"UI", "db": 0.0},
 	"sfx_ui_objective": {"folder": "sfx/ui", "bus": &"UI", "db": 0.0},
+	"amb_ext_wind_light_loop": {"folder": "amb", "bus": &"Ambience", "db": 6.0},
+	"amb_ext_wind_strong_loop": {"folder": "amb", "bus": &"Ambience", "db": 6.0},
+	"amb_int_damaged_machine_loop": {"folder": "amb", "bus": &"Ship", "db": 3.0},
+	"amb_int_electrical_hum_loop": {"folder": "amb", "bus": &"Ship", "db": 3.0},
+	"amb_suit_breath_strained_loop": {"folder": "amb", "bus": &"Suit", "db": 3.0},
+	"sfx_int_alarm_hull": {"folder": "sfx/alarm", "bus": &"Ship", "db": 0.0},
+	"sfx_foot_rubber": {"folder": "sfx/foot", "bus": &"SFX", "db": 0.0},
+	"sfx_foot_soil_air": {"folder": "sfx/foot", "bus": &"SFX", "db": 0.0},
+	"sfx_int_airlock_seal": {"folder": "sfx/int", "bus": &"Ship", "db": 0.0},
+	"sfx_int_door_deny": {"folder": "sfx/int", "bus": &"Ship", "db": 0.0},
+	"sfx_int_ramp_motor_loop": {"folder": "sfx/int", "bus": &"Ship", "db": 3.0},
+	"sfx_int_ramp_stop": {"folder": "sfx/int", "bus": &"Ship", "db": 0.0},
+	"sfx_int_seat_sit": {"folder": "sfx/int", "bus": &"Ship", "db": 0.0},
+	"sfx_int_seat_stand": {"folder": "sfx/int", "bus": &"Ship", "db": 0.0},
+	"sfx_repair_loop": {"folder": "sfx/int", "bus": &"Ship", "db": 3.0},
+	"sfx_ship_boost_start": {"folder": "sfx/ship", "bus": &"Interior", "db": 0.0},
+	"sfx_ship_rcs_pulse": {"folder": "sfx/ship", "bus": &"Interior", "db": 0.0},
+	"sfx_ship_gear_shift": {"folder": "sfx/ui", "bus": &"UI", "db": 0.0},
+	"sfx_suit_helmet_seal": {"folder": "sfx/suit", "bus": &"Suit", "db": 0.0},
+	"sfx_suit_helmet_unseal": {"folder": "sfx/suit", "bus": &"Suit", "db": 0.0},
+	"sfx_suit_jetpack_loop": {"folder": "sfx/suit", "bus": &"Suit", "db": 3.0},
+	"sfx_wpn_ship_gun_fire": {"folder": "sfx/wpn", "bus": &"Interior", "db": 0.0},
+	"sfx_wpn_turret_fire": {"folder": "sfx/wpn", "bus": &"Ship", "db": 0.0},
 	"mus_discovery_sting": {"folder": "mus", "bus": &"UI", "db": 0.0},
 }
 
 static var _streams := {}
+static var _variant_streams := {}
 static var _missing := {}
 
 
@@ -113,8 +137,25 @@ static func stream(sound_id: String) -> AudioStream:
 	return built
 
 
+## One specific numbered file of an id (the gear-shift sounds are one file per gear, not random variants), or null.
+static func variant_stream(sound_id: String, variant_number: int) -> AudioStream:
+	if not GameSettings.instance().sample_audio or not SOUNDS.has(sound_id):
+		return null
+	var key := "%s#%d" % [sound_id, variant_number]
+	if _variant_streams.has(key):
+		return _variant_streams[key]
+	var path := "%s%s/%s_%02d.wav" % [ROOT, SOUNDS[sound_id]["folder"], sound_id, variant_number]
+	var wav := ResourceLoader.load(path) if ResourceLoader.exists(path) else null
+	if not (wav is AudioStreamWAV):
+		AssetLibrary.warn_once("audio:" + key, "sound file '%s' not found or not loadable" % path)
+		return null
+	_variant_streams[key] = wav
+	return wav as AudioStreamWAV
+
+
 ## For tests: forget cached streams and missing-file memory.
 static func reset_cache() -> void:
+	_variant_streams.clear()
 	_streams.clear()
 	_missing.clear()
 
@@ -140,8 +181,20 @@ static func frame_count(wav: AudioStreamWAV) -> int:
 static func engine_mix(throttle: float, engine_running: bool) -> Vector2:
 	if not engine_running:
 		return Vector2.ZERO
-	var amount := clampf(throttle, 0.0, 1.0) * PI * 0.5
-	return Vector2(cos(amount), sin(amount))
+	return crossfade(throttle)
+
+
+## Equal-power crossfade: amount 0 = all first, 1 = all second. Returns Vector2(first_gain, second_gain).
+static func crossfade(amount: float) -> Vector2:
+	var angle := clampf(amount, 0.0, 1.0) * PI * 0.5
+	return Vector2(cos(angle), sin(angle))
+
+
+## Loudness of a source `distance` metres from the listener, for sounds placed in the ship (3D players need a listener set-up that nobody
+## has run yet, so the position is applied as a plain volume: 1 at the source, falling smoothly to `floor_gain` at `max_distance` and beyond).
+static func proximity_gain(distance: float, max_distance: float = 12.0, floor_gain: float = 0.0) -> float:
+	var closeness := 1.0 - clampf(distance / max_distance, 0.0, 1.0)
+	return lerpf(floor_gain, 1.0, closeness * closeness)
 
 
 ## Linear gain 0..1 to dB, with silence reported as -80 (so a "silent" loop player stays running but inaudible).

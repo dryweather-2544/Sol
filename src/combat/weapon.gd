@@ -7,6 +7,7 @@ var shots_per_second := 6.0
 var projectile_speed := 900.0
 var damage := 0.05
 var projectile_lifetime := 3.0
+var shots_fired := 0 ## observer only: the audio service plays a shot sound whenever this goes up
 var _cooldown := 0.0
 
 
@@ -34,4 +35,5 @@ func try_fire(sim: ProjectileSim, muzzle: WorldPos, direction: Vector3, shooter_
 		return false
 	_cooldown = 1.0 / (shots_per_second * rate_scale)
 	sim.spawn(muzzle, direction * projectile_speed + shooter_velocity, team, damage, source, projectile_lifetime)
+	shots_fired += 1
 	return true

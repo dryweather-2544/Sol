@@ -9,6 +9,10 @@ const ONE_SHOT_VOICES := 16
 const HARD_TOUCHDOWN_SPEED := 6.0 ## m/s just before landing; at or above this the hard touchdown sound plays
 const LOW_OXYGEN_WARNING := 0.25
 const CRITICAL_OXYGEN_WARNING := 0.10
+const RCS_TURN_THRESHOLD := 0.2
+const RCS_MIN_SECONDS_BETWEEN_PULSES := 0.25 ## at most 4 per second
+const TURRET_SOUND_SECONDS_BETWEEN_SHOTS := 0.2
+const HULL_ALARM_BELOW := 0.25
 const SUBSYSTEM_FAIL_BELOW := 0.25
 const SUBSYSTEM_RESTORED_ABOVE := 0.75
 
@@ -41,6 +45,15 @@ var _subsystem_low := {}
 var _oxygen_low := false
 var _oxygen_critical := false
 var _previous_pickup_total := -1
+var _previous_boost := false
+var _previous_gear := -1
+var _previous_turn_active := false
+var _rcs_clock := 0.0
+var _previous_shots_fired := 0
+var _previous_turret_firing := false
+var _turret_clock := 0.0
+var _previous_walkway_moving := false
+var _previous_outer_open_factor := 0.0
 
 
 func _ready() -> void:
@@ -75,6 +88,9 @@ func _ready() -> void:
 		session.discovery_log.poi_discovered.connect(func(_instance): play_cue("chime", "mus_discovery_sting"))
 		session.progress.objective_completed.connect(func(_index): play_sample("sfx_ui_objective"))
 		session.systems.ambush_hit.connect(func(): play_sample("sfx_dmg_hull_hit", 1))
+		session.interaction_refused.connect(_on_interaction_refused)
+		_previous_shots_fired = ship.weapon.shots_fired
+		_previous_gear = ship.state.gear
 		_previous_pickup_total = _inventory_total()
 		session.inventory.changed.connect(_on_inventory_changed)
 		# Start from the loaded state so a save made in a damaged/depressurised ship does not announce it on the first frame.
@@ -109,12 +125,19 @@ func _process(delta: float) -> void:
 	var rumble_in_use := inside and _set_loop_gain("amb_ship_structure_rumble_loop", wind_strength, engine_bus)
 	if not inside:
 		_set_loop_gain("amb_ship_structure_rumble_loop", 0.0, engine_bus)
-	_wind_player.volume_db = -80.0 if rumble_in_use else 0.0
-	if not rumble_in_use:
+	# Outside (and in the atmosphere) the same strength drives the recorded wind: light fades into strong. Never on an airless world.
+	var wind_mix := AudioLibrary.crossfade(wind_strength / 0.6)
+	var wind_gain := clampf(wind_strength * 3.0, 0.0, 1.0)
+	var light_ok := _set_loop_gain("amb_ext_wind_light_loop", wind_mix.x * wind_gain if not inside else 0.0, &"Ambience")
+	var strong_ok := _set_loop_gain("amb_ext_wind_strong_loop", wind_mix.y * wind_gain if not inside else 0.0, &"Ambience")
+	var wind_in_use := rumble_in_use or (not inside and light_ok and strong_ok)
+	_wind_player.volume_db = -80.0 if wind_in_use else 0.0
+	if not wind_in_use:
 		_feed(_wind_player, func(count): return _wind_voice.fill(count, wind_strength, 0.7))
 	_update_cabin_and_suit_loops(inside)
 	_play_event_cues(delta)
 	_play_state_cues()
+	_play_ship_control_cues(delta)
 
 
 ## Plays a synthesised cue by name, or the recorded sound `sample_id` when there is one (falling back to the synthesised cue).
@@ -193,27 +216,52 @@ func _update_engine_loops(engine_bus: StringName, engine_running: bool) -> bool:
 	return idle_ok and thrust_ok
 
 
-## Air in the cabin (while life support delivers), and the suit's room tone and calm breathing while on foot outside.
+## Cabin and suit loops. Ship-placed sounds are scaled by how far the player is from their source (AudioLibrary.proximity_gain).
 func _update_cabin_and_suit_loops(inside: bool) -> void:
-	var life_support := session.systems.power.delivered(ShipPower.Conduit.LIFE_SUPPORT)
+	var systems := session.systems
+	var player_position := session.interior_body.position
+	var life_support := systems.power.delivered(ShipPower.Conduit.LIFE_SUPPORT)
 	_set_loop_gain("amb_int_air_loop", 1.0 if inside and life_support > 0.05 else 0.0, &"Ship")
 	var outside := session.mode == GameSession.Mode.OUTSIDE
 	_set_loop_gain("amb_suit_room_tone_loop", 1.0 if outside else 0.0, &"Suit")
-	_set_loop_gain("amb_suit_breath_calm_loop", 1.0 if outside and session.suit.oxygen > 0.3 else 0.0, &"Suit")
-	var reactor_gain := 0.0 if session.systems.power.is_shut_down() else lerpf(0.5, 1.0, clampf(session.systems.power.temperature, 0.0, 1.0))
-	_set_loop_gain("amb_int_reactor_loop", reactor_gain if inside else 0.0, &"Ship")
+	var strained := session.suit.oxygen <= 0.3
+	_set_loop_gain("amb_suit_breath_calm_loop", 1.0 if outside and not strained else 0.0, &"Suit")
+	_set_loop_gain("amb_suit_breath_strained_loop", 1.0 if outside and strained else 0.0, &"Suit")
+	_set_loop_gain("sfx_suit_jetpack_loop", 1.0 if outside and session.exterior_body.jetpack_burning else 0.0, &"Suit")
+	_set_loop_gain("sfx_repair_loop", 1.0 if inside and session.repairing else 0.0, &"Ship")
+	var reactor_gain := 0.0 if systems.power.is_shut_down() else lerpf(0.5, 1.0, clampf(systems.power.temperature, 0.0, 1.0))
+	_set_loop_gain("amb_int_reactor_loop", reactor_gain * _proximity(&"reactor_panel", player_position, 0.3) if inside else 0.0, &"Ship")
+	var hum_gain := 0.0 if systems.power.is_shut_down() else maxf(_proximity(&"pilot_seat", player_position, 0.15), maxf(_proximity(&"engine_station", player_position, 0.15), _proximity(&"reactor_panel", player_position, 0.15)))
+	_set_loop_gain("amb_int_electrical_hum_loop", hum_gain if inside else 0.0, &"Ship")
+	var engine_damage := clampf((0.5 - systems.subsystems.value(ShipSubsystems.Id.ENGINES)) / 0.5, 0.0, 1.0)
+	_set_loop_gain("amb_int_damaged_machine_loop", engine_damage * _proximity(&"engine_station", player_position, 0.2) if inside else 0.0, &"Ship")
 	var strongest_fire := 0.0
-	for room_id in session.systems.hazards.burning_rooms():
-		strongest_fire = maxf(strongest_fire, session.systems.hazards.fire_in(room_id))
+	for room_id in systems.hazards.burning_rooms():
+		var room_center := systems.layout.rooms[room_id].get_center()
+		var room_distance := Vector2(player_position.x, player_position.z).distance_to(room_center)
+		strongest_fire = maxf(strongest_fire, systems.hazards.fire_in(room_id) * AudioLibrary.proximity_gain(room_distance, 12.0, 0.25))
 	_set_loop_gain("amb_int_fire_loop", strongest_fire if inside else 0.0, &"Ship")
 
 
-## One alarm voice: fire beats reactor beats hull (hull has no trigger yet), scheduled by AlarmSchedule.
+## Proximity gain from the player to a named interaction point of the ship layout (1.0 if the layout has no such point).
+func _proximity(point_id: StringName, player_position: Vector3, floor_gain: float) -> float:
+	for point in session.systems.layout.interact_points:
+		if point["id"] == point_id:
+			return AudioLibrary.proximity_gain(player_position.distance_to(point["position"]), 12.0, floor_gain)
+	return 1.0
+
+
+## One alarm voice: fire beats reactor beats hull, scheduled by AlarmSchedule.
 func _play_alarm(delta: float) -> void:
-	var wanted := AlarmSchedule.pick(session.systems.hazards.any_fire(), session.systems.power.is_shut_down(), false)
+	var wanted := AlarmSchedule.pick(session.systems.hazards.any_fire(), session.systems.power.is_shut_down(), ship.state.hull < HULL_ALARM_BELOW)
 	if not _alarm_schedule.step(wanted, delta):
 		return
-	play_cue("alarm", "sfx_int_alarm_fire" if wanted == AlarmSchedule.Kind.FIRE else "sfx_int_alarm_reactor")
+	var alarm_sound := "sfx_int_alarm_hull"
+	if wanted == AlarmSchedule.Kind.FIRE:
+		alarm_sound = "sfx_int_alarm_fire"
+	elif wanted == AlarmSchedule.Kind.REACTOR:
+		alarm_sound = "sfx_int_alarm_reactor"
+	play_cue("alarm", alarm_sound)
 
 
 func _play_event_cues(delta: float) -> void:
@@ -223,8 +271,13 @@ func _play_event_cues(delta: float) -> void:
 			play_cue("door", "sfx_int_door_open" if target else "sfx_int_door_close")
 		_previous_door_targets[portal_id] = target
 	var walkway_state := session.systems.walkway.state
-	if _previous_walkway_state != -1 and walkway_state != _previous_walkway_state and (walkway_state == WalkwayController.State.DEPLOYING or walkway_state == WalkwayController.State.RETRACTING):
+	var walkway_moving := walkway_state == WalkwayController.State.DEPLOYING or walkway_state == WalkwayController.State.RETRACTING
+	var motor_loop_playing := _set_loop_gain("sfx_int_ramp_motor_loop", 1.0 if walkway_moving else 0.0, &"Ship")
+	if _previous_walkway_state != -1 and walkway_state != _previous_walkway_state and walkway_moving and not motor_loop_playing:
 		play_cue("ramp")
+	if _previous_walkway_moving and not walkway_moving:
+		play_sample("sfx_int_ramp_stop")
+	_previous_walkway_moving = walkway_moving
 	_previous_walkway_state = walkway_state
 	if ship.state.landed and not _previous_landed:
 		play_cue("thud", "sfx_ship_touchdown_hard" if _previous_speed_in_flight >= HARD_TOUCHDOWN_SPEED else "sfx_ship_touchdown_soft")
@@ -241,7 +294,11 @@ func _play_event_cues(delta: float) -> void:
 	if walking_speed > 0.5 and grounded:
 		_footstep_clock -= delta
 		if _footstep_clock <= 0.0:
-			var sample_id := "sfx_foot_metal" if session.mode == GameSession.Mode.INSIDE else ("sfx_foot_regolith_suit" if ship.state.atmosphere_ratio >= 1.0 else "")
+			var sample_id := ""
+			if session.mode == GameSession.Mode.INSIDE:
+				sample_id = "sfx_foot_rubber" if session.player_room() in [&"airlock", &"cargo"] else "sfx_foot_metal"
+			else:
+				sample_id = "sfx_foot_soil_air" if ship.state.atmosphere_ratio < 1.0 else "sfx_foot_regolith_suit"
 			play_cue("footstep", sample_id)
 			_footstep_clock = clampf(1.5 / walking_speed, 0.25, 0.6)
 	else:
@@ -257,7 +314,22 @@ func _play_state_cues() -> void:
 	if session.mode == GameSession.Mode.SEATED and _previous_mode != GameSession.Mode.SEATED and _previous_mode != -1 and ship.state.landed:
 		play_sample("sfx_ship_engine_startup")
 	_previous_engine_stopped = engine_stopped
+	var was_in_seat := _previous_mode == GameSession.Mode.SEATED or _previous_mode == GameSession.Mode.SITTING
+	var in_seat := session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
+	if _previous_mode != -1:
+		if in_seat and not was_in_seat:
+			play_sample("sfx_int_seat_sit")
+		elif was_in_seat and not in_seat:
+			play_sample("sfx_int_seat_stand")
+		if session.mode == GameSession.Mode.OUTSIDE and _previous_mode == GameSession.Mode.INSIDE:
+			play_sample("sfx_suit_helmet_seal")
+		elif session.mode == GameSession.Mode.INSIDE and _previous_mode == GameSession.Mode.OUTSIDE:
+			play_sample("sfx_suit_helmet_unseal")
 	_previous_mode = session.mode
+	var outer_open_factor := session.systems.airlock.outer.open_factor
+	if _previous_outer_open_factor > 0.0 and outer_open_factor <= 0.0:
+		play_sample("sfx_int_airlock_seal")
+	_previous_outer_open_factor = outer_open_factor
 	var power_down := session.systems.power.is_shut_down()
 	if power_down != _previous_power_down:
 		play_sample("sfx_int_power_down" if power_down else "sfx_int_power_up")
@@ -290,6 +362,54 @@ func _play_state_cues() -> void:
 	else:
 		_oxygen_low = false
 		_oxygen_critical = false
+
+
+## Ship controls: boost, gear change, RCS pulses on turn onset, the ship gun and the turret.
+func _play_ship_control_cues(delta: float) -> void:
+	_rcs_clock = maxf(0.0, _rcs_clock - delta)
+	_turret_clock = maxf(0.0, _turret_clock - delta)
+	var command := ship.last_command
+	if command.boost and not _previous_boost:
+		play_sample("sfx_ship_boost_start")
+	_previous_boost = command.boost
+	if ship.state.gear != _previous_gear:
+		if _previous_gear != -1:
+			_play_gear_shift(ship.state.gear)
+		_previous_gear = ship.state.gear
+	var turn_active := command.turn.length() > RCS_TURN_THRESHOLD and not ship.state.landed
+	if turn_active and not _previous_turn_active and _rcs_clock <= 0.0:
+		play_sample("sfx_ship_rcs_pulse")
+		_rcs_clock = RCS_MIN_SECONDS_BETWEEN_PULSES
+	_previous_turn_active = turn_active
+	var shots_fired := ship.weapon.shots_fired
+	if shots_fired > _previous_shots_fired:
+		play_sample("sfx_wpn_ship_gun_fire")
+	_previous_shots_fired = shots_fired
+	var turret_firing := session.systems.turret_firing
+	if turret_firing and (not _previous_turret_firing or _turret_clock <= 0.0):
+		play_sample("sfx_wpn_turret_fire")
+		_turret_clock = TURRET_SOUND_SECONDS_BETWEEN_SHOTS
+	_previous_turret_firing = turret_firing
+
+
+## Gear shift sounds are one file per gear (_01 dock, _02 combat, _03 cruise), not interchangeable variants.
+func _play_gear_shift(gear: int) -> void:
+	var stream := AudioLibrary.variant_stream("sfx_ship_gear_shift", gear + 1)
+	var player := _free_voice(0)
+	if stream == null or player == null:
+		return
+	player.stream = stream
+	player.bus = AudioLibrary.bus_for("sfx_ship_gear_shift")
+	player.volume_db = AudioLibrary.volume_db_for("sfx_ship_gear_shift")
+	player.pitch_scale = 1.0
+	player.play()
+	_one_shot_priorities[_sfx_players.find(player)] = 0
+	cue_started.emit("sfx_ship_gear_shift_%02d" % (gear + 1), player.bus)
+
+
+func _on_interaction_refused(point_id: StringName, _reason: String) -> void:
+	if point_id in [&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door", &"airlock_inner", &"airlock_outer"]:
+		play_sample("sfx_int_door_deny")
 
 
 func _inventory_total() -> int:

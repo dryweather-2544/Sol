@@ -140,3 +140,38 @@ func test_audio_service_emits_cue_started_and_steals_by_priority() -> void:
 	assert_true(playing <= AudioService.ONE_SHOT_VOICES, "never more one-shot voices than the cap (got %d)" % playing)
 	tree.root.remove_child(service)
 	service.free()
+
+
+func test_crossfade_is_equal_power_and_clamped() -> void:
+	assert_eq(AudioLibrary.crossfade(-1.0).x, 1.0, "below 0 is all first")
+	assert_near(AudioLibrary.crossfade(2.0).y, 1.0, 0.001, "above 1 is all second")
+	var middle := AudioLibrary.crossfade(0.5)
+	assert_near(middle.x * middle.x + middle.y * middle.y, 1.0, 0.001, "constant power")
+
+
+func test_proximity_gain_falls_with_distance() -> void:
+	assert_near(AudioLibrary.proximity_gain(0.0), 1.0, 0.001, "at the source")
+	assert_near(AudioLibrary.proximity_gain(12.0), 0.0, 0.001, "at the max distance with no floor")
+	assert_near(AudioLibrary.proximity_gain(30.0, 12.0, 0.3), 0.3, 0.001, "never below the floor")
+	assert_true(AudioLibrary.proximity_gain(3.0) > AudioLibrary.proximity_gain(6.0), "nearer is louder")
+	assert_true(AudioLibrary.proximity_gain(6.0) > AudioLibrary.proximity_gain(9.0), "monotonic")
+
+
+func test_gear_shift_files_are_one_per_gear() -> void:
+	AudioLibrary.reset_cache()
+	GameSettings.instance().sample_audio = true
+	for gear in 3:
+		assert_true(AudioLibrary.variant_stream("sfx_ship_gear_shift", gear + 1) is AudioStreamWAV, "gear %d has its own file" % gear)
+	assert_true(AudioLibrary.variant_stream("sfx_ship_gear_shift", 9) == null, "no file 9")
+	AssetLibrary.reset_warnings()
+	AudioLibrary.reset_cache()
+
+
+func test_weapon_counts_shots_for_the_audio_service() -> void:
+	var weapon := Weapon.ship_gun()
+	var sim := ProjectileSim.new()
+	assert_eq(weapon.shots_fired, 0, "none yet")
+	assert_true(weapon.try_fire(sim, WorldPos.new(&"space"), Vector3.FORWARD, Vector3.ZERO, 0, null), "first shot fires")
+	assert_eq(weapon.shots_fired, 1, "counted")
+	assert_true(not weapon.try_fire(sim, WorldPos.new(&"space"), Vector3.FORWARD, Vector3.ZERO, 0, null), "cooldown blocks the second")
+	assert_eq(weapon.shots_fired, 1, "a blocked shot is not counted")
