@@ -4,7 +4,7 @@ extends RefCounted
 ## positions are WorldPos (frame + doubles), doors and walkway by authored id. Everything
 ## written is JSON-safe (numbers, strings, bools, arrays, dictionaries).
 
-const SAVE_VERSION := 7
+const SAVE_VERSION := 8
 const GAME_VERSION := "0.1"
 
 
@@ -61,6 +61,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"cleared": session.cleared_log.to_array(),
 		},
 		"inventory": session.inventory.to_dictionary(),
+		"upgrades": session.ship.upgrades.to_array(),
 		"progress": {"objective": session.progress.current, "warp_installed": session.progress.warp_installed},
 	}
 
@@ -114,6 +115,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	session.loot_log.restore(poi_data.get("looted", []))
 	session.cleared_log.restore(poi_data.get("cleared", []))
 	session.projectiles.clear()
+	session.ship.upgrades.restore(data.get("upgrades", []))
+	session.suit.oxygen_duration_multiplier = session.ship.upgrades.oxygen_duration_multiplier()
 	var progress_data: Dictionary = data.get("progress", {})
 	session.progress.current = int(progress_data.get("objective", 0))
 	session.progress.warp_installed = bool(progress_data.get("warp_installed", false))

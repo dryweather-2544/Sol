@@ -27,6 +27,7 @@ var overlay: DebugOverlay
 var poi_manager: PoiManager
 var menu: PauseMenu
 var inventory_menu: InventoryMenu
+var workbench_menu: WorkbenchMenu
 var audio: AudioService
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
@@ -112,6 +113,13 @@ func _ready() -> void:
 	inventory_menu.session = session
 	inventory_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	add_child(inventory_menu)
+	workbench_menu = WorkbenchMenu.new()
+	workbench_menu.session = session
+	workbench_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	session.workbench_requested.connect(func():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		workbench_menu.open())
+	add_child(workbench_menu)
 	menu = PauseMenu.new()
 	menu.resume_requested.connect(_on_menu_resume)
 	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
@@ -199,6 +207,10 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if workbench_menu.visible:
+		if event.is_action_pressed("pause"):
+			workbench_menu.close()
+		return
 	if inventory_menu.visible:
 		if event.is_action_pressed("inventory") or event.is_action_pressed("pause"):
 			inventory_menu.close()

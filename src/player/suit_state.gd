@@ -13,6 +13,8 @@ const HEAL_PER_SECOND := 0.1
 
 signal died
 
+## Multiplier on how long the tank lasts (suit tank upgrade).
+var oxygen_duration_multiplier := 1.0
 var oxygen := 1.0
 var fuel := 1.0
 var health := 1.0
@@ -24,7 +26,7 @@ func update(delta: float, breathable: bool, jetpack_burning: bool, grounded: boo
 		if health > 0.0:
 			health = minf(1.0, health + HEAL_PER_SECOND * delta)
 	else:
-		oxygen = maxf(0.0, oxygen - delta / OXYGEN_SECONDS)
+		oxygen = maxf(0.0, oxygen - delta / (OXYGEN_SECONDS * oxygen_duration_multiplier))
 		if oxygen <= 0.0 and health > 0.0:
 			health = maxf(0.0, health - SUFFOCATION_DAMAGE_PER_SECOND * delta)
 			if health <= 0.0:

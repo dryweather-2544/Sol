@@ -43,6 +43,8 @@ var repairing := false
 
 ## Emitted when the run cannot go on (ship destroyed, suffocated); the scene decides what happens next.
 signal player_lost(reason: String)
+## The player used the workbench; the scene opens the upgrade screen.
+signal workbench_requested
 var mode := Mode.SEATED
 var message := ""
 var message_seconds_left := 0.0
@@ -133,6 +135,7 @@ func prompt() -> String:
 				&"cockpit_door": return "F: cockpit door"
 				&"airlock_inner": return "F: inner airlock door"
 				&"airlock_outer": return "F: outer door / walkway"
+				&"workbench": return "F: workbench (upgrades)"
 				&"repair_panel": return "F: repair hull" if not repairing else "F: stop repairing"
 		Mode.OUTSIDE:
 			if not _nearest_crate().is_empty():
@@ -221,6 +224,8 @@ func _interact_inside() -> void:
 			failure = systems.toggle_cockpit_door()
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
+		&"workbench":
+			workbench_requested.emit()
 		&"repair_panel":
 			failure = _toggle_repair()
 		&"airlock_outer":
@@ -544,3 +549,11 @@ func apply_building_walls() -> void:
 			exterior_body.position = exterior_body.position.offset_by(shift)
 		in_building = building.room_index_at(corrected) >= 0 and PoiBuilder.is_in_depot(instance, local_point.x, local_point.y)
 		return
+
+
+func buy_upgrade(upgrade_id: StringName) -> String:
+	var problem := ship.upgrades.buy(upgrade_id, inventory)
+	if problem == "":
+		suit.oxygen_duration_multiplier = ship.upgrades.oxygen_duration_multiplier()
+		_say("Installed: " + ShipUpgrades.CATALOG[upgrade_id]["name"])
+	return problem

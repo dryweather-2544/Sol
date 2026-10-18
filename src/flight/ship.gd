@@ -22,6 +22,7 @@ var last_command := PilotCommand.new()
 ## Combat: set by the scene/director. With no ProjectileSim the guns do nothing.
 var projectiles: ProjectileSim
 var team_id := 0
+var upgrades := ShipUpgrades.new()
 var hull_color := Color(0.62, 0.66, 0.72)
 var weapon := Weapon.ship_gun()
 ## Nose of the ship, where shots leave (ship-local).
@@ -95,7 +96,7 @@ func apply_origin_shift(shift: Vector3) -> void:
 func _take_damage(delta: float) -> void:
 	if state.hull <= 0.0:
 		return
-	var loss := ShipDamage.impact_damage(state.last_impact_speed) + ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta
+	var loss := (ShipDamage.impact_damage(state.last_impact_speed) + ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta) * upgrades.damage_taken_multiplier()
 	if loss <= 0.0:
 		return
 	state.hull = maxf(0.0, state.hull - loss)
@@ -109,7 +110,7 @@ func _burn_fuel(command: PilotCommand, delta: float) -> void:
 		burn += FUEL_CRUISE_PER_SECOND
 	if command.boost and command.thrust != Vector3.ZERO:
 		burn += FUEL_BOOST_PER_SECOND
-	state.fuel = maxf(0.0, state.fuel - burn * delta)
+	state.fuel = maxf(0.0, state.fuel - burn * upgrades.fuel_burn_multiplier() * delta)
 
 
 func _fire_weapon(command: PilotCommand, delta: float) -> void:
@@ -117,4 +118,7 @@ func _fire_weapon(command: PilotCommand, delta: float) -> void:
 	if projectiles == null or not command.fire or state.hull <= 0.0:
 		return
 	var muzzle := state.position.offset_by(state.basis * muzzle_offset)
+	var base_damage := weapon.damage
+	weapon.damage = base_damage * upgrades.gun_damage_multiplier()
 	weapon.try_fire(projectiles, muzzle, -state.basis.z, state.velocity, team_id, self)
+	weapon.damage = base_damage

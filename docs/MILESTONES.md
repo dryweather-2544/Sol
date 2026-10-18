@@ -179,11 +179,11 @@ Acceptance tests:
 
 ## M11 — Progression and ship customization
 
-> **Status:** progression + warp gating done and tested (save v7). Ship customization / layout editor not done.
+> **Status:** progression, warp gating and upgrades done and tested (save v8). The interior layout editor is not planned.
 
 - [x] Story/progress stages gating gears and areas: 5 objectives; open-space cruise is crippled until a Warp coil (outpost reward) is installed
 - [x] Warp travel _(the distance-scaled cruise from M6 is the warp; it is gated by the coil; no separate warp mode and no atmosphere sweep, because cruise speed already shrinks toward any surface)_
-- [ ] Interior layout editor for the player ship (Rodina has one; `03`) _(NOT done)_
+- [x] Ship customization: cabin workbench sells 4 upgrades for scrap/data chips (hull plating, efficient engines, gun amplifier, suit tank; save v8) _(no interior layout editor: Rodina has one, Sol does not)_
 
 ## M12 — Release quality
 
