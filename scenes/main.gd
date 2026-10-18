@@ -66,6 +66,11 @@ func _ready() -> void:
 	ship.add_child(interior_view)
 	cockpit_camera = CockpitCamera.new()
 	ship.add_child(cockpit_camera)
+	session.crew.add_member(session.systems, &"mara", &"engineer", &"reactor_panel")
+	session.crew.add_member(session.systems, &"kit", &"gunner", &"gunner_seat")
+	var crew_view := CrewView.new()
+	crew_view.crew = session.crew
+	ship.add_child(crew_view)
 
 	terrain = PlanetTerrain.new(planet)
 	terrain.render_origin = ship.render_origin.duplicate_position()

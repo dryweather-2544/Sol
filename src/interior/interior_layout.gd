@@ -70,6 +70,30 @@ static func player_ship() -> InteriorLayout:
 	return layout
 
 
+## Where a person stands to use an interaction point: the closest floor spot (clear of walls) that still counts
+## as that point. Returns Vector2.INF if there is none.
+func standing_spot_for(point_id: StringName, radius: float = InteriorBody.RADIUS) -> Vector2:
+	var best := Vector2.INF
+	var best_distance := INF
+	for point in interact_points:
+		if point["id"] != point_id:
+			continue
+		var centre := Vector2(point["position"].x, point["position"].z)
+		var reach: float = point["radius"]
+		var offset_x := -reach
+		while offset_x <= reach:
+			var offset_z := -reach
+			while offset_z <= reach:
+				var spot := centre + Vector2(offset_x, offset_z)
+				if centre.distance_to(spot) < best_distance and is_position_walkable(spot.x, spot.y, radius) \
+						and nearest_interaction(Vector3(spot.x, floor_y, spot.y)) == point_id:
+					best = spot
+					best_distance = centre.distance_to(spot)
+				offset_z += 0.1
+			offset_x += 0.1
+	return best
+
+
 ## The two rooms a portal joins (ids), found by which room rectangles its opening touches.
 func portal_rooms(portal_id: StringName) -> Array[StringName]:
 	var joined: Array[StringName] = []

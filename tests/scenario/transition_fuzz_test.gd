@@ -20,6 +20,8 @@ func _landed_session() -> GameSession:
 	ship.state.position = WorldPos.new(planet.frame_id, direction.x * (ground + 2.1), direction.y * (ground + 2.1), direction.z * (ground + 2.1))
 	ship.state.basis = Basis.looking_at(Vector3.UP.cross(direction).normalized(), direction)
 	var session := GameSession.new(planet, ship, PilotSource.new())
+	session.crew.add_member(session.systems, &"mara", &"engineer", &"reactor_panel") # two crew wander the ship throughout
+	session.crew.add_member(session.systems, &"kit", &"gunner", &"gunner_seat")
 	for tick in 120:
 		session.tick(DELTA, OnFootCommand.new())
 	return session
@@ -39,6 +41,8 @@ func test_random_action_sequences_stay_legal_and_continuous() -> void:
 		for action in ACTIONS_PER_SEQUENCE:
 			if rng.next_float() < 0.3:
 				session.interact()
+			if rng.next_float() < 0.2:
+				session.crew.order_to_station(session.systems, [&"mara", &"kit"][rng.next_int_in_range(0, 1)], [&"reactor_panel", &"gunner_seat", &"extinguisher_locker", &"engine_station"][rng.next_int_in_range(0, 3)])
 			var command := OnFootCommand.new()
 			command.move = Vector2(rng.next_float() * 2.0 - 1.0, rng.next_float() * 2.0 - 1.0)
 			command.run = rng.next_float() < 0.3

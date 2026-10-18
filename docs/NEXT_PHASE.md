@@ -114,7 +114,7 @@ Rules carried over from MILESTONES.md: all earlier tests stay green; run `tools/
 - **Acceptance / tests:** closed doors contain fire; fire in a sealed room stops at O2 = 0; extinguishing clears it within the stated time; ignition is deterministic per seed; all mutations go through `ShipSystems.request_*(actor_id, …)` (see R1) and return a result; save round-trip mid-fire.
 - **Inspect:** screenshot of engineering on fire; overlay per-room O2/fire.
 
-### N5 — Crew bodies (multi-actor session; Opus ADR R2 first)
+### N5 — DONE. Crew bodies (multi-actor session; Opus ADR R2 first)
 - **Deliverable:** N crew actors inside the ship, each with posture/location like the player (`PlayerState` per actor), reusing `InteriorBody` and `HumanoidAvatar`. Path = BFS over rooms + door waypoints (the layout is rectangles and portals; no navmesh needed). Crew open doors via the same request API, take seats, stand at stations. Crew stay aboard (ship-local), so frame switches don't touch them.
 - **Acceptance / tests:** a crew member reaches every station from every room in ≤ N s; doors never close on anyone; airlock invariant holds with crew (extend the 10,000-step fuzz); seat contention player vs crew resolves to exactly one; `transition_fuzz` with 2 crew; save/load restores crew positions.
 - **Inspect:** screenshot inside showing two crew at stations.

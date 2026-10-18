@@ -62,6 +62,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"looted": session.loot_log.to_array(),
 			"cleared": session.cleared_log.to_array(),
 		},
+		"crew": session.crew.to_array(),
 		"inventory": session.inventory.to_dictionary(),
 		"upgrades": session.ship.upgrades.to_array(),
 		"progress": {"objective": session.progress.current, "warp_installed": session.progress.warp_installed},
@@ -132,6 +133,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	var progress_data: Dictionary = data.get("progress", {})
 	session.progress.current = int(progress_data.get("objective", 0))
 	session.progress.warp_installed = bool(progress_data.get("warp_installed", false))
+	if data.has("crew"): # older saves have none: keep whoever the game started with
+		session.crew.restore(session.systems, data["crew"])
 	session.inventory.restore(data.get("inventory", {"oxygen_tank": 1, "repair_kit": 1}))
 	return ""
 

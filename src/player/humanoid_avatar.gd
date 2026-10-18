@@ -8,11 +8,14 @@ var _right_arm := Node3D.new()
 var _left_leg := Node3D.new()
 var _right_leg := Node3D.new()
 var _phase := 0.0
+var seat_drop := 0.0
+## Colour of the legs and backpack (crew roles use different ones).
+var accent_color := Color(0.9, 0.45, 0.1)
 
 
 func _ready() -> void:
 	var suit := _material(Color(0.85, 0.85, 0.88), 0.6)
-	var accent := _material(Color(0.9, 0.45, 0.1), 0.6)
+	var accent := _material(accent_color, 0.6)
 	var visor := _material(Color(0.1, 0.15, 0.25), 0.2)
 	_add_box(self, Vector3(0.5, 0.62, 0.28), Vector3(0, 1.15, 0), suit)
 	_add_box(self, Vector3(0.3, 0.12, 0.18), Vector3(0, 1.1, 0.2), accent) # backpack
@@ -22,6 +25,13 @@ func _ready() -> void:
 	_limb(_right_arm, Vector3(0.33, 1.42, 0), Vector3(0.14, 0.58, 0.14), suit)
 	_limb(_left_leg, Vector3(-0.13, 0.84, 0), Vector3(0.18, 0.84, 0.18), accent)
 	_limb(_right_leg, Vector3(0.13, 0.84, 0), Vector3(0.18, 0.84, 0.18), accent)
+
+
+## Sitting: legs forward and the whole body lowered onto the seat.
+func set_seated(seated: bool) -> void:
+	for leg in [_left_leg, _right_leg]:
+		(leg as Node3D).rotation.x = -1.45 if seated else 0.0
+	seat_drop = 0.35 if seated else 0.0
 
 
 ## speed in m/s on foot; swing scales with it and stops when standing still.

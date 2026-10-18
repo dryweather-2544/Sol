@@ -30,6 +30,8 @@ var suit := SuitState.new()
 var progress := ProgressTracker.new()
 var inventory := Inventory.new()
 var loot_log := LootLog.new()
+## The AI crew aboard (walking the interior; see ShipCrew).
+var crew := ShipCrew.new()
 ## POIs near the player, set by the scene each tick (for crates and solid props).
 var nearby_pois: Array = []
 ## Combat: one projectile world shared by every shooter; enemy_targets is filled by the encounter director.
@@ -89,10 +91,12 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	systems.walkway.occupied = _is_anyone_on_ramp()
 	for portal_id in systems.layout.portals:
 		systems.occupied_portals[portal_id] = _is_in_doorway(systems.layout.portals[portal_id])
+	crew.mark_occupied(systems)
 	systems.ambient_pressure = 1.0 if planet != null and planet.breathable and ship.state.atmosphere_ratio < 1.0 else 0.0
 	exterior_body.jetpack_fuel_available = suit.has_fuel()
 	ship.simulate_tick(delta)
 	systems.update(delta, ship.state)
+	crew.update(delta, systems)
 	_update_repair(delta)
 	var burning_now := systems.hazards.burning_rooms()
 	if burning_now.size() > _burning_room_count:
@@ -192,6 +196,11 @@ func validate() -> String:
 				return "outside body below ground"
 	if systems.walkway.state == WalkwayController.State.STOWED and systems.layout.ramp_walkable:
 		return "ramp walkable while stowed"
+	for person in crew.members:
+		if person.seat_id == &"" and not systems.layout.is_position_walkable(person.body.position.x, person.body.position.z, 0.0):
+			return "crew member %s is inside a wall at %s" % [person.id, str(person.body.position)]
+		if person.seat_id != &"" and systems.seats.seat_of(person.id) != person.seat_id:
+			return "crew member %s thinks they hold a seat they do not" % person.id
 	return ""
 
 
@@ -212,7 +221,9 @@ func _stand_up() -> void:
 			_say("Ship is unpiloted and parked - it will keep drifting")
 
 
-func _on_seat_occupied(_seat_id: StringName, _actor_id: StringName) -> void:
+func _on_seat_occupied(_seat_id: StringName, actor_id: StringName) -> void:
+	if actor_id != ACTOR:
+		return
 	if mode == Mode.SITTING or player_state.posture == PlayerState.Posture.SITTING_DOWN:
 		player_state.try_finish_sit()
 		mode = Mode.SEATED
