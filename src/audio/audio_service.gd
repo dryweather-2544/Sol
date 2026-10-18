@@ -237,7 +237,7 @@ func _update_cabin_and_suit_loops(inside: bool) -> void:
 	_set_loop_gain("amb_int_damaged_machine_loop", engine_damage * _proximity(&"engine_station", player_position, 0.2) if inside else 0.0, &"Ship")
 	var strongest_fire := 0.0
 	for room_id in systems.hazards.burning_rooms():
-		var room_center := systems.layout.rooms[room_id].get_center()
+		var room_center: Vector2 = (systems.layout.rooms[room_id] as Rect2).get_center()
 		var room_distance := Vector2(player_position.x, player_position.z).distance_to(room_center)
 		strongest_fire = maxf(strongest_fire, systems.hazards.fire_in(room_id) * AudioLibrary.proximity_gain(room_distance, 12.0, 0.25))
 	_set_loop_gain("amb_int_fire_loop", strongest_fire if inside else 0.0, &"Ship")

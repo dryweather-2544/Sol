@@ -8,7 +8,7 @@ extends SceneTree
 ##   inside   land, stand up, put the player at ship-local (x, z) facing yaw_deg, interior view
 ##            (optional 8th argument: fire = engineering on fire, reactor = reactor panel open)
 ##   outside  land, walk out through the airlock instantly, outside first-person view
-##   poi      (args: out altitude pitch poi type_index) hover above the nearest POI of that type
+##   poi      (args: out altitude pitch poi type_index [side_offset_m [yaw_away_deg]]) hover above the nearest POI of that type
 ## Chunk loading is awaited, so the picture is what the player sees once the world has loaded.
 
 var _frames := 0
@@ -163,6 +163,8 @@ func _move_to_poi(type_index: int) -> void:
 	ship.render_origin = ship.state.position.duplicate_position()
 	ship.position = Vector3.ZERO
 	var look := Vector3(best.position.x - ship.state.position.x, best.position.y - ship.state.position.y, best.position.z - ship.state.position.z).normalized()
+	if _args().size() > 6:
+		look = look.rotated(poi_up, deg_to_rad(float(_args()[6]))) # optional yaw away from the POI so the ship does not hide it from the chase camera
 	ship.state.basis = Basis.looking_at(look, poi_up)
 	ship.state.velocity = Vector3.ZERO
 	_main.terrain.render_origin = ship.render_origin.duplicate_position()

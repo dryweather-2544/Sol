@@ -102,7 +102,7 @@ func _stop_everything() -> void:
 	if _audio == null:
 		return
 	for child in _audio.get_children():
-		if child is AudioStreamPlayer and child != _audio._engine_player and child != _audio._wind_player:
+		if child is AudioStreamPlayer and child != _audio._engine_player and child != _audio._wind_player and not _audio._sample_loops.values().has(child): # loop players are created with one play() and never restarted, so they are only muted below
 			(child as AudioStreamPlayer).stop()
 	for loop_player in _audio._sample_loops.values():
 		(loop_player as AudioStreamPlayer).volume_db = -80.0

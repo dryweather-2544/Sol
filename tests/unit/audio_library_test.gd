@@ -48,7 +48,7 @@ func test_switch_off_and_unknown_ids_give_null() -> void:
 	settings.sample_audio = false
 	assert_true(AudioLibrary.stream("sfx_int_door_open") == null, "switch off -> the synth fallback")
 	settings.sample_audio = true
-	AudioLibrary.reset_warnings()
+	AssetLibrary.reset_warnings()
 	assert_true(AudioLibrary.stream("sfx_does_not_exist") == null, "unknown id")
 	assert_true(AudioLibrary.stream("sfx_does_not_exist") == null, "and again")
 	assert_eq(AssetLibrary.warnings.size(), 1, "logged once")

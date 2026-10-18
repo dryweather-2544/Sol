@@ -4,7 +4,7 @@
 #   tools/n9_verify.sh --quick         tests + asset check only (no window, no sound; about a minute)
 #   tools/n9_verify.sh --baseline      also measure the original PR #1 build (git worktree of ab3cdac) for the performance gate
 # Needs a display and a sound device for everything except --quick. Writes tests/visual/out/N9_VERIFY_REPORT.md; the last line says PASS/CHECK.
-# Does not change the game, does not push, and leaves your settings.cfg alone (the asset switches are driven by SOL_ASSETS=off).
+# Does not change the game, does not push, and runs with HOME pointed at /tmp/sol_n9_verify_home so it never touches your settings.cfg or saves (the asset switches are driven by SOL_ASSETS=off).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -22,6 +22,11 @@ elif command -v godot >/dev/null 2>&1; then godot_bin="godot"
 elif [[ -x "/Applications/Godot.app/Contents/MacOS/Godot" ]]; then godot_bin="/Applications/Godot.app/Contents/MacOS/Godot"
 elif [[ -x "$HOME/Downloads/Godot.app/Contents/MacOS/Godot" ]]; then godot_bin="$HOME/Downloads/Godot.app/Contents/MacOS/Godot"
 else echo "Godot not found. Set GODOT=/path/to/Godot (4.7.2)." >&2; exit 2; fi
+
+# Godot keeps user:// (settings.cfg, saves) under $HOME/Library/Application Support/Godot/app_userdata/Sol, shared with any other build of this project. Point HOME at a scratch dir
+# (after the Godot lookup above) so a verification run starts from default settings and can never read or overwrite the player's preferences.
+export GODOT="$godot_bin" # tools/run_tests.sh resolves Godot from $HOME too, which is about to change
+export HOME="${N9_VERIFY_HOME:-/tmp/sol_n9_verify_home}"; mkdir -p "$HOME"
 
 OVERALL=PASS
 {

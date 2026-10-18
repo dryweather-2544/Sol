@@ -79,7 +79,7 @@ func _process(_delta: float) -> void:
 func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
-		var rubber_floor := room_id == &"airlock" or room_id == &"cargo"
+		var rubber_floor: bool = room_id == &"airlock" or room_id == &"cargo"
 		_slab(room, layout.floor_y - 0.12, layout.floor_y, _rubber_floor_material if rubber_floor else _floor_slab_material)
 		_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
 	for portal in layout.portals.values():
@@ -362,6 +362,7 @@ func _add_decal(set_id: String, decal_name: String, center: Vector3, orientation
 		return null
 	var decal := Decal.new()
 	decal.name = "Decal_" + decal_name
+	decal.set_meta("catalog_name", decal_name) # the node name gets mangled to @Decal@N when two decals share it
 	decal.size = Vector3(entry["size_x"], entry["depth"], entry["size_z"])
 	decal.texture_albedo = albedo
 	var maps: String = entry["maps"]

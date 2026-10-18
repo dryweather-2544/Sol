@@ -172,8 +172,7 @@ static func _prepared(wav: AudioStreamWAV, looped: bool) -> AudioStreamWAV:
 
 
 static func frame_count(wav: AudioStreamWAV) -> int:
-	var bytes_per_sample := 2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1
-	return wav.data.size() / (bytes_per_sample * (2 if wav.stereo else 1))
+	return roundi(wav.get_length() * wav.mix_rate)
 
 
 ## Engine loops: idle fades into thrust with throttle (equal-power so the sum does not dip); silent when the ship is parked or landed.

@@ -8,6 +8,7 @@ const TEST_DIRECTORIES := ["res://tests/unit", "res://tests/scenario"]
 
 
 func _initialize() -> void:
+	await process_frame # the root is only inside the tree from the first frame; tests that add nodes (AudioService) need that
 	var test_files: Array[String] = []
 	for directory_path in TEST_DIRECTORIES:
 		_collect_test_files(directory_path, test_files)
