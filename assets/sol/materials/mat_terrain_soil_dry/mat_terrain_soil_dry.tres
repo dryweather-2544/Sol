@@ -1,0 +1,14 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_terrain_soil_dry/mat_terrain_soil_dry_albedo.png" id="1_tisnp"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_terrain_soil_dry/mat_terrain_soil_dry_normal.png" id="2_mqgxh"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_terrain_soil_dry/mat_terrain_soil_dry_orm.png" id="3_r6kjf"]
+
+[resource]
+albedo_texture = ExtResource("1_tisnp")
+orm_texture = ExtResource("3_r6kjf")
+normal_enabled = true
+normal_texture = ExtResource("2_mqgxh")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0

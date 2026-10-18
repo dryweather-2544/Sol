@@ -5,6 +5,10 @@ extends RefCounted
 ## stay small; the caller places the node at origin - render_origin.
 
 const GRID := 32 # quads per edge; vertices per edge = GRID + 1
+## Slope weight written into each vertex colour's alpha for the terrain detail shader: 0 = flat layer, 1 = steep (rock) layer.
+## "Steepness" is 1 - cos(slope angle); the 0.5 point is at about 26 degrees. The plain material ignores alpha (it is opaque).
+const STEEP_WEIGHT_FROM := 0.04
+const STEEP_WEIGHT_TO := 0.16
 
 
 ## Returns {origin: PackedFloat64Array(3), vertices, normals, colors, indices} for the key.
@@ -54,7 +58,8 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			var base_color := _color_for(planet.profile_or_default(), lattice_heights[index], 1.0 - normal.dot(outward), outward.y)
 			# Patchy variation from the absolute position so colours match across chunk borders.
 			var patch := sin((position.x + origin_x) * 0.00031) * sin((position.z + origin_z) * 0.00043) + 0.5 * sin((position.y + origin_y) * 0.0021 + (position.x + origin_x) * 0.0017)
-			colors.append(base_color * (0.9 + 0.1 * patch))
+			var shade := 0.9 + 0.1 * patch
+			colors.append(Color(base_color.r * shade, base_color.g * shade, base_color.b * shade, steep_weight(1.0 - normal.dot(outward))))
 
 	var indices := PackedInt32Array()
 	for row in GRID:
@@ -86,6 +91,10 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			indices.append_array([top_a, skirt_a, top_b, top_b, skirt_a, skirt_b])
 
 	return {"origin": PackedFloat64Array([origin_x, origin_y, origin_z]), "vertices": vertices, "normals": normals, "colors": colors, "indices": indices}
+
+
+static func steep_weight(steepness: float) -> float:
+	return smoothstep(STEEP_WEIGHT_FROM, STEEP_WEIGHT_TO, steepness)
 
 
 ## Vertex indices along one border (0 = row 0, 1 = last row, 2 = column 0, 3 = last column).

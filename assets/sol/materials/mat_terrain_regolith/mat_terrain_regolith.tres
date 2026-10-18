@@ -1,0 +1,14 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_terrain_regolith/mat_terrain_regolith_albedo.png" id="1_5bxji"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_terrain_regolith/mat_terrain_regolith_normal.png" id="2_3bwd8"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_terrain_regolith/mat_terrain_regolith_orm.png" id="3_t41os"]
+
+[resource]
+albedo_texture = ExtResource("1_5bxji")
+orm_texture = ExtResource("3_t41os")
+normal_enabled = true
+normal_texture = ExtResource("2_3bwd8")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0

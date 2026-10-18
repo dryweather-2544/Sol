@@ -1,0 +1,9 @@
+# mat_terrain_rock_fractured
+
+Procedural, original (no third-party input; no photo-scan was downloaded, so no licence rows). Baked by `lookdev/bake/bake_terrain_rock_fractured.gd`, deterministic.
+Fractured facets (9x9 jittered cells on a torus, noise-warped edges, per-facet tilted plane, crack lines of varying width), neutral albedo (mean linear 0.1515, shader uniform steep_mean_linear). 1024² = 6.0 m (~170 px/m). Honest weakness: at texture scale it reads closer to cracked slabs / dried mud than to sharp quarried rock; acceptable as the steep-slope detail layer under vertex-colour rock; improve in a later pass if it looks wrong in game. Also ships _height.png (R8).
+Used through `lookdev/shaders/terrain_detail.gdshader` (prototype): the albedo is a NEUTRAL detail that is divided by its mean and multiplied onto the world's vertex colour, so one set serves every world. Dielectric (metallic 0, checked with --dielectric).
+Rebuild + validate: `lookdev/tools/build_material.sh mat_terrain_rock_fractured 6.0 --dielectric`. Terrain scene checks: `lookdev/tools/shoot_terrain.gd`, `check_terrain_normals.gd`.
+Review shots: `lookdev/shots/terrain_{selene,aurelia}_{1.7,20,200}m.png`. Status: review (not yet seen by Ariel).
+
+**Material-quality pass (2026-10-18, branch checkpoint-review):** it read as cracked mud. Changed: warp 16 -> 6 px (straighter edges), per-facet size weights (+-34 px), facet plane slope +-0.35 -> +-0.42 and offset +-6 -> +-9 (+-0.75 was tried and turned some facets black), chipped/chamfered edges, narrower cracks (darkening 0.45 -> 0.34), facet value variation 0.92-1.08 -> 0.86-1.14, finer grain relief, plus a 27x27 hairline fracture network in regions picked by a noise mask. Same 1024² / 6 m / dielectric. Before/after: `review/material_pass/compare/mat_terrain_rock_fractured_*`. Remaining: the 6 m tile still shows a few repeating dark facets, and a few facets are still very dark under raking light. Status: review.

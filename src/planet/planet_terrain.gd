@@ -24,6 +24,7 @@ var render_origin := WorldPos.new(&"planet")
 var viewer := WorldPos.new(&"planet")
 
 var _material := StandardMaterial3D.new()
+var _detail_material: ShaderMaterial ## null = plain vertex-colour material (switch off, or an asset missing)
 var _displayed := {}          # key -> {node, origin: WorldPos}
 var _displayed_prefixes := {} # key -> count of displayed descendants (so coverage checks are cheap)
 var _desired := {}
@@ -42,6 +43,8 @@ func _init(planet_body: PlanetBody = null) -> void:
 	_material.vertex_color_use_as_albedo = true
 	_material.roughness = 1.0
 	_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if planet_body != null:
+		_detail_material = TerrainDetail.build_material(planet_body.atmosphere_height)
 
 
 func _ready() -> void:
@@ -145,7 +148,11 @@ func _show_chunk(key: int, mesh_data: Dictionary) -> void:
 	var origin_components: PackedFloat64Array = mesh_data["origin"]
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
-	instance.material_override = _material
+	if _detail_material != null:
+		instance.material_override = _detail_material
+		instance.set_instance_shader_parameter("tile_offset", TerrainDetail.tile_offset(mesh_data["origin"]))
+	else:
+		instance.material_override = _material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
 	var record := {"node": instance, "origin": WorldPos.new(planet.frame_id, origin_components[0], origin_components[1], origin_components[2])}
