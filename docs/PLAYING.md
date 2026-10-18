@@ -10,6 +10,7 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 |---|---|
 | Flying | **W/S** thrust forward/back, **A/D** strafe, **Space/C** up/down, **mouse** (or arrow keys) pitch and yaw, **Q/E** roll, **Shift** boost, **X** brake, **[ ]** gear down/up (DOCK / COMBAT / CRUISE), **V** cockpit view, **click or Ctrl** fire |
 | Walking (inside or outside) | **WASD** move, **Shift** run, **Space** jump (outside; hold in the air for the jetpack), **mouse** look, **click or Ctrl** fire the pistol (outside) |
+| Captain's orders | **R** engineer: fix everything (press again to cancel), **G** gunner: man the turret, **P** cycle the reactor's power split (balanced / engines / weapons) |
 | Anywhere | **F** use (stand up, sit, door panels, repair panel, open crates), **Tab** inventory, **T** cycle nav target, **F5/F9** quicksave/quickload, **Esc** menu |
 
 ## The loop
@@ -36,3 +37,17 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 - Do the guard ships/drones at outposts feel fair? (They are not tuned.)
 - Anything that looks wrong: floating props, holes in terrain, flicker, wrong lighting.
 - Sound: engine/wind/doors/footsteps all exist but nobody has heard them yet.
+
+## The ship (since phase 2)
+
+The ship has six rooms: cockpit, cabin, engineering, turret room, cargo, airlock; every door has a panel (**F**). Two crew live aboard:
+Mara (engineer, orange) and Kit (gunner, red). In engineering: the **reactor panel** sets how much power engines / weapons / life support may draw
+(heat builds with draw; a hot core trips and restarts by itself once cool, or from the panel), the **extinguisher locker** gives you 6 sprays (**F** in a
+burning room), the **engine station** takes spare parts. Damage hurts engines / weapons / reactor / life support separately and can start fires; closed
+doors contain fire, low room air drains your suit. The overlay shows power, subsystem health, crew goals and fire alerts.
+
+## The Mayday errand (objectives 4-7)
+
+After you install the Warp coil, a distress call from Selene: fly there and land. A raider ambushes you on arrival (it burns out your engine coupling
+and starts a fire in engineering). Land, walk to the beacon ~6 km away, open its crate for an **engine coupling**, install it at the engine station
+(**F**), and fly back to orbit above Aurelia. Nobody has played this yet: please report anything unfair or confusing.

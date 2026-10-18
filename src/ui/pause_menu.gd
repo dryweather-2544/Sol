@@ -67,7 +67,8 @@ func show_page(new_page: int) -> void:
 	get_tree().paused = true
 	for child in _box.get_children():
 		_box.remove_child(child)
-		child.queue_free()
+		if child != _status: # _status is reused on every page; freeing it broke the next show_page
+			child.queue_free()
 	match page:
 		Page.TITLE:
 			_add_title("SOL")

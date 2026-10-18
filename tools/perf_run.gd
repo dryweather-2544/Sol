@@ -25,7 +25,17 @@ var _landed_frames := 0
 var _last_ticks := 0
 
 
+var _max_draw_calls := 0.0
+var _max_primitives := 0.0
+var _max_physics_ms := 0.0
+var _max_process_ms := 0.0
+
+
 func _initialize() -> void:
+	# Optional argument WxH (e.g. 2560x1440) sets the window size: godot ... -s res://tools/perf_run.gd -- 2560x1440
+	for argument in OS.get_cmdline_user_args():
+		if argument.contains("x") and argument.split("x").size() == 2 and argument.split("x")[0].is_valid_int():
+			DisplayServer.window_set_size(Vector2i(int(argument.split("x")[0]), int(argument.split("x")[1])))
 	_main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(_main)
 	_last_ticks = Time.get_ticks_usec()
@@ -52,6 +62,10 @@ func _process(_delta: float) -> bool:
 	elif not ship.state.landed:
 		phase = "descent_low"
 	_samples[phase].append(frame_ms)
+	_max_draw_calls = maxf(_max_draw_calls, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	_max_primitives = maxf(_max_primitives, Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+	_max_physics_ms = maxf(_max_physics_ms, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0)
+	_max_process_ms = maxf(_max_process_ms, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
 	if _frames % 600 == 0 and OS.get_cmdline_user_args().has("trace"):
 		print("t=", _frames, " agl ", ship.state.altitude_above_ground, " speed ", ship.state.speed(), " hull ", ship.state.hull, " fuel ", ship.state.fuel, " gear ", ship.state.gear, " landed ", ship.state.landed, " msg ", ship.state.status_message)
 	if ship.state.landed:
@@ -76,3 +90,6 @@ func _report() -> void:
 		var average: float = total / samples.size()
 		print("%s: %d frames  avg %.2f ms (%.0f fps)  p95 %.2f ms  worst %.2f ms  min fps %.0f" % [phase, samples.size(), average, 1000.0 / average, samples[int(samples.size() * 0.95)], samples[-1], 1000.0 / samples[-1]])
 	print("chunks displayed at end: ", _main.terrain.displayed_chunk_count())
+	print("max draw calls %d  max primitives %d  max physics tick %.2f ms  max script process %.2f ms" % [_max_draw_calls, _max_primitives, _max_physics_ms, _max_process_ms])
+	print("memory: static %.0f MB (peak %.0f MB), video RAM %.0f MB, texture %.0f MB" % [Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, Performance.get_monitor(Performance.MEMORY_STATIC_MAX) / 1048576.0,
+		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0, Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0])
