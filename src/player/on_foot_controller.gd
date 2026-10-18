@@ -10,6 +10,11 @@ var body: OnFootBody
 var render_origin := WorldPos.new(&"planet")
 var camera := Camera3D.new()
 var pending_yaw := 0.0
+var avatar := HumanoidAvatar.new()
+var third_person := false:
+	set(value):
+		third_person = value
+		_apply_view_mode()
 var _look_pitch := 0.0
 
 
@@ -24,6 +29,8 @@ func _init() -> void:
 
 func _ready() -> void:
 	add_to_group("origin_shift")
+	add_child(avatar)
+	_apply_view_mode()
 
 
 func add_mouse_motion(relative_pixels: Vector2) -> void:
@@ -44,8 +51,15 @@ func apply_origin_shift(shift: Vector3) -> void:
 	reset_physics_interpolation()
 
 
+func _apply_view_mode() -> void:
+	avatar.visible = third_person
+	# Over-the-shoulder: behind and above the head, looking along the heading.
+	camera.position = Vector3(0.5, OnFootBody.EYE_HEIGHT + 0.55, 3.6) if third_person else Vector3(0, OnFootBody.EYE_HEIGHT, 0)
+
+
 func sync_transform() -> void:
 	if body.position.x == 0.0 and body.position.y == 0.0 and body.position.z == 0.0:
 		return # body not placed yet (player has not left the ship)
 	var up := planet.up_at(body.position)
 	transform = Transform3D(Basis.looking_at(body.heading, up), body.position.to_local_vector3(render_origin))
+	avatar.animate(body.velocity.length() if body.grounded else 0.0, 1.0 / 60.0)

@@ -70,8 +70,8 @@ Acceptance tests:
 > **Status:** logic + tests done (70 tests / 32,427 assertions passed on the Mac); land -> exit -> walk verified in the real scene by `tools/screenshot.gd` (first-person view). Not done: humanoid avatar/animations (needs a licensed asset), third-person camera, CameraRig unification (ship chase camera and on-foot camera are still two cameras). Manual walk-around check owed by the user.
 
 - [x] `OnFootController` (CharacterBody3D, dynamic `up_direction`, walk/run/jump, slope limit)
-- [ ] Player avatar (licensed humanoid, AnimationTree idle/walk/run/jump) — add to ATTRIBUTION
-- [ ] CameraRig: ON_FOOT_FIRST / ON_FOOT_THIRD; ship modes moved into the rig
+- [x] Player avatar: primitive-built humanoid with limb swing (no third-party model, so nothing in ATTRIBUTION; no AnimationTree, no jump pose)
+- [x] On-foot first/third person (V); ship chase/cockpit cameras are still separate nodes, not one CameraRig
 - [x] `PlayerState` (posture/location/authority) — logic only, used by the debug exit
 - [x] **Temporary** debug "exit ship / enter ship" when landed (removed in M3)
 

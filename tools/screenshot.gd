@@ -36,6 +36,8 @@ func _process(_delta: float) -> bool:
 		_move_ship()
 	if mode == "depot" and _frames == 3:
 		_move_to_poi(2) # teleport the ship beside the nearest outpost so its POI is planned and streamed
+	if mode == "third" and _frames == 3:
+		pass
 	if mode == "depot" and _frames == 150:
 		_stand_in_depot(arguments[4] if arguments.size() > 4 else "6")
 	if mode == "poi" and _frames == 3:
@@ -55,6 +57,11 @@ func _process(_delta: float) -> bool:
 		_main.session.interior_body.place(Vector3(0, -0.9, -4.0), 0.0)
 		if mode == "outside":
 			_open_airlock_instantly()
+			if arguments.size() > 4:
+				var session: GameSession = _main.session
+				session.exterior_body.place_on_ground(session.planet, session.ship.state.position.offset_by(session.ship.state.basis.x * 14.0 + session.ship.state.basis.z * 6.0), -session.ship.state.basis.x)
+				session.restore_mode(GameSession.Mode.OUTSIDE)
+				_main.on_foot.third_person = arguments[4] == "third"
 		elif arguments.size() > 5:
 			var yaw := deg_to_rad(float(arguments[6])) if arguments.size() > 6 else 0.0
 			_main.session.interior_body.place(Vector3(float(arguments[4]), -0.9, float(arguments[5])), yaw)

@@ -237,8 +237,11 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("nav_next"):
 		_cycle_nav_target()
 	elif event.is_action_pressed("toggle_view"):
-		_cockpit_view = not _cockpit_view
-		_update_active_camera()
+		if session.mode == GameSession.Mode.OUTSIDE:
+			on_foot.third_person = not on_foot.third_person
+		else:
+			_cockpit_view = not _cockpit_view
+			_update_active_camera()
 	elif event.is_action_pressed("quicksave"):
 		_save_to("quicksave")
 	elif event.is_action_pressed("quickload"):
