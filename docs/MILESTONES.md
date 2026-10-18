@@ -142,7 +142,7 @@ Acceptance tests:
 Acceptance tests:
 - [x] `frame_switch_test`: fly planet A → B; WorldPos continuous; no physics explosion
 - [x] `orbit_determinism_test`; perf scenario across a transfer
-- [ ] (manual, outstanding, not blocking) Manual: land on two different worlds in one session and save/load between
+- [x] Land on two different worlds and save/load between them: automated in `frame_switch_test` (Aurelia and Selene); a by-hand check is still welcome
 
 ## M7 — Presentation pass
 

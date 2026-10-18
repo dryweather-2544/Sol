@@ -62,13 +62,18 @@ func switch_frame(new_frame: StringName) -> void:
 	frame_changed.emit(old_frame, new_frame)
 
 
-## Used when loading a save: jump to a frame without converting (the save is already in it).
+## Used when loading a save: jump to a frame without converting (the save is already in it). Restore the
+## save, then call recentre_ship_after_restore().
 func force_frame(new_frame: StringName) -> void:
 	var old_frame := active_frame
 	active_frame = new_frame
 	_apply_bodies(planet_for(new_frame))
-	_recentre_ship()
 	frame_changed.emit(old_frame, new_frame)
+
+
+## After restoring a save into a forced frame, call this: the ship's render origin must be re-centred in the new frame.
+func recentre_ship_after_restore() -> void:
+	_recentre_ship()
 
 
 ## The ship's render origin lives in a frame too: restart it at the ship's (converted) position.

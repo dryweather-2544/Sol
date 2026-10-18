@@ -77,3 +77,57 @@ func test_fly_home_planet_to_moon_through_system_frame_and_land() -> void:
 	assert_true(deepest > -3.0, "never far below terrain: %f" % deepest)
 	assert_eq(session.validate(), "")
 	ship.free()
+
+
+func _landed_on(system: StarSystem, body_id: StringName) -> Array:
+	var planet := system.build_planet_body(body_id)
+	var ship := Ship.new()
+	ship.render_origin = WorldPos.new(body_id)
+	var direction := Vector3(0.3, 0.5, 0.8).normalized()
+	var ground := planet.surface_radius_xyz(direction.x, direction.y, direction.z)
+	ship.state.position = WorldPos.new(body_id, direction.x * (ground + 2.1), direction.y * (ground + 2.1), direction.z * (ground + 2.1))
+	ship.state.basis = Basis.looking_at(Vector3.UP.cross(direction).normalized(), direction)
+	var session := GameSession.new(planet, ship, PilotSource.new())
+	session.progress.warp_installed = true
+	var runtime := WorldRuntime.new(system, session, body_id)
+	for tick in 240:
+		runtime.advance(DELTA)
+		session.tick(DELTA, OnFootCommand.new())
+	return [session, runtime]
+
+
+func test_two_worlds_save_and_load_between_them() -> void:
+	var system := StarSystem.default_system()
+	var manager := SaveManager.new("user://test_saves_two_worlds")
+	var saved_positions := {}
+	for body_id in [&"planet", &"selene"]:
+		var setup := _landed_on(system, body_id)
+		var session: GameSession = setup[0]
+		var runtime: WorldRuntime = setup[1]
+		assert_true(session.ship.state.landed, "%s: landed" % body_id)
+		assert_eq(manager.save(String(body_id), SaveGame.capture(session, 42, runtime.time_seconds)), "")
+		saved_positions[body_id] = session.ship.state.position.duplicate_position()
+		session.ship.free()
+	# Load the home save, then the moon save, into one running game, as the scene does.
+	var fresh := _landed_on(system, &"planet")
+	var session: GameSession = fresh[0]
+	var runtime: WorldRuntime = fresh[1]
+	for body_id in [&"planet", &"selene", &"planet"]:
+		var loaded := manager.load_slot(String(body_id))
+		assert_true(loaded["ok"], loaded["error"])
+		var data: Dictionary = loaded["data"]
+		runtime.time_seconds = float(data["world"]["time"])
+		var frame := StringName(String(data["ship"]["position"]["frame_id"]))
+		assert_eq(frame, body_id)
+		if frame != runtime.active_frame:
+			runtime.force_frame(frame)
+		assert_eq(SaveGame.restore(session, data), "")
+		runtime.recentre_ship_after_restore()
+		assert_eq(session.planet.frame_id, body_id, "the session now uses that world")
+		assert_true(session.ship.state.position.distance_to(saved_positions[body_id]) < 0.01)
+		for tick in 120:
+			runtime.advance(DELTA)
+			session.tick(DELTA, OnFootCommand.new())
+		assert_true(session.ship.state.landed, "%s: still landed after loading" % body_id)
+		assert_eq(session.validate(), "")
+	session.ship.free()
