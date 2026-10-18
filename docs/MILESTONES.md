@@ -187,8 +187,8 @@ Acceptance tests:
 
 ## M12 — Release quality
 
-- [ ] macOS export (signed if possible), settings persistence, crash-free 2-hour play test
-- [ ] Perf budgets met across all scenarios; save migration chain v1→latest tested
+- [ ] macOS export (BLOCKED: no export templates installed; downloading ~1 GB needs the user's go-ahead or Editor > Manage Export Templates), settings persistence (done), crash-free 2-hour play test (not done; see soak test)
+- [x] Perf: orbit-to-landing scenario measured (tests/perf/results.md, no frame under 43 fps at 1152x648; 1440p/memory not measured). Save migration chain v1-v7 tested (fixture v1 -> current).
 
 ---
 
