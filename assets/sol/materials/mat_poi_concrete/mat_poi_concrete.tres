@@ -1,0 +1,14 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_poi_concrete/mat_poi_concrete_albedo.png" id="1_r6wwa"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_poi_concrete/mat_poi_concrete_normal.png" id="2_ogsmx"]
+[ext_resource type="Texture2D" path="res://assets/sol/materials/mat_poi_concrete/mat_poi_concrete_orm.png" id="3_hhsjv"]
+
+[resource]
+albedo_texture = ExtResource("1_r6wwa")
+orm_texture = ExtResource("3_hhsjv")
+normal_enabled = true
+normal_texture = ExtResource("2_ogsmx")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0

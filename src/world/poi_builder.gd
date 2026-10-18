@@ -133,8 +133,8 @@ static func build_marker(instance: PoiInstance) -> Node3D:
 
 
 static func _build_wreck(root: Node3D, instance: PoiInstance, planet: PlanetBody, rng: SeedRng) -> void:
-	var metal := _material(Color(0.28, 0.28, 0.3), 0.7, 0.6)
-	var rust := _material(Color(0.45, 0.25, 0.12), 0.9, 0.2)
+	var metal: Material = AssetLibrary.material_or("mat_hull_plating_derelict", _material(Color(0.28, 0.28, 0.3), 0.7, 0.6))
+	var rust: Material = AssetLibrary.material_or("mat_poi_rusted_metal", _material(Color(0.45, 0.25, 0.12), 0.9, 0.2))
 	var hull_offset := ground_offset(planet, instance, 0.0, 0.0)
 	var hull_yaw := rng.next_float() * TAU
 	_box(root, Vector3(5.0, 3.5, 20.0), metal, Vector3(0, hull_offset + 1.0, 0), Vector3(rng.next_float() * 14.0 - 7.0, rad_to_deg(hull_yaw), rng.next_float() * 16.0 - 8.0))
@@ -151,7 +151,7 @@ static func _build_wreck(root: Node3D, instance: PoiInstance, planet: PlanetBody
 
 static func _build_beacon(root: Node3D, instance: PoiInstance, planet: PlanetBody) -> void:
 	var base_height := ground_offset(planet, instance, 0.0, 0.0)
-	var concrete := _material(Color(0.5, 0.5, 0.52), 0.9, 0.0)
+	var concrete: Material = AssetLibrary.material_or("mat_poi_concrete", _material(Color(0.5, 0.5, 0.52), 0.9, 0.0))
 	var glow := StandardMaterial3D.new()
 	glow.albedo_color = Color(0.3, 0.8, 1.0)
 	glow.emission_enabled = true
@@ -174,8 +174,8 @@ static func _build_beacon(root: Node3D, instance: PoiInstance, planet: PlanetBod
 
 
 static func _build_outpost(root: Node3D, instance: PoiInstance, planet: PlanetBody, rng: SeedRng) -> void:
-	var wall := _material(Color(0.62, 0.64, 0.66), 0.6, 0.3)
-	var pad_material := _material(Color(0.2, 0.2, 0.22), 0.9, 0.0)
+	var wall: Material = AssetLibrary.material_or("mat_poi_concrete", _material(Color(0.62, 0.64, 0.66), 0.6, 0.3))
+	var pad_material: Material = AssetLibrary.material_or("mat_poi_concrete", _material(Color(0.2, 0.2, 0.22), 0.9, 0.0))
 	var window := StandardMaterial3D.new()
 	window.albedo_color = Color(1.0, 0.85, 0.5)
 	window.emission_enabled = true
@@ -249,7 +249,7 @@ static func is_in_depot(instance: PoiInstance, local_x: float, local_z: float, m
 static func _build_depot(root: Node3D, instance: PoiInstance, planet: PlanetBody) -> void:
 	var building := instance.building()
 	var floor_height := depot_floor_height(planet, instance)
-	var concrete := _material(Color(0.55, 0.56, 0.58), 0.9, 0.0)
+	var concrete: Material = AssetLibrary.material_or("mat_poi_concrete", _material(Color(0.55, 0.56, 0.58), 0.9, 0.0))
 	var floor_material := _material(Color(0.22, 0.23, 0.25), 0.8, 0.1)
 	var roof_material := _material(Color(0.4, 0.42, 0.45), 0.8, 0.2)
 	var area := building.footprint()
