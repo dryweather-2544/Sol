@@ -20,3 +20,12 @@ extends Resource
 @export var mid_amplitude := 180.0
 @export var large_wavelength := 20000.0
 @export var large_amplitude := 500.0
+
+## Surface palette (vertex colours): lowland, midland, highland, snow/ice, bare rock. snow_height is where
+## snow starts at the equator; it drops toward the poles (latitude mask).
+@export var palette_low := Color(0.28, 0.36, 0.2)
+@export var palette_mid := Color(0.45, 0.4, 0.28)
+@export var palette_high := Color(0.5, 0.5, 0.5)
+@export var palette_snow := Color(0.95, 0.96, 1.0)
+@export var palette_rock := Color(0.38, 0.36, 0.34)
+@export var snow_height := 4200.0

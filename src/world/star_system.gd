@@ -50,6 +50,11 @@ static func default_system() -> StarSystem:
 	moon.orbit_phase = 1.0
 	moon.spin_period = 9000.0
 	moon.terrain_profile = _profile(7777, 1.7e6, 500.0, 1100.0, 4.0, 1.0)
+	moon.terrain_profile.palette_low = Color(0.45, 0.45, 0.47)
+	moon.terrain_profile.palette_mid = Color(0.6, 0.6, 0.62)
+	moon.terrain_profile.palette_high = Color(0.78, 0.78, 0.8)
+	moon.terrain_profile.palette_rock = Color(0.3, 0.3, 0.32)
+	moon.terrain_profile.snow_height = 1.0e9
 	moon.terrain_profile.mid_amplitude = 100.0
 	moon.terrain_profile.large_amplitude = 300.0
 	moon.color = Color(0.7, 0.7, 0.72)
@@ -68,6 +73,10 @@ static func default_system() -> StarSystem:
 	inner.spin_period = 7500.0
 	inner.terrain_profile = _profile(4242, 4.2e6, 1800.0, 4800.0, 10.0, 2.0)
 	inner.color = Color(0.75, 0.35, 0.2)
+	inner.terrain_profile.palette_low = Color(0.55, 0.25, 0.15)
+	inner.terrain_profile.palette_mid = Color(0.7, 0.4, 0.2)
+	inner.terrain_profile.palette_high = Color(0.35, 0.25, 0.22)
+	inner.terrain_profile.snow_height = 1.0e9
 	system.bodies[inner.id] = inner
 
 	var outer := BodyDef.new()
@@ -82,6 +91,9 @@ static func default_system() -> StarSystem:
 	outer.spin_period = 5400.0
 	outer.terrain_profile = _profile(9090, 8.5e6, 2000.0, 3000.0, 9.0, 1.8)
 	outer.color = Color(0.3, 0.5, 0.65)
+	outer.terrain_profile.palette_low = Color(0.15, 0.4, 0.3)
+	outer.terrain_profile.palette_mid = Color(0.3, 0.55, 0.35)
+	outer.terrain_profile.palette_high = Color(0.5, 0.5, 0.45)
 	system.bodies[outer.id] = outer
 
 	var asteroid := BodyDef.new()
@@ -102,6 +114,10 @@ static func default_system() -> StarSystem:
 	asteroid.terrain_profile.mid_wavelength = 1500.0
 	asteroid.terrain_profile.large_wavelength = 6000.0
 	asteroid.color = Color(0.5, 0.45, 0.4)
+	asteroid.terrain_profile.palette_low = Color(0.35, 0.3, 0.26)
+	asteroid.terrain_profile.palette_mid = Color(0.5, 0.45, 0.4)
+	asteroid.terrain_profile.palette_high = Color(0.6, 0.55, 0.5)
+	asteroid.terrain_profile.snow_height = 1.0e9
 	system.bodies[asteroid.id] = asteroid
 	return system
 

@@ -46,3 +46,19 @@ func test_triangles_wind_clockwise_seen_from_outside() -> void:
 		var outward := Vector3(origin[0], origin[1], origin[2]).normalized()
 		var triangle_normal := (vertices[indices[1]] - vertices[indices[0]]).cross(vertices[indices[2]] - vertices[indices[0]])
 		assert_true(triangle_normal.dot(outward) < 0.0, "face %d: Godot front faces are clockwise, so geometric normal points inward" % face)
+
+
+func test_colour_masks_poles_snow_steepness_and_airless_palette() -> void:
+	var profile := TerrainProfile.new()
+	var equator_low := ChunkMesher._color_for(profile, 100.0, 0.0, 0.0)
+	var pole_low := ChunkMesher._color_for(profile, 100.0, 0.0, 0.97)
+	assert_true(pole_low.get_luminance() > equator_low.get_luminance() + 0.3, "polar caps are white even at low height")
+	var high_equator := ChunkMesher._color_for(profile, 4000.0, 0.0, 0.0)
+	var peak := ChunkMesher._color_for(profile, 5200.0, 0.0, 0.0)
+	assert_true(peak.get_luminance() > high_equator.get_luminance(), "snow above the snow line")
+	var flat := ChunkMesher._color_for(profile, 800.0, 0.0, 0.2)
+	var cliff := ChunkMesher._color_for(profile, 800.0, 0.2, 0.2)
+	var rock := Vector3(profile.palette_rock.r, profile.palette_rock.g, profile.palette_rock.b)
+	assert_true(Vector3(cliff.r, cliff.g, cliff.b).distance_to(rock) < Vector3(flat.r, flat.g, flat.b).distance_to(rock), "steep ground shows bare rock")
+	var moon := StarSystem.default_system().bodies[&"selene"].terrain_profile as TerrainProfile
+	assert_true(ChunkMesher._color_for(moon, 5000.0, 0.0, 0.98).get_luminance() < 0.9, "the airless moon has no snow caps")

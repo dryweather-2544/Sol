@@ -18,6 +18,10 @@ var atmosphere_height := 200000.0
 ## Can a person breathe at the surface without a suit tank?
 var breathable := true
 var height_function: HeightFunction
+
+func profile_or_default() -> TerrainProfile:
+	return height_function.profile
+
 ## Test hook: when set, replaces the noise: Callable(dx, dy, dz) -> float.
 var height_override := Callable()
 

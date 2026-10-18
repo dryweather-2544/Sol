@@ -51,7 +51,7 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			vertices.append(position)
 			normals.append(normal)
 			var outward := (position + Vector3(origin_x, origin_y, origin_z)).normalized()
-			var base_color := _color_for(lattice_heights[index], 1.0 - normal.dot(outward))
+			var base_color := _color_for(planet.profile_or_default(), lattice_heights[index], 1.0 - normal.dot(outward), outward.y)
 			# Patchy variation from the absolute position so colours match across chunk borders.
 			var patch := sin((position.x + origin_x) * 0.00031) * sin((position.z + origin_z) * 0.00043) + 0.5 * sin((position.y + origin_y) * 0.0021 + (position.x + origin_x) * 0.0017)
 			colors.append(base_color * (0.9 + 0.1 * patch))
@@ -100,16 +100,18 @@ static func _border_indices(vertices_per_edge: int, which: int) -> PackedInt32Ar
 	return border
 
 
-static func _color_for(height: float, steepness: float) -> Color:
-	var low := Color(0.28, 0.36, 0.2)
-	var mid := Color(0.45, 0.4, 0.28)
-	var high := Color(0.5, 0.5, 0.5)
-	var snow := Color(0.95, 0.96, 1.0)
+## Colour from height, slope and latitude: height bands low->mid->high, a snow line that drops toward the poles,
+## polar caps, and bare rock on steep ground (the material "gates" of research PLN-10, as simple CPU rules).
+static func _color_for(profile: TerrainProfile, height: float, steepness: float, latitude_sine: float) -> Color:
+	var latitude := absf(latitude_sine)
 	var color: Color
 	if height < 1500.0:
-		color = low.lerp(mid, clampf((height + 500.0) / 2000.0, 0.0, 1.0))
-	elif height < 4000.0:
-		color = mid.lerp(high, (height - 1500.0) / 2500.0)
+		color = profile.palette_low.lerp(profile.palette_mid, clampf((height + 500.0) / 2000.0, 0.0, 1.0))
 	else:
-		color = high.lerp(snow, clampf((height - 4000.0) / 800.0, 0.0, 1.0))
-	return color.lerp(Color(0.38, 0.36, 0.34), clampf(steepness * 6.0, 0.0, 0.8))
+		color = profile.palette_mid.lerp(profile.palette_high, clampf((height - 1500.0) / 2500.0, 0.0, 1.0))
+	var snow_line := profile.snow_height - latitude * 3500.0
+	var snow_amount := clampf((height - snow_line) / 600.0, 0.0, 1.0)
+	if profile.snow_height < 1.0e8: # worlds with snow_height set absurdly high have no snow or ice at all
+		snow_amount = maxf(snow_amount, smoothstep(0.82, 0.95, latitude))
+	color = color.lerp(profile.palette_snow, snow_amount * (1.0 - clampf(steepness * 8.0, 0.0, 0.7)))
+	return color.lerp(profile.palette_rock, clampf(steepness * 6.0, 0.0, 0.8))
