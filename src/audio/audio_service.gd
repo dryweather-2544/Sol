@@ -5,6 +5,15 @@ extends Node
 ## Ambience, Interior with a low-pass) so volumes come from GameSettings. Reads game state; owns none.
 
 const BUFFER_SECONDS := 0.12
+const ONE_SHOT_VOICES := 16
+const HARD_TOUCHDOWN_SPEED := 6.0 ## m/s just before landing; at or above this the hard touchdown sound plays
+const LOW_OXYGEN_WARNING := 0.25
+const CRITICAL_OXYGEN_WARNING := 0.10
+const SUBSYSTEM_FAIL_BELOW := 0.25
+const SUBSYSTEM_RESTORED_ABOVE := 0.75
+
+## Tests (and the Mac audio check) listen to this: every sound that actually starts, recorded sample or synthesised fallback.
+signal cue_started(cue_id: String, bus: StringName)
 
 var session: GameSession
 var ship: Ship
@@ -18,8 +27,20 @@ var _previous_door_targets := {}
 var _previous_landed := false
 var _previous_walkway_state := -1
 var _footstep_clock := 0.0
-var _alarm_clock := 0.0
 var _smoothed_throttle := 0.0
+var _sample_loops := {}        # sound id -> AudioStreamPlayer (looped, always running; gain moves its volume)
+var _one_shot_priorities: Array[int] = []
+var _alarm_schedule := AlarmSchedule.new()
+var _previous_speed_in_flight := 0.0
+var _previous_engine_stopped := true
+var _previous_mode := -1
+var _previous_power_down := false
+var _previous_airlock_trend := 0
+var _previous_airlock_pressure := 1.0
+var _subsystem_low := {}
+var _oxygen_low := false
+var _oxygen_critical := false
+var _previous_pickup_total := -1
 
 
 func _ready() -> void:
@@ -36,11 +57,12 @@ func _ready() -> void:
 		"alarm": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(880.0, 0.22, 0.35), SoundSynth.tone(620.0, 0.22, 0.35))),
 		"ramp": SoundSynth.to_stream(SoundSynth.sweep(120.0, 90.0, 0.8, 0.3)),
 	}
-	for player_index in 6:
+	for player_index in ONE_SHOT_VOICES:
 		var sfx := AudioStreamPlayer.new()
 		sfx.bus = &"SFX"
 		add_child(sfx)
 		_sfx_players.append(sfx)
+		_one_shot_priorities.append(0)
 	for generator_player in [_engine_player, _wind_player]:
 		var generator := AudioStreamGenerator.new()
 		generator.mix_rate = SoundSynth.SAMPLE_RATE
@@ -50,20 +72,23 @@ func _ready() -> void:
 		add_child(generator_player)
 		(generator_player as AudioStreamPlayer).play()
 	if session != null:
-		session.discovery_log.poi_discovered.connect(func(_instance): play_cue("chime"))
+		session.discovery_log.poi_discovered.connect(func(_instance): play_cue("chime", "mus_discovery_sting"))
+		session.progress.objective_completed.connect(func(_index): play_sample("sfx_ui_objective"))
+		session.systems.ambush_hit.connect(func(): play_sample("sfx_dmg_hull_hit", 1))
+		_previous_pickup_total = _inventory_total()
+		session.inventory.changed.connect(_on_inventory_changed)
+		# Start from the loaded state so a save made in a damaged/depressurised ship does not announce it on the first frame.
+		_previous_power_down = session.systems.power.is_shut_down()
+		_previous_airlock_pressure = session.systems.airlock_pressure
+		for subsystem_id in [ShipSubsystems.Id.ENGINES, ShipSubsystems.Id.WEAPONS, ShipSubsystems.Id.REACTOR, ShipSubsystems.Id.LIFE_SUPPORT]:
+			_subsystem_low[subsystem_id] = session.systems.subsystems.value(subsystem_id) < SUBSYSTEM_FAIL_BELOW
 
 
 func _process(delta: float) -> void:
 	if session == null:
 		return
 	_apply_volumes()
-	if session.systems.hazards.any_fire() or session.systems.power.is_shut_down():
-		_alarm_clock -= delta
-		if _alarm_clock <= 0.0:
-			play_cue("alarm")
-			_alarm_clock = 2.0
-	else:
-		_alarm_clock = 0.0
+	_play_alarm(delta)
 	var inside := session.mode == GameSession.Mode.INSIDE or session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
 	var engine_bus: StringName = &"Interior" if inside else &"Ambience"
 	_engine_player.bus = engine_bus
@@ -72,37 +97,140 @@ func _process(delta: float) -> void:
 	if ship.controller.is_parked() or ship.state.landed:
 		throttle = 0.0
 	_smoothed_throttle = move_toward(_smoothed_throttle, clampf(throttle, 0.0, 1.0), delta * 2.0)
-	_feed(_engine_player, func(count): return _engine_voice.fill(count, _smoothed_throttle, 0.8))
+	var engine_running := not (ship.controller.is_parked() or ship.state.landed)
+	var use_samples := _update_engine_loops(engine_bus, engine_running)
+	_engine_player.volume_db = -80.0 if use_samples else 0.0
+	if not use_samples:
+		_feed(_engine_player, func(count): return _engine_voice.fill(count, _smoothed_throttle, 0.8))
 	var in_air := ship.state.atmosphere_ratio < 1.0
 	var wind_strength := clampf(ship.state.speed() / 250.0, 0.0, 1.0) * (1.0 - smoothstep(0.3, 1.0, ship.state.atmosphere_ratio)) if in_air else 0.0
 	if session.mode == GameSession.Mode.OUTSIDE:
 		wind_strength = maxf(wind_strength, 0.12 if in_air else 0.0)
-	_feed(_wind_player, func(count): return _wind_voice.fill(count, wind_strength, 0.7))
+	var rumble_in_use := inside and _set_loop_gain("amb_ship_structure_rumble_loop", wind_strength, engine_bus)
+	if not inside:
+		_set_loop_gain("amb_ship_structure_rumble_loop", 0.0, engine_bus)
+	_wind_player.volume_db = -80.0 if rumble_in_use else 0.0
+	if not rumble_in_use:
+		_feed(_wind_player, func(count): return _wind_voice.fill(count, wind_strength, 0.7))
+	_update_cabin_and_suit_loops(inside)
 	_play_event_cues(delta)
+	_play_state_cues()
 
 
-func play_cue(cue_name: String) -> void:
+## Plays a synthesised cue by name, or the recorded sound `sample_id` when there is one (falling back to the synthesised cue).
+func play_cue(cue_name: String, sample_id: String = "") -> void:
+	if sample_id != "" and play_sample(sample_id):
+		return
+	var stream: AudioStream = _cues[cue_name]
+	var player := _free_voice(0)
+	if player == null:
+		return
+	player.stream = stream
+	player.bus = &"SFX"
+	player.volume_db = 0.0
+	player.pitch_scale = 1.0
+	player.play()
+	cue_started.emit(cue_name, &"SFX")
+
+
+## Plays a recorded one-shot. False when sample audio is off or the sound could not be loaded (the caller then uses the synth cue).
+## `priority` decides who gets stolen when all voices are busy: a new sound replaces a playing one of lower or equal priority.
+func play_sample(sound_id: String, priority: int = 0) -> bool:
+	var stream := AudioLibrary.stream(sound_id)
+	if stream == null:
+		return false
+	var player := _free_voice(priority)
+	if player == null:
+		return true # heard of, but every voice is busy with something more important: dropping it is the intended behaviour
+	player.stream = stream
+	player.bus = AudioLibrary.bus_for(sound_id)
+	player.volume_db = AudioLibrary.volume_db_for(sound_id)
+	player.pitch_scale = 1.0
+	player.play()
+	_one_shot_priorities[_sfx_players.find(player)] = priority
+	cue_started.emit(sound_id, player.bus)
+	return true
+
+
+## An idle voice, else the quietest-priority playing one if the new sound outranks or equals it, else null.
+func _free_voice(priority: int) -> AudioStreamPlayer:
 	for player in _sfx_players:
 		if not player.playing:
-			player.stream = _cues[cue_name]
-			player.pitch_scale = 1.0
-			player.play()
-			return
+			return player
+	var steal_index := -1
+	for index in _sfx_players.size():
+		if _one_shot_priorities[index] <= priority and (steal_index == -1 or _one_shot_priorities[index] < _one_shot_priorities[steal_index]):
+			steal_index = index
+	return _sfx_players[steal_index] if steal_index != -1 else null
+
+
+## Starts the looped recorded sound once, then only moves its volume. False if it cannot be played (caller keeps the synth voice).
+func _set_loop_gain(sound_id: String, gain: float, bus: StringName) -> bool:
+	if not _sample_loops.has(sound_id):
+		var stream := AudioLibrary.stream(sound_id)
+		if stream == null:
+			return false
+		var loop_player := AudioStreamPlayer.new()
+		loop_player.stream = stream
+		loop_player.volume_db = -80.0
+		add_child(loop_player)
+		loop_player.bus = bus
+		loop_player.play()
+		_sample_loops[sound_id] = loop_player
+	elif not GameSettings.instance().sample_audio:
+		(_sample_loops[sound_id] as AudioStreamPlayer).volume_db = -80.0
+		return false
+	var player: AudioStreamPlayer = _sample_loops[sound_id]
+	player.bus = bus
+	player.volume_db = AudioLibrary.gain_to_db(gain) + AudioLibrary.volume_db_for(sound_id) if gain > 0.0001 else -80.0
+	return true
+
+
+func _update_engine_loops(engine_bus: StringName, engine_running: bool) -> bool:
+	var mix := AudioLibrary.engine_mix(_smoothed_throttle, engine_running)
+	var idle_ok := _set_loop_gain("amb_ship_engine_idle_loop", mix.x, engine_bus)
+	var thrust_ok := _set_loop_gain("amb_ship_engine_thrust_loop", mix.y, engine_bus)
+	return idle_ok and thrust_ok
+
+
+## Air in the cabin (while life support delivers), and the suit's room tone and calm breathing while on foot outside.
+func _update_cabin_and_suit_loops(inside: bool) -> void:
+	var life_support := session.systems.power.delivered(ShipPower.Conduit.LIFE_SUPPORT)
+	_set_loop_gain("amb_int_air_loop", 1.0 if inside and life_support > 0.05 else 0.0, &"Ship")
+	var outside := session.mode == GameSession.Mode.OUTSIDE
+	_set_loop_gain("amb_suit_room_tone_loop", 1.0 if outside else 0.0, &"Suit")
+	_set_loop_gain("amb_suit_breath_calm_loop", 1.0 if outside and session.suit.oxygen > 0.3 else 0.0, &"Suit")
+	var reactor_gain := 0.0 if session.systems.power.is_shut_down() else lerpf(0.5, 1.0, clampf(session.systems.power.temperature, 0.0, 1.0))
+	_set_loop_gain("amb_int_reactor_loop", reactor_gain if inside else 0.0, &"Ship")
+	var strongest_fire := 0.0
+	for room_id in session.systems.hazards.burning_rooms():
+		strongest_fire = maxf(strongest_fire, session.systems.hazards.fire_in(room_id))
+	_set_loop_gain("amb_int_fire_loop", strongest_fire if inside else 0.0, &"Ship")
+
+
+## One alarm voice: fire beats reactor beats hull (hull has no trigger yet), scheduled by AlarmSchedule.
+func _play_alarm(delta: float) -> void:
+	var wanted := AlarmSchedule.pick(session.systems.hazards.any_fire(), session.systems.power.is_shut_down(), false)
+	if not _alarm_schedule.step(wanted, delta):
+		return
+	play_cue("alarm", "sfx_int_alarm_fire" if wanted == AlarmSchedule.Kind.FIRE else "sfx_int_alarm_reactor")
 
 
 func _play_event_cues(delta: float) -> void:
 	for portal_id in session.systems.layout.portals:
 		var target: bool = (session.systems.layout.portals[portal_id] as Portal).target_open
 		if _previous_door_targets.has(portal_id) and _previous_door_targets[portal_id] != target:
-			play_cue("door")
+			play_cue("door", "sfx_int_door_open" if target else "sfx_int_door_close")
 		_previous_door_targets[portal_id] = target
 	var walkway_state := session.systems.walkway.state
 	if _previous_walkway_state != -1 and walkway_state != _previous_walkway_state and (walkway_state == WalkwayController.State.DEPLOYING or walkway_state == WalkwayController.State.RETRACTING):
 		play_cue("ramp")
 	_previous_walkway_state = walkway_state
 	if ship.state.landed and not _previous_landed:
-		play_cue("thud")
+		play_cue("thud", "sfx_ship_touchdown_hard" if _previous_speed_in_flight >= HARD_TOUCHDOWN_SPEED else "sfx_ship_touchdown_soft")
 	_previous_landed = ship.state.landed
+	if not ship.state.landed:
+		_previous_speed_in_flight = ship.state.speed()
 	var walking_speed := 0.0
 	var grounded := true
 	if session.mode == GameSession.Mode.OUTSIDE:
@@ -113,10 +241,69 @@ func _play_event_cues(delta: float) -> void:
 	if walking_speed > 0.5 and grounded:
 		_footstep_clock -= delta
 		if _footstep_clock <= 0.0:
-			play_cue("footstep")
+			var sample_id := "sfx_foot_metal" if session.mode == GameSession.Mode.INSIDE else ("sfx_foot_regolith_suit" if ship.state.atmosphere_ratio >= 1.0 else "")
+			play_cue("footstep", sample_id)
 			_footstep_clock = clampf(1.5 / walking_speed, 0.25, 0.6)
 	else:
 		_footstep_clock = 0.0
+
+
+## Edges of ship and suit state that make a sound: engine start/stop, power loss/return, airlock cycling, subsystem failure and
+## recovery, suit oxygen warnings.
+func _play_state_cues() -> void:
+	var engine_stopped := ship.controller.is_parked() or ship.state.landed
+	if engine_stopped and not _previous_engine_stopped:
+		play_sample("sfx_ship_engine_shutdown")
+	if session.mode == GameSession.Mode.SEATED and _previous_mode != GameSession.Mode.SEATED and _previous_mode != -1 and ship.state.landed:
+		play_sample("sfx_ship_engine_startup")
+	_previous_engine_stopped = engine_stopped
+	_previous_mode = session.mode
+	var power_down := session.systems.power.is_shut_down()
+	if power_down != _previous_power_down:
+		play_sample("sfx_int_power_down" if power_down else "sfx_int_power_up")
+	_previous_power_down = power_down
+	var pressure := session.systems.airlock_pressure
+	var trend := 0
+	if pressure > _previous_airlock_pressure + 0.0001:
+		trend = 1
+	elif pressure < _previous_airlock_pressure - 0.0001:
+		trend = -1
+	if trend != 0 and trend != _previous_airlock_trend:
+		play_sample("sfx_int_airlock_cycle_pressurise" if trend > 0 else "sfx_int_airlock_cycle_vent")
+	_previous_airlock_trend = trend
+	_previous_airlock_pressure = pressure
+	for subsystem_id in [ShipSubsystems.Id.ENGINES, ShipSubsystems.Id.WEAPONS, ShipSubsystems.Id.REACTOR, ShipSubsystems.Id.LIFE_SUPPORT]:
+		var was_low: bool = _subsystem_low.get(subsystem_id, false)
+		var is_low := AudioLibrary.next_latch(was_low, session.systems.subsystems.value(subsystem_id), SUBSYSTEM_FAIL_BELOW, SUBSYSTEM_RESTORED_ABOVE)
+		if is_low != was_low:
+			play_sample("sfx_dmg_subsystem_fail" if is_low else "sfx_sys_restored", 1)
+		_subsystem_low[subsystem_id] = is_low
+	if session.mode == GameSession.Mode.OUTSIDE:
+		var low := AudioLibrary.next_latch(_oxygen_low, session.suit.oxygen, LOW_OXYGEN_WARNING, 0.3)
+		var critical := AudioLibrary.next_latch(_oxygen_critical, session.suit.oxygen, CRITICAL_OXYGEN_WARNING, 0.3)
+		if critical and not _oxygen_critical:
+			play_sample("sfx_suit_o2_warning_critical", 2)
+		elif low and not _oxygen_low:
+			play_sample("sfx_suit_o2_warning_low", 2)
+		_oxygen_low = low
+		_oxygen_critical = critical
+	else:
+		_oxygen_low = false
+		_oxygen_critical = false
+
+
+func _inventory_total() -> int:
+	var total := 0
+	for item_id in session.inventory.item_ids():
+		total += session.inventory.count(item_id)
+	return total
+
+
+func _on_inventory_changed() -> void:
+	var total := _inventory_total()
+	if _previous_pickup_total != -1 and total > _previous_pickup_total:
+		play_sample("sfx_item_pickup")
+	_previous_pickup_total = total
 
 
 func _feed(player: AudioStreamPlayer, producer: Callable) -> void:
@@ -137,13 +324,14 @@ func _feed(player: AudioStreamPlayer, producer: Callable) -> void:
 func _apply_volumes() -> void:
 	var settings := GameSettings.instance()
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(settings.master_volume, 0.0001)))
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), linear_to_db(maxf(settings.sfx_volume, 0.0001)))
+	for sfx_bus in ["SFX", "UI", "Ship", "Suit", "Radio"]:
+		AudioServer.set_bus_volume_db(AudioServer.get_bus_index(sfx_bus), linear_to_db(maxf(settings.sfx_volume, 0.0001)))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Ambience"), linear_to_db(maxf(settings.ambience_volume, 0.0001)))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Interior"), linear_to_db(maxf(settings.ambience_volume, 0.0001)))
 
 
 func _ensure_buses() -> void:
-	for bus_name in ["SFX", "Ambience", "Interior"]:
+	for bus_name in ["SFX", "Ambience", "Interior", "UI", "Ship", "Suit", "Radio"]:
 		if AudioServer.get_bus_index(bus_name) == -1:
 			AudioServer.add_bus()
 			var index := AudioServer.bus_count - 1
@@ -151,5 +339,5 @@ func _ensure_buses() -> void:
 			AudioServer.set_bus_send(index, "Master")
 			if bus_name == "Interior":
 				var low_pass := AudioEffectLowPassFilter.new()
-				low_pass.cutoff_hz = 700.0
+				low_pass.cutoff_hz = 1200.0 if GameSettings.instance().sample_audio else 700.0 # bible 3.3; the synth sounds were tuned for 700
 				AudioServer.add_bus_effect(index, low_pass)
