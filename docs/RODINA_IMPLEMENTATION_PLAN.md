@@ -127,7 +127,7 @@ HOME="/Users/arielbowyer/Documents/Deepseek workspace/sol_home" \
 ## Current merged status (this pass)
 
 - Merge completed into the workspace clone of the known checkout; canonical `lookdev/` untouched.
-- Full suite after merge: **300 tests, 98,903 assertions, 0 failures**.
+- Full suite after merge: **302 tests, 98,910 assertions, 0 failures**.
 - Controlled full-loop pass: orbit → controlled entry → landing → airlock/walk → takeoff → space;
   hull preserved.
 - Merged entry probe 6 km/s/-30° still runs; controlled entry costs hull (peak heat ~0.91,
@@ -137,3 +137,14 @@ HOME="/Users/arielbowyer/Documents/Deepseek workspace/sol_home" \
 - Remaining high-value work: tune the entry heat/damage so a combat-speed entry stays safe and a
   steep/fast one remains dangerous; improve the plasma envelope; verify camera feel by hand in the
   merged cargo build; resolve the unrecoverable engine-camera filter.
+
+
+## Final local state
+
+- Known checkout branch: `flight/canonical-rodina` in `~/Developer/Sol-n9-test`, pointing at the
+  merged and documented local commit. The checkout remains on `play-combined`; its untracked
+  `lookdev/` work is untouched.
+- Working clone: `Documents/Deepseek workspace/Sol-canonical-merge`, branch `play-combined`.
+- Final suite after the merge and added entry safety tests: **302 tests, 98,910 assertions, 0
+  failures**.
+- No remote push was performed.

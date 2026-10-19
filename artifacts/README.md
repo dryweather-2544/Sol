@@ -47,5 +47,5 @@ All shots are 1600 × 900, Forward+, macOS Apple M4, captured from the running p
 - `merged_low.png` — merged build on the ground; cargo exterior, clouds and no entry HUD clutter.
 - `merged_entry_heat.png`, `merged_entry_critical.png`, `merged_entry_low.png` — merged entry at
   6 km/s, -30°: plasma envelope, streaks, HUD warning and post-entry airframe.
-- The merged canonical suite is 300 tests / 0 failures; the 37-second ascent and cargo hull are
+- The merged canonical suite is 302 tests / 0 failures; the 37-second ascent and cargo hull are
   preserved.
