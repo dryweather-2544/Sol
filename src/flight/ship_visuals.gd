@@ -1,18 +1,19 @@
 class_name ShipVisuals
 extends Node3D
-## Builds the placeholder ship from the interior layout (so the walls you see are the walls you
-## walk between) and animates the doors and ramp from the ship's systems. Nose points to -z.
+## Builds the ship from the interior layout (so the walls you see inside are the walls you walk
+## between), wraps it in the exterior hull (ShipExterior) and animates the doors, ramp and turret
+## from the ship's systems. Nose points to -z.
 
 var ship: Ship
-var _door_nodes := {}   # portal id -> {node: MeshInstance3D, base_y: float}
+var _door_nodes := {}   # portal id -> {node: MeshInstance3D, base_x: float}
 var _room_lights := {} # room id -> OmniLight3D
 var _fire_nodes := {}   # room id -> MeshInstance3D
 var _station_screens := {} # station id -> StandardMaterial3D (emission shows the station's state)
 var _smoke_nodes := {}    # room id -> CPUParticles3D
 var _scorch_decals := {}  # room id -> Decal, hidden until the room has had a fire this session (not saved: saves may not change in N9)
-var _turret_pivot := Node3D.new()
-var _ramp_pivot := Node3D.new()
-var _ramp_mesh := MeshInstance3D.new()
+var exterior := ShipExterior.new()
+## Doors slide sideways (+x) into the wall beside the opening; sliding up would push them out through the roof.
+const DOOR_SLIDE := 1.45
 
 var _hull_material := _material(Color(0.55, 0.6, 0.68), 0.55, 0.35)
 var _floor_material := _material(Color(0.25, 0.27, 0.3), 0.8, 0.1)
@@ -38,24 +39,22 @@ func _ready() -> void:
 	_build_doors(layout)
 	_build_seat_and_console(layout)
 	_build_panels(layout)
-	_build_exterior_extras(layout)
-	_build_ramp(layout)
-	_build_turret()
+	exterior.build(self, layout, ship.systems.turret.muzzle_offset, _nozzle_material, _exhaust_disc)
 	_build_lights(layout)
 	if _wall_material != _hull_material:
 		_build_reflection_probe(layout)
 	_build_decals(layout)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var layout := ship.systems.layout
 	for portal_id in _door_nodes:
 		var portal: Portal = layout.portals[portal_id]
 		var record: Dictionary = _door_nodes[portal_id]
-		(record["node"] as Node3D).position.y = record["base_y"] + portal.open_factor * 2.3
+		(record["node"] as Node3D).position.x = record["base_x"] + portal.open_factor * DOOR_SLIDE
 	var aim := ship.systems.turret.aim_local
 	if aim.length() > 0.5:
-		_turret_pivot.basis = Basis.looking_at(aim, Vector3.UP if absf(aim.y) < 0.99 else Vector3.FORWARD)
+		exterior.turret_pivot.basis = Basis.looking_at(aim, Vector3.UP if absf(aim.y) < 0.99 else Vector3.FORWARD)
 	var hazards := ship.systems.hazards
 	var flicker := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
 	for room_id in _fire_nodes:
@@ -69,11 +68,10 @@ func _process(_delta: float) -> void:
 		light.light_color = Color(1.0, 0.35 + 0.2 * flicker, 0.2) if intensity > 0.0 else Color.WHITE
 		light.light_energy = 1.6 + 2.0 * intensity if intensity > 0.0 else 1.6
 	_update_screens()
-	var walkway := ship.systems.walkway
-	_ramp_pivot.visible = walkway.progress > 0.0
-	_ramp_mesh.scale.z = maxf(walkway.progress, 0.001)
 	var drop := layout.floor_y - layout.ramp_end_y
-	_ramp_pivot.rotation.x = asin(clampf(drop / layout.ramp_rect.size.y, -0.9, 0.9))
+	var command := ship.last_command
+	exterior.update_exhaust(1.0 if command.boost else minf(command.thrust.length(), 1.0), delta)
+	exterior.update_ramp(ship.systems.walkway.progress, asin(clampf(drop / layout.ramp_rect.size.y, -0.9, 0.9)))
 
 
 func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
@@ -149,7 +147,7 @@ func _build_doors(layout: InteriorLayout) -> void:
 		var instance := _box_instance(Vector3(opening.size.x, door_height, opening.size.y * 0.9), _door_material)
 		instance.position = Vector3(opening.position.x + opening.size.x * 0.5, base_y, opening.position.y + opening.size.y * 0.5)
 		add_child(instance)
-		_door_nodes[portal_id] = {"node": instance, "base_y": base_y}
+		_door_nodes[portal_id] = {"node": instance, "base_x": instance.position.x}
 
 
 func _build_seat_and_console(layout: InteriorLayout) -> void:
@@ -199,37 +197,6 @@ func _build_panels(layout: InteriorLayout) -> void:
 		add_child(panel)
 
 
-func _build_exterior_extras(layout: InteriorLayout) -> void:
-	for side in [-1.0, 1.0]:
-		var wing := _box_instance(Vector3(4.6, 0.15, 3.4), _exterior_material)
-		wing.position = Vector3(side * 5.5, 0.1, 2.0)
-		add_child(wing)
-		var tip := _box_instance(Vector3(0.3, 0.3, 3.4), _accent_material if side < 0.0 else _material(Color(0.1, 0.8, 0.2), 0.6, 0.2))
-		tip.position = Vector3(side * 7.8, 0.1, 2.0)
-		add_child(tip)
-		var engine := CylinderMesh.new()
-		engine.top_radius = 0.55
-		engine.bottom_radius = 0.65
-		engine.height = 2.4
-		var nacelle := MeshInstance3D.new()
-		nacelle.mesh = engine
-		nacelle.material_override = _nozzle_material
-		if _nozzle_material != _glow_material:
-			nacelle.add_child(_exhaust_disc())
-		nacelle.rotation_degrees = Vector3(90, 0, 0)
-		nacelle.position = Vector3(side * 2.4, -0.3, 9.3)
-		add_child(nacelle)
-		var gear := _box_instance(Vector3(0.3, 1.2, 0.3), _metal_material)
-		gear.position = Vector3(side * 2.6, -1.4, 8.5)
-		add_child(gear)
-		var gear_front := _box_instance(Vector3(0.3, 1.2, 0.3), _metal_material)
-		gear_front.position = Vector3(side * 2.6, -1.4, -5.0)
-		add_child(gear_front)
-	var fin := _box_instance(Vector3(0.2, 1.6, 2.2), _accent_material)
-	fin.position = Vector3(0, ship.systems.layout.ceiling_y + 0.9, 6.0)
-	add_child(fin)
-
-
 ## Station screens: reactor green -> red with core heat (dark when tripped); engine screen red -> green with engine health.
 func _update_screens() -> void:
 	var systems := ship.systems
@@ -243,30 +210,6 @@ func _update_screens() -> void:
 		var shade := Color(1.0, 0.2, 0.1).lerp(Color(0.2, 1.0, 0.5), systems.subsystems.value(ShipSubsystems.Id.ENGINES))
 		material.albedo_color = shade
 		material.emission = shade
-
-
-## The dorsal gun above the turret room; the barrel follows ShipTurret's aim.
-func _build_turret() -> void:
-	_turret_pivot.position = ship.systems.turret.muzzle_offset - Vector3(0, 0.15, 0)
-	add_child(_turret_pivot)
-	var base := _box_instance(Vector3(0.7, 0.3, 0.7), _metal_material)
-	base.position = Vector3(0, -0.05, 0)
-	_turret_pivot.add_child(base)
-	var barrel := _box_instance(Vector3(0.14, 0.14, 1.1), _accent_material)
-	barrel.position = Vector3(0, 0.1, -0.6)
-	_turret_pivot.add_child(barrel)
-
-
-func _build_ramp(layout: InteriorLayout) -> void:
-	_ramp_pivot.position = Vector3(layout.ramp_rect.position.x + layout.ramp_rect.size.x * 0.5, layout.floor_y - 0.04, layout.ramp_rect.position.y)
-	add_child(_ramp_pivot)
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(layout.ramp_rect.size.x, 0.08, layout.ramp_rect.size.y)
-	_ramp_mesh.mesh = mesh
-	_ramp_mesh.material_override = _door_material
-	_ramp_mesh.position = Vector3(0, 0, layout.ramp_rect.size.y * 0.5)
-	_ramp_pivot.add_child(_ramp_mesh)
-	_ramp_pivot.visible = false
 
 
 func _build_lights(layout: InteriorLayout) -> void:
@@ -377,16 +320,19 @@ func _add_decal(set_id: String, decal_name: String, center: Vector3, orientation
 
 
 ## The nozzle texture covers the whole nacelle, so the engine glow becomes a thin emissive disc in the exhaust mouth: the cylinder's top
-## cap (+y before the nacelle is rotated 90 degrees about x, which sends +y to +z, the rear).
-func _exhaust_disc() -> MeshInstance3D:
+## cap (+y before the nacelle is rotated 90 degrees about x, which sends +y to +z, the rear). Null when the nacelle itself glows
+## (asset materials off), as before.
+func _exhaust_disc(cap_y: float, radius: float) -> MeshInstance3D:
+	if _nozzle_material == _glow_material:
+		return null
 	var disc_mesh := CylinderMesh.new()
-	disc_mesh.top_radius = 0.5
-	disc_mesh.bottom_radius = 0.5
+	disc_mesh.top_radius = radius
+	disc_mesh.bottom_radius = radius
 	disc_mesh.height = 0.04
 	var disc := MeshInstance3D.new()
 	disc.mesh = disc_mesh
 	disc.material_override = _glow_material
-	disc.position = Vector3(0.0, 1.19, 0.0)
+	disc.position = Vector3(0.0, cap_y, 0.0)
 	return disc
 
 

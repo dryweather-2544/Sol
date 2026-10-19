@@ -24,6 +24,12 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - No 4 s atmosphere-entry timer, no reentry damage, no ship damage at all.
 - `docs/ARCHITECTURE.md` text predates ADRs 0002-0004; the ADRs win.
 
+## Ship exterior overhaul (branch `claude/sol-vtol-ship-overhaul-9eglhk`, on top of `n9-art-audio`)
+New exterior hull around the unchanged interior: see `docs/SHIP_EXTERIOR.md`. Photos with `tools/ship_shots.gd`.
+Also fixed two Godot 4.7.2 parse errors (`ship_visuals.gd`, `audio_service.gd`) that stopped `main.tscn` loading on `n9-art-audio`.
+Run in a cloud container with Godot 4.7.2 + lavapipe (software Vulkan) under Xvfb: full tests 261, 6 failures, all also failing
+before the overhaul (audio_library_test parse error; 5 decal-name checks in ship_screens_decals_test); `tools/playthrough.gd` OK.
+
 ## Tools (need a display unless noted)
 - `tools/playthrough.gd`: plays the whole loop through the real main scene with real input events (land, stand, doors, airlock, ramp, outside, back in, sit, take off to space). Last run: OK.
 - `tools/perf_run.gd`: frame times through a scripted descent (results in tests/perf/results.md).

@@ -3,11 +3,13 @@ extends RefCounted
 ## Keeps a person walking outside from walking through the hull: pushes a ship-local feet
 ## position out of the hull box, except in the mouth of a deployed ramp.
 
-const HULL_HALF_WIDTH := 3.2
-const HULL_FRONT_Z := -7.3
-const HULL_REAR_Z := 10.9
-const HULL_BOTTOM_Y := -1.2
-const HULL_TOP_Y := 1.9
+## The pressure hull's outer extent (ShipExterior): sides with the chine strake, prow, rear loading face with its door frame,
+## belly and roof. The engine pods (underside y -0.1) and gear legs are not solid; a standing person passes under the pods.
+const HULL_HALF_WIDTH := 3.8
+const HULL_FRONT_Z := -8.95
+const HULL_REAR_Z := 10.98
+const HULL_BOTTOM_Y := -1.32
+const HULL_TOP_Y := 2.25
 const PERSON_HEIGHT := 1.75
 
 
