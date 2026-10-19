@@ -23,10 +23,20 @@ class LoopPilot extends PilotSource:
 		var altitude := ship_state.altitude_above_ground
 		match phase:
 			Phase.DESCEND:
-				# Cruise down to 1500 m, then combat gear (about 60 m/s in thick air). It used to hand over to dock gear (about 2 m/s) at 4000 m and only
-				# reached the ground on leftover speed from the old slow cruise limit; with the faster cruise limit the ship brakes at the hand-over.
-				command.gear = PilotCommand.GEAR_CRUISE if altitude > 1500.0 else PilotCommand.GEAR_COMBAT
-				command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
+				# Controlled entry: a rule-based pilot brakes before the atmosphere instead of
+				# carrying a 12 km/s plunge into a deliberately fatal entry. This keeps the
+				# full-loop test about ship/interior transitions while still exercising entry.
+				if ship_state.speed() > 3000.0:
+					command.gear = PilotCommand.GEAR_COMBAT
+					command.brake = true
+				elif altitude < 6000.0 and ship_state.speed() > 200.0:
+					# Terminal descent: bleed the last speed instead of dropping onto the
+					# landing gear at 1.4 km/s.
+					command.gear = PilotCommand.GEAR_COMBAT
+					command.brake = true
+				else:
+					command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else PilotCommand.GEAR_DOCK
+					command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
 			Phase.TAKEOFF:
 				command.gear = PilotCommand.GEAR_CRUISE if altitude > 2500.0 else PilotCommand.GEAR_COMBAT
 				command.thrust = Vector3(0, 1, 0)
@@ -205,7 +215,7 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 
 	# 7. Take off and fly back to space.
 	_pilot.phase = LoopPilot.Phase.TAKEOFF
-	for tick in 60 * 120:
+	for tick in 60 * 200:
 		_tick()
 		if ship.state.regime == FlightRegime.SPACE:
 			break

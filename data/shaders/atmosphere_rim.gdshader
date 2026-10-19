@@ -2,9 +2,9 @@
 shader_type spatial;
 render_mode unshaded, blend_add, cull_back, depth_draw_never;
 
-uniform vec4 rim_color : source_color = vec4(0.35, 0.6, 1.0, 1.0);
+uniform vec4 rim_color : source_color = vec4(0.30, 0.52, 0.88, 1.0);
 uniform vec3 sun_direction = vec3(0.0, 0.0, -1.0); // direction the light travels
-uniform float strength = 2.2;
+uniform float strength = 0.60;
 
 varying vec3 world_normal;
 
@@ -13,8 +13,8 @@ void vertex() {
 }
 
 void fragment() {
-	float rim = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 6.0);
+	float rim = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 14.0);
 	float lit = clamp(dot(normalize(world_normal), -normalize(sun_direction)) * 0.9 + 0.35, 0.0, 1.0);
 	ALBEDO = rim_color.rgb;
-	ALPHA = clamp(rim * lit * strength, 0.0, 1.0);
+	ALPHA = clamp(rim * lit * strength, 0.0, 0.65);
 }

@@ -97,6 +97,7 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 ## Advance one physics tick. foot_command drives whichever body is walking.
 func tick(delta: float, foot_command: OnFootCommand) -> void:
 	message_seconds_left = maxf(0.0, message_seconds_left - delta)
+	ship.warp_drive_installed = progress.warp_installed
 	systems.walkway.occupied = _is_anyone_on_ramp()
 	for portal_id in systems.layout.portals:
 		systems.occupied_portals[portal_id] = _is_in_doorway(systems.layout.portals[portal_id])

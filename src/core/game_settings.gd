@@ -4,6 +4,10 @@ extends RefCounted
 ## GameSettings.instance(); tests make their own with a different path.
 
 const DEFAULT_PATH := "user://settings.cfg"
+## N9 wrote art kill switches into settings. A file without this version may contain the all-off
+## tooling state; migrate it once so a normal player sees the integrated art. Later saves keep
+## whatever the player chooses.
+const SETTINGS_VERSION := 2
 
 static var _shared: GameSettings
 
@@ -56,9 +60,11 @@ func save_to_file() -> String:
 	config.set_value("assets", "terrain_detail", terrain_detail)
 	config.set_value("assets", "starfield", starfield)
 	config.set_value("assets", "sample_audio", sample_audio)
+
 	config.set_value("assets", "atmosphere_scattering", atmosphere_scattering)
 	config.set_value("assets", "clouds", clouds)
 	config.set_value("assets", "exterior_hull", exterior_hull)
+	config.set_value("meta", "version", SETTINGS_VERSION)
 	var error := config.save(path)
 	return "" if error == OK else "could not save settings (error %d)" % error
 
@@ -68,6 +74,7 @@ func load_from_file() -> void:
 	var config := ConfigFile.new()
 	if config.load(path) != OK:
 		return
+	var version := int(config.get_value("meta", "version", 0))
 	mouse_sensitivity = clampf(float(config.get_value("input", "mouse_sensitivity", mouse_sensitivity)), 0.2, 3.0)
 	invert_pitch = bool(config.get_value("input", "invert_pitch", invert_pitch))
 	field_of_view = clampf(float(config.get_value("video", "field_of_view", field_of_view)), 50.0, 110.0)
@@ -79,6 +86,16 @@ func load_from_file() -> void:
 	terrain_detail = bool(config.get_value("assets", "terrain_detail", terrain_detail))
 	starfield = bool(config.get_value("assets", "starfield", starfield))
 	sample_audio = bool(config.get_value("assets", "sample_audio", sample_audio))
+
 	atmosphere_scattering = bool(config.get_value("assets", "atmosphere_scattering", atmosphere_scattering))
 	clouds = bool(config.get_value("assets", "clouds", clouds))
 	exterior_hull = bool(config.get_value("assets", "exterior_hull", exterior_hull))
+	if version < SETTINGS_VERSION:
+		# One-time migration from the N9 tooling file. Apply it after reading the old keys so the
+		# explicit all-off state cannot override the repaired values. A file missing these keys
+		# already keeps the true defaults; this branch repairs an old explicit off.
+		asset_materials = true
+		decals = true
+		terrain_detail = true
+		starfield = true
+		sample_audio = true

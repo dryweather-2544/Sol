@@ -1,5 +1,6 @@
 class_name PlanetBody
 extends RefCounted
+const EntryModel = preload("res://src/flight/atmospheric_entry.gd")
 ## One planet in its own frame (centre at the frame origin, non-rotating). Pure logic: gravity,
 ## atmosphere and terrain queries. Positions are WorldPos (64-bit).
 
@@ -101,3 +102,4 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	environment.level_assist = 0.0 if ship_state.landed or atmosphere_height <= 0.0 else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
 	ship_state.atmosphere_ratio = ratio
 	ship_state.regime = FlightRegime.classify(ratio, ship_state.altitude_above_ground, ship_state.landed)
+	EntryModel.fill_environment(ship_state, self, environment)

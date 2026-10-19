@@ -23,15 +23,40 @@ func _ready() -> void:
 	sky.sky_material = _sky_material
 	_environment.background_mode = Environment.BG_SKY
 	_environment.sky = sky
-	_environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	_environment.tonemap_mode = Environment.TONE_MAPPER_ACES
+	_environment.tonemap_exposure = 0.70
+	_environment.tonemap_white = 6.0
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	_environment.ambient_light_color = Color(0.12, 0.14, 0.2)
-	_environment.ambient_light_energy = 0.6
+	_environment.ambient_light_color = Color(0.10, 0.13, 0.19)
+	_environment.ambient_light_energy = 0.55
+	# Restrained post stack: contact shadowing in the ship and at landing sites, a little bloom for
+	# thrusters/screens, and a warm/cool grade. No SDFGI or volumetric fog on the 16 GB target.
+	_environment.ssao_enabled = true
+	_environment.ssao_radius = 1.6
+	_environment.ssao_intensity = 2.2
+	_environment.ssao_power = 1.4
+	_environment.ssao_detail = 0.6
+	_environment.ssao_light_affect = 0.25
+	_environment.glow_enabled = true
+	_environment.glow_intensity = 0.35
+	_environment.glow_strength = 1.05
+	_environment.glow_bloom = 0.04
+	_environment.glow_hdr_threshold = 1.25
+	_environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	_environment.adjustment_enabled = true
+	_environment.adjustment_brightness = 1.0
+	_environment.adjustment_contrast = 1.12
+	_environment.adjustment_saturation = 1.06
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = _environment
 	add_child(world_environment)
-	_sun.light_energy = 1.25
-	_sun.shadow_enabled = false
+	_sun.light_color = Color(1.0, 0.94, 0.84)
+	_sun.light_energy = 1.08
+	_sun.light_angular_distance = 0.35
+	_sun.shadow_enabled = true
+	_sun.shadow_bias = 0.04
+	_sun.shadow_normal_bias = 1.2
+	_sun.directional_shadow_max_distance = 240.0
 	add_child(_sun)
 	set_sun_direction(sun_direction)
 	set_daylight(0.0, Vector3.UP)
@@ -43,11 +68,11 @@ func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float
 	_sky_material.set_shader_parameter("sun_direction", -sun_direction)
 	# Ground haze: a little distance fog by day, thinning out with altitude.
 	_environment.fog_enabled = daylight > 0.02
-	_environment.fog_light_color = Color(0.62, 0.75, 0.92)
-	_environment.fog_density = 3.0e-5 * daylight * (1.0 - smoothstep(2000.0, 30000.0, altitude_metres))
+	_environment.fog_light_color = Color(0.56, 0.66, 0.78)
+	_environment.fog_density = 2.2e-5 * daylight * (1.0 - smoothstep(2000.0, 30000.0, altitude_metres))
 	_environment.fog_sky_affect = 0.0
-	_environment.ambient_light_energy = lerpf(0.6, 0.55, daylight)
-	_environment.ambient_light_color = Color(0.12, 0.14, 0.2).lerp(Color(0.45, 0.55, 0.75), daylight)
+	_environment.ambient_light_energy = lerpf(0.46, 0.30, daylight)
+	_environment.ambient_light_color = Color(0.10, 0.13, 0.19).lerp(Color(0.34, 0.42, 0.54), daylight)
 
 
 func set_sun_direction(light_direction: Vector3) -> void:

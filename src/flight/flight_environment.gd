@@ -14,3 +14,11 @@ var cruise_speed_limit := INF
 ## its up axis toward level_up (local planet up). 0 = off.
 var level_up := Vector3.UP
 var level_assist := 0.0
+## Atmosphere density proxy, 0 at the top of the atmosphere and 1 at sea level.
+var air_density := 0.0
+## Speed lost per second to atmospheric drag along the velocity vector, m/s^2.
+var drag_acceleration := 0.0
+## Actual velocity-vector flight-path angle relative to the local horizon, degrees. Negative = descending.
+var flight_path_angle_deg := 0.0
+## Relative speed used by the entry model, m/s.
+var entry_speed := 0.0

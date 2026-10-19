@@ -6,7 +6,9 @@ extends RefCounted
 var position := WorldPos.new(&"space")
 ## World-frame velocity, metres per second.
 var velocity := Vector3.ZERO
-## Ship orientation in its frame; columns are the ship's right, up and back axes.
+## Ship orientation in its frame; columns are the ship's right (+X), up (+Y) and back (+Z)
+## axes. Forward is -Z, matching the visual hull, cockpit, muzzle and camera. Rodina uses
+## (right, forward, up); the input adapter maps its forward +Y to Sol -Z and up +Z to Sol +Y.
 var basis := Basis.IDENTITY
 ## Ship-local angular velocity, radians per second about local x (pitch), y (yaw), z (roll).
 var angular_velocity := Vector3.ZERO
@@ -25,6 +27,18 @@ var hull := 1.0
 var fuel := 1.0
 ## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
 var last_impact_speed := 0.0
+
+## Atmospheric-entry telemetry, written by PlanetBody.fill_environment and AtmosphericEntry.
+## entry_heat is 0 (cold) to 1.5 (structural failure range); entry_damage_rate is hull fraction/s.
+var entry_heat := 0.0
+var entry_heat_rate := 0.0
+var entry_damage_rate := 0.0
+var entry_density := 0.0
+var entry_speed := 0.0
+var entry_angle_deg := 0.0
+var entry_corridor := 0
+var entry_warning := ""
+var entry_atmosphere_height := 0.0
 
 
 func speed() -> float:

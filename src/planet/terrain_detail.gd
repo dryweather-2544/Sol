@@ -54,5 +54,8 @@ static func build_material(atmosphere_height: float) -> ShaderMaterial:
 	for uniform_name in textures:
 		material.set_shader_parameter(uniform_name, textures[uniform_name])
 	material.set_shader_parameter("flat_mean_linear", MEAN_LINEAR_LUMINANCE[flat_id])
+	material.set_shader_parameter("fade_start_metres", 120.0)
+	material.set_shader_parameter("fade_end_metres", 1200.0)
+	material.set_shader_parameter("normal_strength", 1.15)
 	material.set_shader_parameter("steep_mean_linear", MEAN_LINEAR_LUMINANCE[STEEP_LAYER])
 	return material

@@ -85,6 +85,31 @@ class EngineVoice extends RefCounted:
 		return samples
 
 
+## Entry: a low, filtered roar with a sparse crackle layer. intensity 0..1 also opens the filter,
+## so the same voice moves from a distant rumble to a tearing airflow without a sample file.
+class EntryVoice extends RefCounted:
+	var state := 0.0
+	var phase := 0.0
+	var rng := SeedRng.new(4242)
+
+	func fill(count: int, intensity: float, volume: float) -> PackedFloat32Array:
+		var samples := PackedFloat32Array()
+		samples.resize(count)
+		var strength := clampf(intensity, 0.0, 1.0)
+		var smoothing := lerpf(0.985, 0.82, strength)
+		var loudness := volume * strength * (0.18 + 0.6 * strength)
+		for index in count:
+			var white := rng.next_float() * 2.0 - 1.0
+			state = lerpf(white, state, smoothing)
+			phase = fmod(phase + (34.0 + 28.0 * strength) / SAMPLE_RATE, 1.0)
+			var roar := sin(TAU * phase) * 0.45 + state * 2.2
+			var crackle := 0.0
+			if rng.next_float() > 0.996:
+				crackle = (rng.next_float() * 2.0 - 1.0) * 1.4
+			samples[index] = clampf((roar + crackle) * loudness, -1.0, 1.0)
+		return samples
+
+
 ## Wind: low-passed noise whose brightness rises with strength 0..1.
 class WindVoice extends RefCounted:
 	var state := 0.0

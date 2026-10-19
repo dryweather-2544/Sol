@@ -176,6 +176,11 @@ static func frame_count(wav: AudioStreamWAV) -> int:
 
 
 ## Engine loops: idle fades into thrust with throttle (equal-power so the sum does not dip); silent when the ship is parked or landed.
+## Forget the warnings logged through AssetLibrary (tests and a fresh audio session).
+static func reset_warnings() -> void:
+	AssetLibrary.reset_warnings()
+
+
 ## Returns Vector2(idle_gain, thrust_gain), each 0..1.
 static func engine_mix(throttle: float, engine_running: bool) -> Vector2:
 	if not engine_running:
