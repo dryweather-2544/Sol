@@ -55,11 +55,19 @@ func _ready() -> void:
 	# Start above a point where the sun is START_SUN_ANGLE_DEGREES from overhead, facing the planet.
 	var toward_sun := -system.sun_direction_in_frame(system.home_id, 0.0)
 	var tilt_axis := toward_sun.cross(Vector3.UP).normalized()
+	if tilt_axis.length_squared() < 1e-8:
+		tilt_axis = Vector3.RIGHT
 	var start_up := toward_sun.rotated(tilt_axis, deg_to_rad(START_SUN_ANGLE_DEGREES))
 	ship = Ship.new()
 	ship.planet = planet
 	ship.state.position = WorldPos.new(planet.frame_id, start_up.x * (planet.radius + START_ALTITUDE), start_up.y * (planet.radius + START_ALTITUDE), start_up.z * (planet.radius + START_ALTITUDE))
-	ship.state.basis = Basis.looking_at(-start_up, Vector3.UP) # nose toward the planet
+	# Nose toward the planet, but the up hint must be tangential to the planet: using the
+	# radial itself (or world up) makes the initial roll depend on the spawn point and can
+	# degenerate when the spawn is near a pole.
+	var start_tangent := start_up.cross(tilt_axis).normalized()
+	if start_tangent.length_squared() < 1e-8:
+		start_tangent = start_up.cross(Vector3.RIGHT).normalized()
+	ship.state.basis = Basis.looking_at(-start_up, start_tangent)
 	ship.render_origin = ship.state.position.duplicate_position()
 	ship.state.gear = PilotCommand.GEAR_CRUISE # start in orbit, 300 km up: cruise gets you down in half a minute
 	session = GameSession.new(planet, ship, player_source) # gives the ship its interior systems

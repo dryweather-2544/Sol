@@ -28,3 +28,14 @@ All shots are 1600 × 900, Forward+, macOS Apple M4, captured from the running p
 - `entry_recovery_low.png` — the same 6 km/s, -30 deg entry after braking above 55% heat:
   heat 0%, hull 100%.
 - The entry frames are 1280 × 720; the earlier ship/cockpit/interior frames are 1600 × 900.
+
+## Rodina orientation / 6-DOF pass
+
+- `orientation_before_space.png` — old chase camera with the 3.8 m side offset: the ship reads as
+  a rear-quarter/sideways view.
+- `orientation_after_space.png` — centred chase camera: the rear door and wings are symmetrical.
+- `orientation_start_after.png` — fixed default spawn basis; no world-up roll.
+- `orientation_level.png`, `orientation_yaw90.png`, `orientation_pitch30.png`,
+  `orientation_roll45.png` — real-scene camera through level/yaw/pitch/roll.
+- `flight_demo_00.png` … `flight_demo_05.png` — actual scene: stationary, acceleration, yaw while
+  coasting, lateral translation, braking.

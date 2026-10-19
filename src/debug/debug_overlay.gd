@@ -184,6 +184,8 @@ func _entry_text() -> String:
 	if ship == null or ship.state.entry_density <= 0.001:
 		return ""
 	var state := ship.state
+	if state.landed or (state.entry_speed < 1200.0 and state.entry_heat <= 0.01):
+		return ""
 	var speed_km := state.entry_speed / 1000.0
 	return "ENTRY %s   path %+d deg   %.1f km/s\nHEAT %d%%   hull %d%%" % [
 		EntryModel.corridor_label(state.entry_corridor), int(round(state.entry_angle_deg)),

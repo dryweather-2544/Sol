@@ -20,6 +20,8 @@ func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 	var settings := GameSettings.instance()
 	var effective_sensitivity := mouse_sensitivity * settings.mouse_sensitivity
 	var command := PilotCommand.new()
+	# Controller mapping: Rodina's MOVE_SHIP is (x right, y forward, z up). Sol is
+	# (x right, y up, -z forward), so W/S fills local -Z, A/D fills X, Space/C fills Y.
 	command.thrust = Vector3(
 		Input.get_axis("strafe_left", "strafe_right"),
 		Input.get_axis("move_down", "move_up"),

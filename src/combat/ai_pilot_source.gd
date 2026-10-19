@@ -55,7 +55,9 @@ func poll(ship_state: ShipState, delta: float) -> PilotCommand:
 			else:
 				command.thrust = Vector3(0, 0, -clampf(distance / 300.0, 0.0, 1.0))
 		Mode.ATTACK:
-			if distance > preferred_range * 1.25:
+			# Keep closing to the preferred range instead of parking just outside it; the old
+			# 1.25x dead band left raiders hovering at 560 m where the turret solution was poor.
+			if distance > preferred_range:
 				command.thrust = Vector3(0, 0, -1)
 			elif distance < preferred_range * 0.6:
 				command.thrust = Vector3(0, 0, 0.6)

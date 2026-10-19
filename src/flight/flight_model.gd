@@ -5,6 +5,8 @@ extends RefCounted
 ##
 ## Assisted 6DOF: thrust on an axis accelerates toward a target speed for that axis; with no
 ## thrust the assist damps the axis to zero (unless lock_linear); brake damps everything.
+## Local axes are +X right, +Y up, -Z forward. The per-gear strengths are the Rodina evidence
+## mapped by ShipTuning: right/up/forward -> right/up/-forward.
 
 const OVERSPEED_BLEED_RATE := 3.0
 const LEVEL_ASSIST_GAIN := 2.0
@@ -30,9 +32,11 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 		# reaches the limit in roughly 8 s; at low caps the base acceleration dominates.
 		acceleration = maxf(acceleration, max_speed * 0.10)
 	var deceleration := tuning.gear_deceleration[ship_state.gear] * (tuning.brake_multiplier if command.brake else 1.0)
-	var damping_scale := 1.0 if ship_state.gear != PilotCommand.GEAR_CRUISE else 0.12
+	# Cruise is the free-flight regime: leave most of the velocity intact when the pilot releases
+	# thrust. DOCK/COMBAT stay assisted for precise low-speed work; X is the explicit brake.
+	var damping_scale := 1.0 if ship_state.gear != PilotCommand.GEAR_CRUISE else 0.01
 	var thrust := command.thrust.limit_length(1.0)
-	var target_velocity := thrust * tuning.axis_strength * max_speed
+	var target_velocity := thrust * tuning.axis_strength_for(ship_state.gear) * max_speed
 	var local_velocity := ship_state.basis.transposed() * ship_state.velocity
 	if not command.lock_linear or command.brake or thrust != Vector3.ZERO:
 		for axis in 3:
@@ -68,18 +72,45 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 static func _step_angular(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
 	var turn := Vector3(clampf(command.turn.x, -1.0, 1.0), clampf(command.turn.y, -1.0, 1.0), clampf(command.turn.z, -1.0, 1.0))
 	if command.face_direction != Vector3.ZERO:
-		turn = turn_toward(ship_state.basis, command.face_direction)
-	var target_rate := turn * tuning.max_turn_rate
+		# Rodina SetDesiredFacing sets angular velocity directly (with arrival scaling near the
+		# target); it deliberately bypasses the player's rotational inertia.
+		var facing := turn_toward(ship_state.basis, command.face_direction)
+		var facing_strength := clampf(facing.length(), 0.0, 1.0)
+		ship_state.angular_velocity = facing.normalized() * tuning.rotation_speed * facing_strength if facing_strength > 0.0 else Vector3.ZERO
+		_integrate_rotation(ship_state, delta)
+		return
+	var desired_strength := clampf(turn.length(), 0.0, 1.0)
+	# Rodina squares analogue input for precision; binary keys stay at full strength.
+	var desired := turn * desired_strength
+	var hardness := tuning.rotation_hardness_for(ship_state.gear)
+	# Rotation friction is strongest when coasting (strength=0) and vanishes while turning.
+	# In vacuum the recovered game uses zero friction and retains angular momentum.
+	var friction_rate := tuning.rotation_friction_atmosphere * clampf(environment.air_density * 8.0, 0.0, 1.0)
+	var friction := clampf(friction_rate * pow(1.0 - desired_strength, 2.0) * delta, 0.0, 1.0)
+	ship_state.angular_velocity *= (1.0 - friction)
+	# Rodina: pitch/yaw acceleration = desired * hardness * RotationSpeed; roll uses a larger
+	# 3x roll factor and a separate +/-2*RotationSpeed cap.
+	var acceleration := Vector3(
+		desired.x * hardness,
+		desired.y * hardness,
+		desired.z * minf(2.0, hardness) * 3.0) * tuning.rotation_speed * delta
+	ship_state.angular_velocity += acceleration
+	var yaw_pitch := Vector2(ship_state.angular_velocity.x, ship_state.angular_velocity.y)
+	if yaw_pitch.length() > tuning.rotation_speed:
+		yaw_pitch = yaw_pitch.normalized() * tuning.rotation_speed
+	ship_state.angular_velocity.x = yaw_pitch.x
+	ship_state.angular_velocity.y = yaw_pitch.y
+	ship_state.angular_velocity.z = clampf(ship_state.angular_velocity.z, -2.0 * tuning.rotation_speed, 2.0 * tuning.rotation_speed)
 	if environment.level_assist > 0.0:
 		var level_in_ship_axes := ship_state.basis.transposed() * environment.level_up
-		var correction_limit := tuning.max_turn_rate * 0.5 * environment.level_assist
 		if turn.x == 0.0:
-			target_rate.x = clampf(level_in_ship_axes.z * LEVEL_ASSIST_GAIN, -correction_limit.x, correction_limit.x)
+			ship_state.angular_velocity.x += clampf(level_in_ship_axes.z * LEVEL_ASSIST_GAIN, -tuning.rotation_speed * 0.5, tuning.rotation_speed * 0.5) * environment.level_assist * delta
 		if turn.z == 0.0:
-			target_rate.z = clampf(-level_in_ship_axes.x * LEVEL_ASSIST_GAIN, -correction_limit.z, correction_limit.z)
-	for axis in 3:
-		var rate_change := (tuning.turn_acceleration if (turn[axis] != 0.0 or target_rate[axis] != 0.0) else tuning.turn_damping) * delta
-		ship_state.angular_velocity[axis] = move_toward(ship_state.angular_velocity[axis], target_rate[axis], rate_change)
+			ship_state.angular_velocity.z += clampf(-level_in_ship_axes.x * LEVEL_ASSIST_GAIN, -tuning.rotation_speed * 0.5, tuning.rotation_speed * 0.5) * environment.level_assist * delta
+	_integrate_rotation(ship_state, delta)
+
+
+static func _integrate_rotation(ship_state: ShipState, delta: float) -> void:
 	var turn_angle := ship_state.angular_velocity.length() * delta
 	if turn_angle > 1e-9:
 		var rotation_step := Quaternion(ship_state.angular_velocity.normalized(), turn_angle)

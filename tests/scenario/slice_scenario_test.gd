@@ -44,7 +44,7 @@ func _spawn_raider(_beacon_direction: Vector3) -> void:
 	_raider.planet = _session.planet
 	_raider.team_id = 1
 	_raider.render_origin = WorldPos.new(_session.planet.frame_id)
-	_raider.weapon.damage = 0.012
+	_raider.weapon.damage = 0.004 # direct facing makes the raider much more accurate than the old inertia turn
 	_raider.projectiles = _session.projectiles
 	_raider.state.position = player_ship.position.offset_by(-player_ship.basis.z * 700.0 + player_ship.basis.y * 100.0)
 	_raider.state.basis = Basis.looking_at(player_ship.basis.z, player_ship.basis.y)
@@ -103,6 +103,7 @@ func test_mayday_on_selene_from_ambush_to_takeoff() -> void:
 	_session.crew.add_member(_session.systems, &"mara", &"engineer", &"reactor_panel")
 	_session.crew.add_member(_session.systems, &"kit", &"gunner", &"gunner_seat")
 	_session.ambush_requested.connect(_spawn_raider)
+	_session.projectiles.hit.connect(func(projectile, target): print("HIT t=%d hull=%.3f pos=%s" % [_ticks, _raider.state.hull, target.combat_position()]))
 	_session.progress.current = 3 # the warp is installed; the Mayday call has come in
 	_session.progress.warp_installed = true
 

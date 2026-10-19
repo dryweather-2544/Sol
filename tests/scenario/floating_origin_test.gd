@@ -11,7 +11,7 @@ func test_fifty_km_flight_rebases_often_and_never_jumps() -> void:
 	var floating_origin := FloatingOrigin.new()
 	floating_origin.anchor = ship
 	var commands: Array[PilotCommand] = []
-	for tick in 4500:
+	for tick in 7000:
 		var command := PilotCommand.new()
 		command.thrust = Vector3(0, 0, -1)
 		command.gear = PilotCommand.GEAR_COMBAT
@@ -21,7 +21,7 @@ func test_fifty_km_flight_rebases_often_and_never_jumps() -> void:
 	var previous_world := ship.state.position.duplicate_position()
 	var worst_world_step := 0.0
 	var worst_local_distance := 0.0
-	for tick in 4500:
+	for tick in 7000:
 		ship.simulate_tick(1.0 / 60.0)
 		floating_origin.update()
 		var world_step := ship.state.position.distance_to(previous_world)

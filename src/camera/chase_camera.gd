@@ -1,12 +1,14 @@
 class_name ChaseCamera
 extends Camera3D
-## Follows a ship from behind and above. Translation is rigid (no lag, so speed never makes the
-## ship slide away); only the camera's *orientation reference* lags the ship's, so turns swing
-## the view around the ship. Updated in the physics tick so physics interpolation smooths it.
+## Follows a ship from directly behind and above. Position is anchored to the ship centreline;
+## orientation follows with the Rodina-style stiffness so turns swing the view instead of
+## snapping rigidly. Physics interpolation smooths the rendered result.
 
-@export var offset_behind_up := Vector3(3.8, 2.25, 18.0)
-@export var look_ahead_distance := 16.0
-## Bigger = camera orientation catches up with the ship faster (per second).
+## Sol ship-local convention: +X right, +Y up, -Z forward. A chase camera sits on the
+## ship centreline behind it; lateral offsets make the vehicle read as flying sideways.
+@export var offset_behind_up := Vector3(0.0, 4.2, 22.0)
+@export var look_ahead_distance := 18.0
+## Rodina's default third-person camera stiffness.
 @export var orientation_stiffness := 5.0
 
 var target: Node3D
@@ -60,21 +62,42 @@ func snap_to_target() -> void:
 func _physics_process(delta: float) -> void:
 	if target == null:
 		return
-	var follow_amount := 1.0 - exp(-orientation_stiffness * delta)
-	_smoothed_orientation = _smoothed_orientation.slerp(Quaternion(target.global_basis.orthonormalized()), follow_amount)
-	_apply(delta)
+	var follow := 1.0 - exp(-orientation_stiffness * delta)
+	_smoothed_orientation = _smoothed_orientation.slerp(
+		Quaternion(target.global_basis.orthonormalized()), follow)
+	_apply(0.0)
 
 
 func _apply(_delta: float) -> void:
-	var rig_basis := Basis(_smoothed_orientation)
-	var camera_position := target.global_position + rig_basis * offset_behind_up
+	if target == null:
+		return
+	var ship_basis := target.global_basis.orthonormalized()
+	var rig_basis := Basis(_smoothed_orientation).orthonormalized()
+	# Anchor position to the current ship so the vehicle never crabs sideways. Orientation is
+	# the lagged basis, producing the soft swing of the Rodina camera without a side offset.
+	var camera_position := target.global_position + ship_basis * offset_behind_up
 	var seconds := Time.get_ticks_msec() * 0.001
 	var shake := _speed_intensity * 0.010 + _entry_intensity * 0.085
-	camera_position += rig_basis * Vector3(
+	camera_position += ship_basis * Vector3(
 		sin(seconds * 37.0) * shake,
 		sin(seconds * 29.0 + 1.7) * shake * 0.7,
 		sin(seconds * 43.0 + 3.1) * shake * 0.35)
 	var look_target := target.global_position + rig_basis * Vector3(0.0, 0.0, -look_ahead_distance)
 	var camera_basis := Basis.looking_at(look_target - camera_position, rig_basis.y)
+	camera_basis = camera_basis.rotated(Vector3(0.0, 0.0, 1.0), sin(seconds * 23.0) * _entry_intensity * 0.008)
+	global_transform = Transform3D(camera_basis, camera_position)
+
+
+## Pure rig calculation for static orientation tests.
+func _apply_basis(basis: Basis) -> void:
+	var camera_position := target.global_position + basis * offset_behind_up
+	var seconds := Time.get_ticks_msec() * 0.001
+	var shake := _speed_intensity * 0.010 + _entry_intensity * 0.085
+	camera_position += basis * Vector3(
+		sin(seconds * 37.0) * shake,
+		sin(seconds * 29.0 + 1.7) * shake * 0.7,
+		sin(seconds * 43.0 + 3.1) * shake * 0.35)
+	var look_target := target.global_position + basis * Vector3(0.0, 0.0, -look_ahead_distance)
+	var camera_basis := Basis.looking_at(look_target - camera_position, basis.y)
 	camera_basis = camera_basis.rotated(Vector3(0.0, 0.0, 1.0), sin(seconds * 23.0) * _entry_intensity * 0.008)
 	global_transform = Transform3D(camera_basis, camera_position)

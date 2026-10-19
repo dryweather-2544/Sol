@@ -6,7 +6,9 @@ extends RefCounted
 var position := WorldPos.new(&"space")
 ## World-frame velocity, metres per second.
 var velocity := Vector3.ZERO
-## Ship orientation in its frame; columns are the ship's right, up and back axes.
+## Ship orientation in its frame; columns are the ship's right (+X), up (+Y) and back (+Z)
+## axes. Forward is -Z, matching the visual hull, cockpit, muzzle and camera. Rodina uses
+## (right, forward, up); the input adapter maps its forward +Y to Sol -Z and up +Z to Sol +Y.
 var basis := Basis.IDENTITY
 ## Ship-local angular velocity, radians per second about local x (pitch), y (yaw), z (roll).
 var angular_velocity := Vector3.ZERO
