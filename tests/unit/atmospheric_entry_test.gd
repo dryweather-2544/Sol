@@ -52,3 +52,29 @@ func test_heat_builds_and_cools_and_damage_starts_above_the_limit() -> void:
 		EntryModel.step_thermal(state, 1.0 / 60.0)
 	assert_true(state.entry_heat < hot, "heat cools when the entry ends")
 	assert_true(state.entry_damage_rate >= 0.0, "damage rate is never negative")
+
+
+func test_combat_speed_entry_is_cool_and_safe() -> void:
+	var planet := PlanetBody.new()
+	var state := _state_at(planet, 100000.0, Vector3(300, 0, 0))
+	var environment := FlightEnvironment.new()
+	planet.fill_environment(state, environment)
+	assert_eq(state.entry_heat_rate, 0.0, "combat speed never heats the hull")
+	assert_eq(state.entry_warning, "", "combat speed does not raise an entry warning")
+	for tick in 600:
+		EntryModel.step_thermal(state, 1.0 / 60.0)
+	assert_eq(state.entry_heat, 0.0, "no heat accumulates at combat speed")
+	assert_near(state.entry_damage_rate, 0.0, 1e-9)
+
+
+func test_steep_high_speed_entry_heats_more_than_a_shallow_one() -> void:
+	var planet := PlanetBody.new()
+	var environment := FlightEnvironment.new()
+	var steep := _state_at(planet, 100000.0, Vector3(0, -6000, 0))
+	var shallow := _state_at(planet, 100000.0, Vector3(6000, -100, 0))
+	planet.fill_environment(steep, environment)
+	var steep_rate := steep.entry_heat_rate
+	planet.fill_environment(shallow, environment)
+	assert_true(steep_rate > shallow.entry_heat_rate, "steep fast entry heats more")
+	assert_eq(steep.entry_corridor, EntryModel.Corridor.STEEP)
+	assert_eq(shallow.entry_corridor, EntryModel.Corridor.SHALLOW)
