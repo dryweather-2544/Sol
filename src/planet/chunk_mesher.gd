@@ -57,8 +57,12 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			var outward := (position + Vector3(origin_x, origin_y, origin_z)).normalized()
 			var base_color := _color_for(planet.profile_or_default(), lattice_heights[index], 1.0 - normal.dot(outward), outward.y)
 			# Patchy variation from the absolute position so colours match across chunk borders.
-			var patch := sin((position.x + origin_x) * 0.00031) * sin((position.z + origin_z) * 0.00043) + 0.5 * sin((position.y + origin_y) * 0.0021 + (position.x + origin_x) * 0.0017)
-			var shade := 0.9 + 0.1 * patch
+			var abs_x := position.x + origin_x
+			var abs_y := position.y + origin_y
+			var abs_z := position.z + origin_z
+			var patch := sin(abs_x * 0.00031) * sin(abs_z * 0.00043) + 0.5 * sin(abs_y * 0.0021 + abs_x * 0.0017)
+			var broad := sin(abs_x * 0.0017 + abs_z * 0.0011) * 0.5 + 0.5 * sin(abs_y * 0.0007 - abs_x * 0.0009)
+			var shade := 0.78 + 0.15 * patch + 0.07 * broad
 			colors.append(Color(base_color.r * shade, base_color.g * shade, base_color.b * shade, steep_weight(1.0 - normal.dot(outward))))
 
 	var indices := PackedInt32Array()

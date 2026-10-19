@@ -23,8 +23,15 @@ class LoopPilot extends PilotSource:
 		var altitude := ship_state.altitude_above_ground
 		match phase:
 			Phase.DESCEND:
-				command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else PilotCommand.GEAR_DOCK
-				command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
+				# A controlled entry, not a full-speed vertical plunge: hold the approach below
+				# 4 km/s until the atmosphere has done its work. This keeps the full-loop test a
+				# test of the ship/interior transition, not of a deliberately fatal entry.
+				if altitude < 280000.0 and ship_state.speed() > 4000.0:
+					command.gear = PilotCommand.GEAR_COMBAT
+					command.brake = true
+				else:
+					command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else PilotCommand.GEAR_DOCK
+					command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
 			Phase.TAKEOFF:
 				command.gear = PilotCommand.GEAR_CRUISE if altitude > 2500.0 else PilotCommand.GEAR_COMBAT
 				command.thrust = Vector3(0, 1, 0)
@@ -203,7 +210,7 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 
 	# 7. Take off and fly back to space.
 	_pilot.phase = LoopPilot.Phase.TAKEOFF
-	for tick in 60 * 120:
+	for tick in 60 * 200:
 		_tick()
 		if ship.state.regime == FlightRegime.SPACE:
 			break

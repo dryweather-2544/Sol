@@ -26,8 +26,11 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 		max_speed *= environment.max_speed_factor
 	var acceleration := tuning.gear_acceleration[ship_state.gear] * boost_factor
 	if ship_state.gear == PilotCommand.GEAR_CRUISE:
-		acceleration = maxf(acceleration, max_speed) # cruise reaches its (distance-scaled) cap in about a second
+		# Cruise is a sustained burn, not an instant teleport to the cap. At a 12 km/s limit this
+		# reaches the limit in roughly 8 s; at low caps the base acceleration dominates.
+		acceleration = maxf(acceleration, max_speed * 0.10)
 	var deceleration := tuning.gear_deceleration[ship_state.gear] * (tuning.brake_multiplier if command.brake else 1.0)
+	var damping_scale := 1.0 if ship_state.gear != PilotCommand.GEAR_CRUISE else 0.12
 	var thrust := command.thrust.limit_length(1.0)
 	var target_velocity := thrust * tuning.axis_strength * max_speed
 	var local_velocity := ship_state.basis.transposed() * ship_state.velocity
@@ -36,17 +39,27 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 			var current_speed: float = local_velocity[axis]
 			var target_speed: float = target_velocity[axis]
 			if command.brake or (thrust[axis] == 0.0 and not command.lock_linear):
-				local_velocity[axis] = move_toward(current_speed, 0.0, deceleration * delta)
+				local_velocity[axis] = move_toward(current_speed, 0.0, deceleration * (1.0 if command.brake else damping_scale) * delta)
 			elif thrust[axis] != 0.0:
 				var speeding_up := signf(target_speed) == signf(current_speed) and absf(target_speed) > absf(current_speed) or current_speed == 0.0
 				local_velocity[axis] = move_toward(current_speed, target_speed, (acceleration if speeding_up else deceleration) * delta)
 		ship_state.velocity = ship_state.basis * local_velocity
 	ship_state.velocity += environment.gravity * delta
-	# Over the cap (gear shifted down, entering atmosphere, nearing ground): bleed the excess
-	# off with a ~0.33 s time constant instead of snapping.
+	# Atmospheric drag acts on the actual velocity vector. It is the main decelerator during an
+	# entry; it also lets the ship carry entry speed after the gear is forced down near the ground.
+	if environment.drag_acceleration > 0.0 and not ship_state.landed:
+		ship_state.velocity = ship_state.velocity.move_toward(Vector3.ZERO, environment.drag_acceleration * delta)
+	# In vacuum, a gear change still needs to shed excess speed. In air, don't snap to the gear cap:
+	# the drag model and the pilot's brake do that work. A very high hard cap is only a safety net.
 	var overspeed := ship_state.velocity.length() - max_speed
 	if overspeed > 0.0 and not command.lock_linear:
-		ship_state.velocity = ship_state.velocity.normalized() * (max_speed + overspeed * exp(-OVERSPEED_BLEED_RATE * delta))
+		if environment.air_density > 0.001:
+			var hard_cap := maxf(max_speed * 8.0, 30000.0)
+			var hard_overspeed := ship_state.velocity.length() - hard_cap
+			if hard_overspeed > 0.0:
+				ship_state.velocity = ship_state.velocity.normalized() * (hard_cap + hard_overspeed * exp(-OVERSPEED_BLEED_RATE * delta))
+		else:
+			ship_state.velocity = ship_state.velocity.normalized() * (max_speed + overspeed * exp(-OVERSPEED_BLEED_RATE * delta))
 	ship_state.position.x += ship_state.velocity.x * delta
 	ship_state.position.y += ship_state.velocity.y * delta
 	ship_state.position.z += ship_state.velocity.z * delta

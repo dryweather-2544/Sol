@@ -1,10 +1,11 @@
 class_name PlanetBody
 extends RefCounted
+const EntryModel = preload("res://src/flight/atmospheric_entry.gd")
 ## One planet in its own frame (centre at the frame origin, non-rotating). Pure logic: gravity,
 ## atmosphere and terrain queries. Positions are WorldPos (64-bit).
 
 const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 2000.0
-const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 8000.0
+const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 12000.0
 ## Below LEVEL_ASSIST_START_ALTITUDE metres the ship eases itself upright; full strength at LEVEL_ASSIST_FULL_ALTITUDE.
 const LEVEL_ASSIST_START_ALTITUDE := 400.0
 const LEVEL_ASSIST_FULL_ALTITUDE := 150.0
@@ -88,10 +89,14 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 		environment.max_speed_factor = 1.0 if ratio >= 1.0 else lerpf(0.25, 1.0, smoothstep(0.1, 1.0, ratio))
 	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
 	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
-	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
-	if ratio < 1.0:
-		environment.cruise_speed_limit = minf(environment.cruise_speed_limit, CRUISE_SPEED_LIMIT_IN_ATMOSPHERE)
+	# Cruise is deliberately capped at a game-readable 12 km/s near a world instead of the old
+	# altitude*0.3 (which reached 90 km/s at 300 km). The approach remains fast, but the planet
+	# grows at a readable rate and an entry is something the player can set up.
+	# Without the warp drive, the ship is limited to a readable 12 km/s near a world. The drive
+	# (ProgressTracker) unlocks the original distance-scaled interplanetary limit in Ship.simulate_tick.
+	environment.cruise_speed_limit = clampf(ship_state.altitude_above_ground * 0.3, 500.0, 2.0e7)
 	environment.level_up = up_at(ship_state.position)
 	environment.level_assist = 0.0 if ship_state.landed or atmosphere_height <= 0.0 else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
 	ship_state.atmosphere_ratio = ratio
 	ship_state.regime = FlightRegime.classify(ratio, ship_state.altitude_above_ground, ship_state.landed)
+	EntryModel.fill_environment(ship_state, self, environment)

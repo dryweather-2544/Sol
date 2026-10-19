@@ -34,7 +34,7 @@ func test_decal_catalog_entries_match_the_decals_built() -> void:
 	for decal in decals:
 		var entry: Dictionary = {}
 		for set_id in DecalCatalog.SETS:
-			var name_in_catalog := decal.name.trim_prefix("Decal_")
+			var name_in_catalog := String(decal.get_meta("catalog_name", decal.name.trim_prefix("Decal_")))
 			if DecalCatalog.SETS[set_id].has(name_in_catalog):
 				entry = DecalCatalog.SETS[set_id][name_in_catalog]
 				break

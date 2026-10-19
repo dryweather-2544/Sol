@@ -26,6 +26,18 @@ var fuel := 1.0
 ## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
 var last_impact_speed := 0.0
 
+## Atmospheric-entry telemetry, written by PlanetBody.fill_environment and AtmosphericEntry.
+## entry_heat is 0 (cold) to 1.5 (structural failure range); entry_damage_rate is hull fraction/s.
+var entry_heat := 0.0
+var entry_heat_rate := 0.0
+var entry_damage_rate := 0.0
+var entry_density := 0.0
+var entry_speed := 0.0
+var entry_angle_deg := 0.0
+var entry_corridor := 0
+var entry_warning := ""
+var entry_atmosphere_height := 0.0
+
 
 func speed() -> float:
 	return velocity.length()

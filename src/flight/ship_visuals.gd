@@ -1,5 +1,6 @@
 class_name ShipVisuals
 extends Node3D
+const HullShell = preload("res://src/flight/ship_hull_shell.gd")
 ## Builds the placeholder ship from the interior layout (so the walls you see are the walls you
 ## walk between) and animates the doors and ramp from the ship's systems. Nose points to -z.
 
@@ -29,15 +30,19 @@ var _rubber_floor_material: Material = AssetLibrary.material_or("mat_ship_rubber
 var _console_material: Material = AssetLibrary.material_or("mat_ship_composite_dark", _floor_material)
 var _metal_material: Material = AssetLibrary.material_or("mat_ship_brushed_metal", _floor_material)
 var _nozzle_material: Material = AssetLibrary.material_or("mat_hull_nozzle", _glow_material)
+var _glass_material: Material = AssetLibrary.material_or("mat_ship_glass", _material(Color(0.4, 0.55, 0.7, 0.12), 0.08, 0.2))
 
 
 func _ready() -> void:
+	_tune_materials()
 	var layout := ship.systems.layout
 	_build_floors_and_ceilings(layout)
 	_build_walls(layout)
 	_build_doors(layout)
 	_build_seat_and_console(layout)
 	_build_panels(layout)
+	_build_interior_trim(layout)
+	_build_cockpit_details(layout)
 	_build_exterior_extras(layout)
 	_build_ramp(layout)
 	_build_turret()
@@ -45,6 +50,22 @@ func _ready() -> void:
 	if _wall_material != _hull_material:
 		_build_reflection_probe(layout)
 	_build_decals(layout)
+
+func _tune_materials() -> void:
+	# Private copies: the shared .tres assets stay untouched for other users and for tests.
+	if _exterior_material is BaseMaterial3D:
+		var hull_copy := (_exterior_material as BaseMaterial3D).duplicate() as BaseMaterial3D
+		hull_copy.albedo_color = Color(0.78, 0.80, 0.84)
+		hull_copy.roughness = 0.7
+		_exterior_material = hull_copy
+	if _glass_material is BaseMaterial3D:
+		var glass_copy := (_glass_material as BaseMaterial3D).duplicate() as BaseMaterial3D
+		glass_copy.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		glass_copy.albedo_color = Color(0.34, 0.46, 0.58, 0.055)
+		glass_copy.metallic = 0.0
+		glass_copy.metallic_specular = 0.18
+		glass_copy.roughness = 0.06
+		_glass_material = glass_copy
 
 
 func _process(_delta: float) -> void:
@@ -79,7 +100,7 @@ func _process(_delta: float) -> void:
 func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
-		var rubber_floor := room_id == &"airlock" or room_id == &"cargo"
+		var rubber_floor: bool = room_id == &"airlock" or room_id == &"cargo"
 		_slab(room, layout.floor_y - 0.12, layout.floor_y, _rubber_floor_material if rubber_floor else _floor_slab_material)
 		_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
 	for portal in layout.portals.values():
@@ -92,11 +113,7 @@ func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
 func _build_walls(layout: InteriorLayout) -> void:
 	var bottom := layout.floor_y
 	var top := layout.ceiling_y
-	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.5, 0.7, 0.9, 0.2)
-	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	glass.roughness = 0.1
-	var glass_material: Material = AssetLibrary.material_or("mat_ship_glass", glass)
+	var glass_material: Material = _glass_material
 	var thickness := 0.2
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
@@ -109,7 +126,8 @@ func _build_walls(layout: InteriorLayout) -> void:
 			var wall: Rect2 = walls[side][0]
 			var runs_along_x: bool = walls[side][1]
 			if room_id == &"cockpit" and side == "nose":
-				_wall_box(wall.position.x, wall.end.x, wall.position.y, wall.end.y, bottom, top, glass_material)
+				# The exterior shell owns the single cockpit pane; a second transparent wall here
+				# doubled the reflection and made the view look like an interior corridor.
 				continue
 			_wall_with_portal_gaps(layout, wall, runs_along_x, bottom, top)
 
@@ -162,16 +180,8 @@ func _build_seat_and_console(layout: InteriorLayout) -> void:
 		var back := _box_instance(Vector3(0.7, 1.0, 0.12), _accent_material)
 		back.position = seat_position + Vector3(0, 0.75, 0) + behind
 		add_child(back)
-	var console := _box_instance(Vector3(2.4, 0.9, 0.6), _console_material)
-	console.position = Vector3(0, layout.floor_y + 0.45, -6.5)
-	add_child(console)
-	var nav_material: Material = AssetLibrary.material_copy_or("mat_ship_screen_nav", _glow_material)
-	if nav_material != _glow_material and nav_material is StandardMaterial3D:
-		(nav_material as StandardMaterial3D).albedo_color = Color(0.3, 0.7, 1.0) # the tint contract: albedo_color AND emission carry the state colour
-		(nav_material as StandardMaterial3D).emission = Color(0.3, 0.7, 1.0)
-	var screen := _box_instance(Vector3(2.2, 0.05, 0.5), nav_material)
-	screen.position = Vector3(0, layout.floor_y + 0.92, -6.5)
-	add_child(screen)
+	# The cockpit dashboard is built in _build_cockpit_details; the old bright console box
+	# here was the large white slab that washed out the cockpit view.
 
 
 func _build_panels(layout: InteriorLayout) -> void:
@@ -199,35 +209,178 @@ func _build_panels(layout: InteriorLayout) -> void:
 		add_child(panel)
 
 
-func _build_exterior_extras(layout: InteriorLayout) -> void:
+func _build_interior_trim(layout: InteriorLayout) -> void:
+	# Visual-only trim: ribs, floor edge strips, ceiling luminaires, engineering pipes and cargo
+	# crates. Nothing here has collision, so the walkable footprint and interaction points are
+	# unchanged.
+	var warm := _emissive(Color(1.0, 0.82, 0.58), 1.8)
+	var cool := _emissive(Color(0.42, 0.72, 1.0), 1.4)
+	for room_id in layout.rooms:
+		var rect: Rect2 = layout.rooms[room_id]
+		var center := Vector3(rect.get_center().x, 0, rect.get_center().y)
+		var is_engineering: bool = room_id == &"engineering" or room_id == &"turret_room"
+		var ceiling_mat: Material = cool if is_engineering else warm
+		# Recessed ceiling strip.
+		var strip := _box_instance(Vector3(maxf(0.8, rect.size.x * 0.45), 0.025, 0.10), ceiling_mat)
+		strip.position = Vector3(center.x, layout.ceiling_y - 0.035, center.z)
+		add_child(strip)
+		# Floor edge accent, tucked against both side walls.
+		for side in [-1.0, 1.0]:
+			var edge := _box_instance(Vector3(0.055, 0.018, maxf(0.5, rect.size.y * 0.86)), _accent_material)
+			edge.position = Vector3(center.x + side * (rect.size.x * 0.5 - 0.16), layout.floor_y + 0.02, center.z)
+			add_child(edge)
+		# Wall ribs every ~1.6 m: thin metal frames that catch the room lights.
+		var rib_count := maxi(1, int(rect.size.y / 1.6))
+		for rib in range(rib_count + 1):
+			var z := rect.position.y + 0.35 + float(rib) * (rect.size.y - 0.7) / float(maxi(1, rib_count))
+			for side in [-1.0, 1.0]:
+				var rib_mesh := _box_instance(Vector3(0.035, 2.18, 0.075), _metal_material)
+				rib_mesh.position = Vector3(center.x + side * (rect.size.x * 0.5 - 0.06), layout.floor_y + 1.12, z)
+				add_child(rib_mesh)
+		# Low lockers / crates in cargo and the airlock vestibule; kept against the wall.
+		if room_id == &"cargo":
+			for index in 3:
+				var crate := _box_instance(Vector3(0.55, 0.52, 0.62), _metal_material if index != 1 else _accent_material)
+				crate.position = Vector3(rect.position.x + 0.42, layout.floor_y + 0.26, rect.position.y + 0.55 + index * 0.75)
+				add_child(crate)
+				var lid := _box_instance(Vector3(0.50, 0.035, 0.56), _console_material)
+				lid.position = crate.position + Vector3(0, 0.275, 0)
+				add_child(lid)
+		# Engineering conduits along the ceiling.
+		if room_id == &"engineering":
+			for offset in [-0.22, 0.0, 0.22]:
+				var pipe := CylinderMesh.new()
+				pipe.top_radius = 0.055
+				pipe.bottom_radius = 0.055
+				pipe.height = rect.size.y * 0.78
+				pipe.radial_segments = 10
+				var pipe_node := MeshInstance3D.new()
+				pipe_node.mesh = pipe
+				pipe_node.material_override = _metal_material if offset != 0.0 else _accent_material
+				pipe_node.rotation_degrees = Vector3(90, 0, 0)
+				pipe_node.position = Vector3(center.x - 2.25, layout.ceiling_y - 0.28 + offset, center.z)
+				add_child(pipe_node)
+	# A few hanging cable bundles / junction boxes give the engineering room a silhouette.
+	for z in [-1.2, 0.8, 2.4]:
+		var box := _box_instance(Vector3(0.32, 0.46, 0.22), _console_material)
+		box.position = Vector3(-2.62, layout.ceiling_y - 0.34, z)
+		add_child(box)
+		var led := _box_instance(Vector3(0.10, 0.035, 0.02), _emissive(Color(0.2, 1.0, 0.55), 2.0))
+		led.position = box.position + Vector3(0.0, 0.10, 0.13)
+		add_child(led)
+
+
+func _build_cockpit_details(layout: InteriorLayout) -> void:
+	# The cockpit is the first thing the player sees. Build a real dashboard, canopy frame,
+	# side consoles and pedals around the existing seat and windshield.
+	var screen := _screen(Color(0.16, 0.52, 0.72), 0.55)
+	var screen_warm := _screen(Color(0.86, 0.34, 0.10), 0.5)
+	var dark := _material(Color(0.030, 0.038, 0.050), 0.64, 0.32)
+	# Dashboard body and glare hood.
+	var dash := _box_instance(Vector3(2.85, 0.36, 0.56), dark)
+	dash.position = Vector3(0, -0.28, -6.52)
+	add_child(dash)
+	var dash_lower := _box_instance(Vector3(2.45, 0.20, 0.42), _material(Color(0.018, 0.022, 0.030), 0.72, 0.18))
+	dash_lower.position = Vector3(0, -0.56, -6.40)
+	add_child(dash_lower)
+	var hood := _box_instance(Vector3(2.95, 0.045, 0.24), _metal_material)
+	hood.position = Vector3(0, 0.055, -6.70)
+	add_child(hood)
+	# Three raised multi-function displays, angled toward the pilot. They sit above the dash
+	# brow so they are actually visible from the eye point.
+	for x in [-0.86, 0.0, 0.86]:
+		var bezel := _box_instance(Vector3(0.70, 0.32, 0.055), dark)
+		bezel.position = Vector3(x, 0.16, -6.62)
+		bezel.rotation_degrees = Vector3(-12, 0, 0)
+		add_child(bezel)
+		var panel := _box_instance(Vector3(0.55, 0.20, 0.025), screen if x != 0.0 else screen_warm)
+		panel.position = Vector3(x, 0.17, -6.58)
+		panel.rotation_degrees = Vector3(-12, 0, 0)
+		add_child(panel)
+		# A few bright data strokes break up the solid MFD face without a texture round-trip.
+		var line_color := Color(0.55, 0.95, 1.0) if x != 0.0 else Color(1.0, 0.72, 0.32)
+		for row in 3:
+			var line := _box_instance(Vector3(0.34 if row != 1 else 0.24, 0.010, 0.006), _emissive(line_color, 0.55))
+			line.position = Vector3(x - 0.04, 0.235 - row * 0.055, -6.555)
+			line.rotation_degrees = Vector3(-12, 0, 0)
+			add_child(line)
+		var cursor := _box_instance(Vector3(0.035, 0.085, 0.006), _emissive(line_color, 0.8))
+		cursor.position = Vector3(x + 0.19, 0.16, -6.555)
+		cursor.rotation_degrees = Vector3(-12, 0, 0)
+		add_child(cursor)
+	# Instrument binnacle and centre stick, raised into the lower field of view.
+	var binnacle := _box_instance(Vector3(1.05, 0.18, 0.24), dark)
+	binnacle.position = Vector3(0, 0.02, -6.30)
+	add_child(binnacle)
+	var stick := CylinderMesh.new()
+	stick.top_radius = 0.035
+	stick.bottom_radius = 0.045
+	stick.height = 0.42
+	var stick_node := MeshInstance3D.new()
+	stick_node.mesh = stick
+	stick_node.material_override = _metal_material
+	stick_node.position = Vector3(0, -0.32, -5.74)
+	add_child(stick_node)
+	var grip := _box_instance(Vector3(0.16, 0.10, 0.10), dark)
+	grip.position = Vector3(0, -0.12, -5.74)
+	add_child(grip)
+	# Side consoles and armrests.
 	for side in [-1.0, 1.0]:
-		var wing := _box_instance(Vector3(4.6, 0.15, 3.4), _exterior_material)
-		wing.position = Vector3(side * 5.5, 0.1, 2.0)
-		add_child(wing)
-		var tip := _box_instance(Vector3(0.3, 0.3, 3.4), _accent_material if side < 0.0 else _material(Color(0.1, 0.8, 0.2), 0.6, 0.2))
-		tip.position = Vector3(side * 7.8, 0.1, 2.0)
-		add_child(tip)
-		var engine := CylinderMesh.new()
-		engine.top_radius = 0.55
-		engine.bottom_radius = 0.65
-		engine.height = 2.4
-		var nacelle := MeshInstance3D.new()
-		nacelle.mesh = engine
-		nacelle.material_override = _nozzle_material
-		if _nozzle_material != _glow_material:
-			nacelle.add_child(_exhaust_disc())
-		nacelle.rotation_degrees = Vector3(90, 0, 0)
-		nacelle.position = Vector3(side * 2.4, -0.3, 9.3)
-		add_child(nacelle)
-		var gear := _box_instance(Vector3(0.3, 1.2, 0.3), _metal_material)
-		gear.position = Vector3(side * 2.6, -1.4, 8.5)
-		add_child(gear)
-		var gear_front := _box_instance(Vector3(0.3, 1.2, 0.3), _metal_material)
-		gear_front.position = Vector3(side * 2.6, -1.4, -5.0)
-		add_child(gear_front)
-	var fin := _box_instance(Vector3(0.2, 1.6, 2.2), _accent_material)
-	fin.position = Vector3(0, ship.systems.layout.ceiling_y + 0.9, 6.0)
-	add_child(fin)
+		var console := _box_instance(Vector3(0.32, 0.30, 0.82), dark)
+		console.position = Vector3(side * 1.32, -0.24, -6.18)
+		add_child(console)
+		var console_led := _box_instance(Vector3(0.16, 0.025, 0.55), screen)
+		console_led.position = console.position + Vector3(0, 0.16, 0)
+		add_child(console_led)
+		# Canopy side frame: masks the edge of the broad windshield.
+		var side_frame := _box_instance(Vector3(0.42, 1.52, 0.08), dark)
+		side_frame.position = Vector3(side * 1.58, 0.46, -6.95)
+		side_frame.rotation_degrees = Vector3(-6, 0, 0)
+		add_child(side_frame)
+		# Armrest.
+		var arm := _box_instance(Vector3(0.18, 0.08, 0.56), _metal_material)
+		arm.position = Vector3(side * 0.66, -0.22, -5.68)
+		add_child(arm)
+	# Pedals and floor mat.
+	for side in [-1.0, 1.0]:
+		var pedal := _box_instance(Vector3(0.24, 0.07, 0.30), _metal_material)
+		pedal.position = Vector3(side * 0.30, layout.floor_y + 0.10, -6.12)
+		add_child(pedal)
+	var mat := _box_instance(Vector3(1.75, 0.02, 0.92), _rubber_floor_material)
+	mat.position = Vector3(0, layout.floor_y + 0.015, -5.55)
+	add_child(mat)
+	# Throttle quadrant and overhead switch row.
+	var throttle_base := _box_instance(Vector3(0.28, 0.22, 0.48), dark)
+	throttle_base.position = Vector3(-1.05, -0.32, -6.05)
+	add_child(throttle_base)
+	var throttle := _box_instance(Vector3(0.10, 0.34, 0.10), _metal_material)
+	throttle.position = Vector3(-1.05, -0.10, -6.05)
+	throttle.rotation_degrees = Vector3(-18, 0, 0)
+	add_child(throttle)
+	var overhead := _box_instance(Vector3(1.9, 0.12, 0.30), dark)
+	overhead.position = Vector3(0, 1.30, -5.92)
+	overhead.rotation_degrees = Vector3(8, 0, 0)
+	add_child(overhead)
+	for x in [-0.65, -0.32, 0.0, 0.32, 0.65]:
+		var toggle := _box_instance(Vector3(0.08, 0.06, 0.06), _metal_material)
+		toggle.position = Vector3(x, 1.22, -5.88)
+		add_child(toggle)
+		var toggle_led := _box_instance(Vector3(0.035, 0.025, 0.02), screen)
+		toggle_led.position = Vector3(x, 1.15, -5.90)
+		add_child(toggle_led)
+	var cockpit_light := OmniLight3D.new()
+	cockpit_light.position = Vector3(0, 0.35, -6.20)
+	cockpit_light.omni_range = 2.2
+	cockpit_light.light_energy = 0.55
+	cockpit_light.light_color = Color(1.0, 0.62, 0.34)
+	cockpit_light.shadow_enabled = false
+	add_child(cockpit_light)
+
+
+func _build_exterior_extras(layout: InteriorLayout) -> void:
+	# Original code-built hull shell: tapered loft, swept wings, engine cowls, panel seams,
+	# cockpit frame/dashboard and landing gear. Collision and gameplay are untouched.
+	HullShell.build(self, _exterior_material, _console_material, _accent_material, _glass_material, _nozzle_material, _metal_material, _glow_material)
 
 
 ## Station screens: reactor green -> red with core heat (dark when tripped); engine screen red -> green with engine health.
@@ -273,9 +426,12 @@ func _build_lights(layout: InteriorLayout) -> void:
 	for room_id in layout.rooms:
 		var rect: Rect2 = layout.rooms[room_id]
 		var light := OmniLight3D.new()
-		light.position = Vector3(rect.get_center().x, 1.3, rect.get_center().y)
-		light.omni_range = 5.5
-		light.light_energy = 1.6
+		light.position = Vector3(rect.get_center().x, 1.18, rect.get_center().y)
+		light.omni_range = 5.2
+		light.light_energy = 1.05
+		light.omni_attenuation = 1.15
+		light.light_specular = 0.35
+		light.light_color = Color(0.58, 0.76, 1.0) if room_id == &"engineering" else Color(1.0, 0.82, 0.63)
 		light.shadow_enabled = false
 		add_child(light)
 		_room_lights[room_id] = light
@@ -362,6 +518,7 @@ func _add_decal(set_id: String, decal_name: String, center: Vector3, orientation
 		return null
 	var decal := Decal.new()
 	decal.name = "Decal_" + decal_name
+	decal.set_meta("catalog_name", decal_name)
 	decal.size = Vector3(entry["size_x"], entry["depth"], entry["size_z"])
 	decal.texture_albedo = albedo
 	var maps: String = entry["maps"]
@@ -425,6 +582,17 @@ func _box_instance(size: Vector3, material: Material) -> MeshInstance3D:
 	instance.mesh = mesh
 	instance.material_override = material
 	return instance
+
+
+static func _screen(color: Color, energy: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.008, 0.018, 0.026)
+	material.emission_enabled = true
+	material.emission = color
+	material.emission_energy_multiplier = energy
+	material.roughness = 0.24
+	material.metallic = 0.1
+	return material
 
 
 static func _material(color: Color, roughness: float, metallic: float) -> StandardMaterial3D:

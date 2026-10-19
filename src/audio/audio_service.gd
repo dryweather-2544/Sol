@@ -23,8 +23,11 @@ var session: GameSession
 var ship: Ship
 var _engine_player := AudioStreamPlayer.new()
 var _wind_player := AudioStreamPlayer.new()
+var _entry_player := AudioStreamPlayer.new()
 var _engine_voice := SoundSynth.EngineVoice.new()
 var _wind_voice := SoundSynth.WindVoice.new()
+var _entry_voice := SoundSynth.EntryVoice.new()
+var _previous_entry_warning := ""
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _cues := {}
 var _previous_door_targets := {}
@@ -76,7 +79,7 @@ func _ready() -> void:
 		add_child(sfx)
 		_sfx_players.append(sfx)
 		_one_shot_priorities.append(0)
-	for generator_player in [_engine_player, _wind_player]:
+	for generator_player in [_engine_player, _wind_player, _entry_player]:
 		var generator := AudioStreamGenerator.new()
 		generator.mix_rate = SoundSynth.SAMPLE_RATE
 		generator.buffer_length = 0.25
@@ -134,7 +137,13 @@ func _process(delta: float) -> void:
 	_wind_player.volume_db = -80.0 if wind_in_use else 0.0
 	if not wind_in_use:
 		_feed(_wind_player, func(count): return _wind_voice.fill(count, wind_strength, 0.7))
+	var entry_strength := clampf(maxf(ship.state.entry_heat * 0.9, ship.state.entry_density * clampf(ship.state.entry_speed / 12000.0, 0.0, 1.0) * 0.8), 0.0, 1.0)
+	_entry_player.bus = &"Interior" if inside else &"Ambience"
+	_entry_player.volume_db = linear_to_db(maxf(entry_strength, 0.0001)) if entry_strength > 0.01 else -80.0
+	if entry_strength > 0.01:
+		_feed(_entry_player, func(count): return _entry_voice.fill(count, entry_strength, 0.8))
 	_update_cabin_and_suit_loops(inside)
+	_play_entry_warning()
 	_play_event_cues(delta)
 	_play_state_cues()
 	_play_ship_control_cues(delta)
@@ -237,7 +246,7 @@ func _update_cabin_and_suit_loops(inside: bool) -> void:
 	_set_loop_gain("amb_int_damaged_machine_loop", engine_damage * _proximity(&"engine_station", player_position, 0.2) if inside else 0.0, &"Ship")
 	var strongest_fire := 0.0
 	for room_id in systems.hazards.burning_rooms():
-		var room_center := systems.layout.rooms[room_id].get_center()
+		var room_center: Vector2 = systems.layout.rooms[room_id].get_center()
 		var room_distance := Vector2(player_position.x, player_position.z).distance_to(room_center)
 		strongest_fire = maxf(strongest_fire, systems.hazards.fire_in(room_id) * AudioLibrary.proximity_gain(room_distance, 12.0, 0.25))
 	_set_loop_gain("amb_int_fire_loop", strongest_fire if inside else 0.0, &"Ship")
@@ -249,6 +258,17 @@ func _proximity(point_id: StringName, player_position: Vector3, floor_gain: floa
 		if point["id"] == point_id:
 			return AudioLibrary.proximity_gain(player_position.distance_to(point["position"]), 12.0, floor_gain)
 	return 1.0
+
+
+func _play_entry_warning() -> void:
+	var warning := ship.state.entry_warning
+	if warning == "" or warning == _previous_entry_warning:
+		_previous_entry_warning = warning
+		return
+	_previous_entry_warning = warning
+	if warning.begins_with("CRITICAL") or warning.begins_with("STEEP") or warning.begins_with("ENTRY TOO FAST"):
+		if not play_sample("sfx_int_alarm_hull", 2):
+			play_cue("alarm")
 
 
 ## One alarm voice: fire beats reactor beats hull, scheduled by AlarmSchedule.

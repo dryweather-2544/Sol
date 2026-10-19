@@ -3,6 +3,9 @@ extends Node3D
 ## builds nodes, turns keys/mouse into commands for GameSession, and picks the active camera;
 ## all game rules live in GameSession and the classes it uses.
 
+const RockScatterScript = preload("res://src/planet/rock_scatter.gd")
+const EntryEffectsScript = preload("res://src/flight/entry_effects.gd")
+
 const START_ALTITUDE := 300000.0
 const START_SUN_ANGLE_DEGREES := 50.0
 const WORLD_SEED := 42
@@ -15,6 +18,8 @@ var planet: PlanetBody ## null while in the star-centred system frame
 var terrain: PlanetTerrain
 var impostors: BodyImpostors
 var atmosphere_shell: AtmosphereShell
+var rocks
+var entry_effects
 var space_environment: SpaceEnvironment
 var player_source := PlayerPilotSource.new()
 var session: GameSession
@@ -61,6 +66,9 @@ func _ready() -> void:
 	runtime = WorldRuntime.new(system, session, system.home_id)
 	runtime.frame_changed.connect(_on_frame_changed)
 	add_child(ship)
+	entry_effects = EntryEffectsScript.new()
+	entry_effects.ship = ship
+	ship.add_child(entry_effects)
 
 	interior_view = InteriorView.new()
 	interior_view.body = session.interior_body
@@ -78,6 +86,9 @@ func _ready() -> void:
 	terrain.render_origin = ship.render_origin.duplicate_position()
 	terrain.viewer = ship.state.position
 	add_child(terrain)
+	rocks = RockScatterScript.new()
+	rocks.planet = planet
+	add_child(rocks)
 
 	_build_poi_manager()
 
@@ -208,10 +219,16 @@ func _process(_delta: float) -> void:
 		var here := system.convert_position(actor_position, StarSystem.SYSTEM_FRAME, runtime.time_seconds)
 		sun_direction = Vector3(here.x - to_star.x, here.y - to_star.y, here.z - to_star.z).normalized()
 	space_environment.set_sun_direction(sun_direction)
+	if rocks != null:
+		var rock_viewer := session.player_world_position()
+		var rock_altitude := planet.altitude_above_ground(rock_viewer) if planet != null else INF
+		rocks.visible = planet != null and rock_altitude < 500.0
+		if rocks.visible:
+			rocks.update_rocks(rock_viewer, terrain.render_origin if terrain != null else Vector3.ZERO)
 	atmosphere_shell.visible = planet != null and planet.atmosphere_height > 0.0
 	if atmosphere_shell.visible:
 		var home_body: BodyDef = system.bodies[runtime.active_frame]
-		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color)
+		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 0.8, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color)
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
@@ -476,8 +493,14 @@ func _on_menu_resume() -> void:
 
 func _apply_field_of_view() -> void:
 	var fov := GameSettings.instance().field_of_view
-	for camera in [chase_camera, cockpit_camera, interior_view.camera, on_foot.camera]:
-		(camera as Camera3D).fov = fov
+	var speed_pull := clampf(ship.state.speed() / 12000.0, 0.0, 1.0) * 6.0
+	var entry_pull := clampf(ship.state.entry_heat, 0.0, 1.0) * 4.0
+	chase_camera.fov = fov + speed_pull + entry_pull
+	chase_camera.set_flight_effects(ship.state.speed(), ship.state.entry_heat)
+	cockpit_camera.fov = fov + entry_pull * 0.6
+	cockpit_camera.set_entry_shake(ship.state.entry_heat)
+	interior_view.camera.fov = fov
+	on_foot.camera.fov = fov
 
 
 func _on_player_lost(reason: String) -> void:

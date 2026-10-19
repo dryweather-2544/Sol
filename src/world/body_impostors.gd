@@ -70,4 +70,4 @@ func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_fa
 	if not _shells.has(body_id):
 		return
 	var sun := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds) if runtime.active_frame != StarSystem.SYSTEM_FRAME else Vector3(0, 0, -1)
-	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 1.6) * scale_factor, centre, sun, body.atmosphere_color)
+	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 0.8) * scale_factor, centre, sun, body.atmosphere_color)

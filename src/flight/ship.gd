@@ -1,5 +1,6 @@
 class_name Ship
 extends Node3D
+const EntryModel = preload("res://src/flight/atmospheric_entry.gd")
 ## Thin node around the pure flight code: asks the controller for a command, runs FlightModel,
 ## and places itself at state.position relative to render_origin.
 
@@ -15,6 +16,9 @@ var planet: PlanetBody
 var free_space: SystemNavigator
 ## Optional interior systems; when set, interlocks can hold the ship on the ground.
 var systems: ShipSystems
+## The warp drive unlocks the high interplanetary cruise limit. Without it, cruise is capped at
+## 12 km/s near a world; with it, the original distance-scaled limit is available.
+var warp_drive_installed := false
 ## False when a GameSession drives simulate_tick itself (keeps tick order explicit).
 var auto_tick := true
 ## The command applied on the latest tick (read by audio and HUD).
@@ -59,6 +63,8 @@ func _physics_process(delta: float) -> void:
 func simulate_tick(delta: float) -> void:
 	if planet != null:
 		planet.fill_environment(state, environment)
+		if not warp_drive_installed:
+			environment.cruise_speed_limit = minf(environment.cruise_speed_limit, 12000.0)
 	elif free_space != null:
 		free_space.fill_environment(state, environment)
 	var command := controller.poll_command(state, delta)
@@ -77,6 +83,7 @@ func simulate_tick(delta: float) -> void:
 			command = command.with_thrust_scaled(engine_factor)
 	last_command = command
 	FlightModel.step(state, command, tuning, environment, delta)
+	EntryModel.step_thermal(state, delta)
 	_burn_fuel(command, delta)
 	_fire_weapon(command, delta)
 	if planet != null:
@@ -102,15 +109,18 @@ func _take_damage(delta: float) -> void:
 	if state.hull <= 0.0:
 		return
 	var impact_loss := ShipDamage.impact_damage(state.last_impact_speed) * upgrades.damage_taken_multiplier()
-	var heating_loss := ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta * upgrades.damage_taken_multiplier()
-	var loss := impact_loss + heating_loss
+	# The entry model owns thermal damage. It is the same hull/subsystem damage path as impacts
+	# and combat, not a second health bar.
+	var entry_loss := state.entry_damage_rate * delta * upgrades.damage_taken_multiplier()
+	var loss := impact_loss + entry_loss
 	if loss <= 0.0:
 		return
 	if systems != null:
 		if impact_loss > 0.0:
 			systems.damage_subsystem(ShipSubsystems.Id.ENGINES, impact_loss) # touchdown shocks hit the drive
-		if heating_loss > 0.0:
-			systems.damage_subsystem(ShipSubsystems.Id.REACTOR, heating_loss)
+		if entry_loss > 0.0:
+			systems.damage_subsystem(ShipSubsystems.Id.REACTOR, entry_loss * 0.7)
+			systems.damage_subsystem(ShipSubsystems.Id.ENGINES, entry_loss * 0.3)
 	state.hull = maxf(0.0, state.hull - loss)
 	if state.hull <= 0.0:
 		destroyed.emit()

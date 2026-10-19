@@ -34,6 +34,10 @@ static func default_system() -> StarSystem:
 	home.orbit_period = 2.0e6
 	home.spin_period = 6000.0
 	home.terrain_profile = TerrainProfile.new()
+	home.terrain_profile.palette_low = Color(0.18, 0.24, 0.13)
+	home.terrain_profile.palette_mid = Color(0.30, 0.27, 0.19)
+	home.terrain_profile.palette_high = Color(0.42, 0.40, 0.36)
+	home.terrain_profile.palette_rock = Color(0.24, 0.22, 0.20)
 	home.color = Color(0.4, 0.55, 0.35)
 	system.bodies[home.id] = home
 
