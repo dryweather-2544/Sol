@@ -158,8 +158,9 @@ style-switch rebuild. Ground and orbit remain near 100 fps.
 
 - Workspace clone: `Sol-canonical-merge`
 - Branch: `play-combined`
-- P2/P3 code and this report are committed locally; the exact final commit is reported in the
-  session hand-off and synced to the known checkout's `flight/canonical-rodina` branch.
+- P2/P3 implementation commit: **`0713f1e`**
+- This report/audit update is committed immediately after it; the current hash is in the session
+  hand-off and in `~/Developer/Sol-n9-test` branch `flight/canonical-rodina`.
 - No remote push.
 
 ## Recommended next steps
