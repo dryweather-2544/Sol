@@ -77,7 +77,9 @@ func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float
 	# Ground haze: a little distance fog by day, thinning out with altitude.
 	_environment.fog_enabled = daylight > 0.02
 	_environment.fog_light_color = _look.fog_color
-	_environment.fog_density = _look.fog_density * daylight * (1.0 - smoothstep(2000.0, 30000.0, altitude_metres))
+	var thinning := 1.0 - smoothstep(2000.0, 30000.0, altitude_metres) if _look.fog_thins_with_altitude else 1.0
+	_environment.fog_density = _look.fog_density * daylight * thinning
+	_environment.fog_aerial_perspective = _look.fog_aerial_perspective
 	_environment.fog_sky_affect = 0.0
 	_environment.ambient_light_energy = lerpf(_look.ambient_energy_space, _look.ambient_energy_day, daylight)
 	_environment.ambient_light_color = _look.ambient_space.lerp(_look.ambient_day, daylight)

@@ -53,6 +53,11 @@ var sunset_gain := 0.0
 ## Haze: Godot distance fog. Density is scaled by daylight and thins with altitude (SpaceEnvironment).
 var fog_color := Color(0.62, 0.75, 0.92)
 var fog_density := 3.0e-5
+## Sol thins the haze away between 2 and 30 km altitude. Rodina's haze follows the distance through the air instead
+## (research rendering_notes §4.2), so far terrain stays hazy from altitude too: thinning off, lower density.
+var fog_thins_with_altitude := true
+## Godot fog_aerial_perspective: 0 = flat fog colour, 1 = fog takes the sky's colour toward the horizon.
+var fog_aerial_perspective := 0.0
 
 ## Lights. back_* is a shadowless fill from the side away from the sun (Rodina's "backside" term, rendering_notes §6.1).
 var sun_color := Color.WHITE

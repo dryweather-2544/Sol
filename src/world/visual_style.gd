@@ -128,11 +128,14 @@ static func _rodina_base(family: StringName) -> PlanetLook:
 	look.sun_disc_gain = 6.0
 	look.sun_halo_gain = 1.2
 	look.sunset_gain = 0.9
+	# Two-colour sky: the horizon colour fills a soft band from ~7 degrees below to well above the horizon line; no hard edge.
 	look.gradient_scale = 1.0
-	look.gradient_bias = 0.03
-	look.gradient_power = 0.45
+	look.gradient_bias = 0.12
+	look.gradient_power = 0.7
+	look.fog_thins_with_altitude = false
+	look.fog_aerial_perspective = 0.7
 	look.ambient_energy_space = 0.25
-	look.ambient_energy_day = 0.35
+	look.ambient_energy_day = 0.5 # 0.35 left shaded hull faces near-black in the first ground photo
 	look.back_energy = 0.28
 	return look
 
@@ -154,7 +157,7 @@ static func _ochre_steppe() -> PlanetLook:
 	look.sky_horizon = _hex("#e8c3a6")
 	look.sunset_color = _hex("#ff8a4a")
 	look.fog_color = _hex("#d9b79c")
-	look.fog_density = 3.5e-5
+	look.fog_density = 1.4e-5
 	look.sun_color = _hex("#fff1d6")
 	look.back_color = _hex("#6b5a80")
 	look.ambient_space = _hex("#2a2236")
@@ -180,7 +183,7 @@ static func _ember_barren() -> PlanetLook:
 	look.sky_horizon = _hex("#f0a070")
 	look.sunset_color = _hex("#ff6a2a")
 	look.fog_color = _hex("#d9906a")
-	look.fog_density = 4.5e-5
+	look.fog_density = 1.8e-5
 	look.sun_color = _hex("#ffe2b0")
 	look.sun_energy = 1.45
 	look.back_color = _hex("#5a2e2a")
@@ -208,7 +211,7 @@ static func _teal_alien() -> PlanetLook:
 	look.sky_horizon = _hex("#9fd7c4")
 	look.sunset_color = _hex("#ffb070")
 	look.fog_color = _hex("#7fb8a8")
-	look.fog_density = 7.0e-5
+	look.fog_density = 3.0e-5
 	look.sun_color = _hex("#d6fff0")
 	look.back_color = _hex("#22404a")
 	look.ambient_space = _hex("#14262a")

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Visual-style comparison photos (needs a display, not --headless):
-##   SOL_VISUAL_STYLE=rodina godot --path . -s res://tools/style_shots.gd -- out_dir [body_filter]
+##   SOL_VISUAL_STYLE=rodina godot --path . -s res://tools/style_shots.gd -- out_dir [body_filter] [view_name]
 ## Boots main.tscn, then for each world jumps the ship there (WorldRuntime.force_frame, as a save load does), holds it
 ## still at set altitudes with the sun about SUN_ELEVATION_DEGREES above the local horizon, and saves one picture per view
 ## from a free camera (ship hidden). Views: orbit (planet and limb), approach (high, along the horizon), low (low flight),
@@ -35,10 +35,12 @@ func _initialize() -> void:
 	_main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(_main)
 	var filter: String = OS.get_cmdline_user_args()[1] if OS.get_cmdline_user_args().size() > 1 else ""
+	var view_filter: String = OS.get_cmdline_user_args()[2] if OS.get_cmdline_user_args().size() > 2 else ""
 	for body_id in [&"planet", &"cinder", &"verdant", &"selene", &"pebble"]:
 		if filter == "" or String(body_id).contains(filter):
 			for view in VIEWS:
-				_jobs.append([body_id, view])
+				if view_filter == "" or view[0] == view_filter:
+					_jobs.append([body_id, view])
 
 
 func _process(_delta: float) -> bool:
@@ -117,8 +119,11 @@ func _start_job() -> void:
 	_place_camera()
 	_camera.fov = 60.0
 	_camera.near = 0.2 if on_ground else 5.0
-	_camera.far = 3.0e7
+	# Keep far/near moderate, as main.gd does: near 0.2 m with a 30,000 km far plane breaks depth precision and nothing draws.
+	_camera.far = 6.0e4 if on_ground else 3.0e7
 	_camera.current = true
+	var to_ship := (_main.ship as Ship).global_transform.origin - _camera.global_transform.origin
+	_log("camera look.up %.3f  look.to_ship %.3f  distance to ship %.1f  ship origin %s" % [-_camera.global_transform.basis.z.dot(up), -_camera.global_transform.basis.z.dot(to_ship.normalized()), to_ship.length(), str((_main.ship as Ship).global_transform.origin)])
 	root.size = SMALL
 	_job_frame = _frames
 	_settled = 0
@@ -135,6 +140,9 @@ func _hold() -> void:
 	ship.state.basis = _hold_basis
 	ship.state.velocity = Vector3.ZERO
 	_place_camera()
+	if OS.get_environment("STYLE_SHOTS_DEBUG") != "" and _frames % 20 == 0:
+		var active := root.get_viewport().get_camera_3d()
+		_log("frame %d active camera %s ours current %s ship origin %s mode %d" % [_frames, active.name if active != null else "none", _camera.current, (_main.ship as Ship).global_transform.origin, _main.session.mode])
 	if _frames > _job_frame + 2:
 		var large := _frames > _job_frame + 3 and _shot_ready_peek()
 		_large_frames = _large_frames + 1 if large and root.size == LARGE else 0
@@ -156,7 +164,9 @@ func _save() -> void:
 	var job: Array = _jobs[_job]
 	var path: String = OS.get_cmdline_user_args()[0].path_join("%s_%s_%s.png" % [VisualStyle.active(), job[0], job[1][0]])
 	root.get_viewport().get_texture().get_image().save_png(path)
-	_log("saved ", path)
+	var planet: PlanetBody = _main.planet
+	var camera_world := (_main.ship as Ship).state.position.offset_by(_eye_offset)
+	_log("saved ", path, " camera altitude above ground %.1f m" % (planet.altitude_above_ground(camera_world) if planet != null else -1.0), " chunks ", _main.terrain.displayed_chunk_count() if _main.terrain != null else 0, " settled ", _settled)
 
 
 func _log(a: Variant = "", b: Variant = "", c: Variant = "", d: Variant = "", e: Variant = "", f: Variant = "", g: Variant = "", h: Variant = "") -> void:
