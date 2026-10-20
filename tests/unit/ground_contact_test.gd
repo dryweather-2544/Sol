@@ -69,6 +69,23 @@ func test_gentle_slopes_land_and_ship_tilts_to_match() -> void:
 		ship.free()
 
 
+func test_landed_on_a_slope_in_precision_gear_stays_landed_hands_off() -> void:
+	# Precision gear hovers when hands off; a landed ship must stay seated while it tilts to the slope (it turns about
+	# its centre, which used to lift one end's feet more than LIFTOFF_DISTANCE and leave it hovering just off the ground).
+	for slope_degrees in [10.0, 20.0, 30.0]:
+		var planet := _sloped_planet(slope_degrees)
+		var ship := _ship_above_pole(planet, 4.0)
+		ship.controller.request_control(GentleDescent.new(), &"pilot_seat")
+		_settle(ship, 360)
+		assert_true(ship.state.landed, "%d degrees: landed" % int(slope_degrees))
+		var landed_ticks := 0
+		for tick in 600:
+			ship.simulate_tick(DELTA)
+			landed_ticks += 1 if ship.state.landed else 0
+		assert_eq(landed_ticks, 600, "%d degrees: stayed landed for 10 s hands off" % int(slope_degrees))
+		ship.free()
+
+
 func test_steep_slope_refuses_landing_with_message() -> void:
 	var planet := _sloped_planet(40.0)
 	var ship := _ship_above_pole(planet, 3.0)

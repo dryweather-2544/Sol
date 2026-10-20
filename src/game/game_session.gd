@@ -437,7 +437,9 @@ func _ramp_floor_distance(point_x: float, point_y: float, point_z: float) -> flo
 		return -1.0
 	var layout := systems.layout
 	var local := ShipFrame.local_from_world(ship.state, WorldPos.new(ship.state.position.frame_id, point_x, point_y, point_z))
-	if not layout.ramp_rect.has_point(Vector2(local.x, local.z)):
+	# The walker stands on the ramp while any part of its body is over it (its centre may be just past the edge); it
+	# steps off only once clear, so it never drops beside the ramp still overlapping its side.
+	if not layout.ramp_rect.grow_individual(OUTSIDE_RADIUS, 0.0, OUTSIDE_RADIUS, 0.0).has_point(Vector2(local.x, local.z)):
 		return -1.0
 	var surface_y := layout.ramp_height_at(local.z)
 	if local.y < surface_y - RAMP_STEP_UP:
