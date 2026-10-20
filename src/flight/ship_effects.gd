@@ -62,11 +62,24 @@ static func _additive_sprite(size: float) -> QuadMesh:
 	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
+	material.albedo_texture = _soft_dot()
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	material.no_depth_test = false
 	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	quad.material = material
 	return quad
+
+
+## A round dot, bright in the middle and fading to nothing at the edge, so sprites are not hard squares.
+static func _soft_dot() -> GradientTexture2D:
+	var texture := GradientTexture2D.new()
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	texture.width = 64
+	texture.height = 64
+	texture.gradient = _ramp([[0.0, Color(1, 1, 1, 1)], [0.35, Color(1, 1, 1, 0.6)], [1.0, Color(1, 1, 1, 0)]])
+	return texture
 
 
 static func _ramp(stops: Array) -> Gradient:
@@ -81,7 +94,8 @@ func _make_plume() -> CPUParticles3D:
 	plume.name = "Plume"
 	plume.amount = 28
 	plume.lifetime = 0.45
-	plume.local_coords = false
+	# Ship-relative: at entry speeds the ship covers ~150 m per frame, so world-space particles would be left behind.
+	plume.local_coords = true
 	plume.mesh = _additive_sprite(0.9)
 	plume.direction = Vector3(0, 1, 0)
 	plume.spread = 5.0
@@ -115,10 +129,10 @@ func _build_heat() -> void:
 	_sheath.visible = false
 	add_child(_sheath)
 	_streaks.name = "EntryStreaks"
-	_streaks.amount = 90
+	_streaks.amount = 160
 	_streaks.lifetime = 0.6
-	_streaks.local_coords = false
-	_streaks.mesh = _additive_sprite(1.4)
+	_streaks.local_coords = true
+	_streaks.mesh = _additive_sprite(0.55)
 	_streaks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	_streaks.emission_box_extents = Vector3(3.2, 1.6, 0.5)
 	_streaks.position = Vector3(0.0, 0.4, -9.0)
@@ -126,6 +140,6 @@ func _build_heat() -> void:
 	_streaks.gravity = Vector3.ZERO
 	_streaks.initial_velocity_min = 30.0
 	_streaks.initial_velocity_max = 55.0
-	_streaks.color_ramp = _ramp([[0.0, Color(1.0, 0.95, 0.8, 0.9)], [0.3, Color(1.0, 0.6, 0.2, 0.75)], [0.75, Color(0.9, 0.2, 0.05, 0.35)], [1.0, Color(0.4, 0.05, 0.0, 0.0)]])
+	_streaks.color_ramp = _ramp([[0.0, Color(1.0, 0.75, 0.4, 0.9)], [0.3, Color(1.0, 0.5, 0.15, 0.75)], [0.75, Color(0.9, 0.2, 0.05, 0.35)], [1.0, Color(0.4, 0.05, 0.0, 0.0)]])
 	_streaks.emitting = false
 	add_child(_streaks)

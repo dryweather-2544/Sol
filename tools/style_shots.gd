@@ -170,7 +170,16 @@ func _hold() -> void:
 
 ## Render space is the planet frame shifted (never rotated), so planet-frame directions are render directions.
 func _place_camera() -> void:
-	_camera.global_transform = Transform3D(_look_basis, (_main.ship as Ship).global_transform.origin + _eye_offset)
+	var ship: Ship = _main.ship
+	if _effects and _camera.get_parent() != ship:
+		# The held 9 km/s moves the ship ~150 m per physics step between placing the camera and drawing; riding on the
+		# ship keeps the framing.
+		_camera.reparent(ship, false)
+	var wanted := Transform3D(_look_basis, ship.global_transform.origin + _eye_offset)
+	if _camera.get_parent() == ship:
+		_camera.transform = ship.global_transform.affine_inverse() * wanted
+	else:
+		_camera.global_transform = wanted
 
 
 func _shot_ready_peek() -> bool:
