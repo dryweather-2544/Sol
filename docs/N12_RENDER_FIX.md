@@ -51,6 +51,18 @@ projection jump over 200 frames = 0.0010 px
 rebases = 0
 ```
 
+Final graphical probe (`tools/n12_render_check.gd`, real main scene, planet behind):
+
+| Mode | Rebase count | Worst screen jump | Camera→ship dot | Ship visible |
+|---|---:|---:|---:|---|
+| rest/rotating | 0 | 0.00 px | 0.9905 | yes |
+| combat | 1 | 21.09 px | 0.9905 | yes |
+| cruise | 10 | 69.32 px | 0.9905 | yes |
+| warp (tangential) | 132 | 0.00 px | 0.9905 | yes |
+
+The WARP probe uses tangential motion in the planet frame; a 300 km/s dive would hit the ground
+inside the probe window and would not test rendering.
+
 ## Fix
 
 - `src/core/floating_origin.gd`: apply the anchor **first**, then the other origin-shift nodes.
@@ -60,6 +72,7 @@ rebases = 0
     interpolation history;
   - `snap_to_target()` also resets after writing its new transform.
 - `tests/scenario/floating_origin_test.gd`: regression test for camera position after a rebase.
+- `tools/n12_render_check.gd`: reproducible graphical check for rest, COMBAT, CRUISE and WARP.
 
 The flight model, WARP/gear behaviour, camera smoothing and origin threshold are unchanged.
 
@@ -71,4 +84,8 @@ Godot 4.7.2 | files 60 | tests 322 | assertions 97,116 | failures 0
 
 Graphical checks used the real main scene with Metal and the chase camera. No human long-session
 playtest was performed; the remaining item is a normal game playtest at COMBAT, CRUISE and WARP
-against a planet and in open space.
+against a planet and in open space. Run the probe with:
+
+```text
+N12_MODE=rest|combat|cruise|warp godot --path . -s res://tools/n12_render_check.gd
+```
