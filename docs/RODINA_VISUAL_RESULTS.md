@@ -53,11 +53,45 @@ Measured colours (mean of sky above / ground below the horizon, hue in degrees, 
 
 ## 3. The original Sol look is unchanged
 
-PLACEHOLDER_SOL_INTACT
+Checked three ways:
+
+1. **Code reading.** With the `sol` style, `PlanetBody.look` is null, so terrain uses the untouched original colour rule
+   and the original material path. Every new shader uniform defaults to the original constant, and with those defaults
+   each changed line computes the old value (`pow(n, 4)`, `mix(1, albedo, fade * 1)`, `mix(c, orbit, 0) = c`).
+2. **Unit test.** `visual_style_test::test_sol_style_keeps_the_original_rules`.
+3. **Pixels.** The same 20 views were rendered from the commit before this work (`0646350`, separate checkout) and
+   compared with the `sol`-style renders of this branch (`/tmp/claude-0/scratch/pixel_diff.py`):
+
+| View | Mean difference (0-255) | Pixels off by more than 8 |
+|---|---|---|
+| Orbit, all five worlds | 0.00 - 1.43 | 0.0 - 3.9 % |
+| Approach (30 km), all five | 0.70 - 3.18 | 0.1 - 13.2 % |
+| Low (900 m), all five | 2.02 - 8.62 | 2.1 - 27.6 % |
+| Ground | 14.9 - 36.0 | 42 - 61 % (not comparable, see below) |
+
+Aurelia's orbit view is pixel-identical (0.00). The remaining low-view differences sit only on the ground, never in
+the sky, and are run-to-run variance: two renders of the **same** current code differed more (25.7 % of pixels at
+Aurelia low) than old against new (13.1 %), because terrain streams on worker threads and the shot is taken whenever
+it settles. The ground views are not a valid comparison: the photo tool picks its spot from the sun's position at
+the moment the job starts, the worlds turn, and the camera ended up in a different place in each run (the ship and
+the hills move in the frame); sky, light and colours look the same in each pair.
 
 ## 4. Ship
 
-PLACEHOLDER_SHIP
+`compare_ship.jpg`: front three-quarter, beside the player, gameplay chase and pilot view, Sol original against
+Rodina-inspired (`tools/ship_shots.gd`, the Rodina set with `SOL_VISUAL_STYLE=rodina`).
+
+- Geometry is identical in both (the style only tints the hull material, `VisualStyle.hull_tint`).
+- Rodina style: the hull reads a dark olive-khaki, not the cool grey the tint aims for. Cause: the cool tint
+  (0.74, 0.77, 0.84) is multiplied by Aurelia's warm sun (`#fff1d6`) and lit by a peach sky, and faces turned from the
+  sun get only the weak back light and 0.5 ambient, so they go dark. Whether that is closer to Rodina's ship is
+  **unverified**: no Rodina frame was available. Re-check against footage before tuning it.
+- Pilot view: the cockpit takes on the warm light and the violet-peach sky through the canopy; the screens are
+  unchanged (emissive).
+- Effects (`rodina_effects_entry.jpg`): nose heat glow, sparks blown aft and blue-white engine jets render; they are
+  hidden in the `sol` style by construction (`ShipEffects.visible = VisualStyle.is_rodina()`, read in the code, not
+  measured in a render). The heat now follows Rodina's entry resistance (see `RODINA_PHYSICS_AUDIT.md` §4), so it
+  shows only while entering the air, not at any fast speed in it.
 
 ## 5. Regression checks
 
@@ -65,7 +99,9 @@ PLACEHOLDER_SHIP
   run in a separate checkout: 261 tests, same 6): `audio_library_test.gd` does not load ("reset_warnings" not found)
   and 5 assertions in `ship_screens_decals_test` (duplicate decal names renamed `@Decal@N`). The 6 new
   `visual_style_test.gd` tests pass.
-- `tools/playthrough.gd`: PLAYTHROUGH OK in both `SOL_VISUAL_STYLE=sol` and `rodina` (0 script errors).
+- `tools/playthrough.gd`: PLAYTHROUGH OK in both `SOL_VISUAL_STYLE=sol` and `rodina` (0 script errors), run at
+  commit `9b70574`, before the later ramp and flight-model changes (`RODINA_PHYSICS_AUDIT.md`); re-run results for
+  those are in `SOL_PHYSICS_IMPLEMENTATION_PLAN.md`.
 - `tools/style_switch_check.gd`: PASS. Switching sol -> rodina -> sol in the live scene leaves ship position,
   orientation, velocity, landed state, gameplay mode, world and the terrain height under the ship unchanged, and the
   terrain is rebuilt and shown again.
