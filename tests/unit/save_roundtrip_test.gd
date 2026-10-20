@@ -32,6 +32,7 @@ func _states() -> Dictionary:
 	var in_space := _new_session(300000.0, Vector3(30, -20, 100))
 	in_space.ship.state.angular_velocity = Vector3(0.1, 0.2, 0.3)
 	in_space.ship.state.gear = 1
+	in_space.ship.state.selected_gear = 2 # cruise chosen, combat in effect (as with an empty tank)
 	states["piloting_in_space"] = in_space
 	states["landed_seated"] = _landed_session()
 	var inside := _landed_session()
@@ -79,6 +80,7 @@ func test_all_five_states_round_trip() -> void:
 		assert_true(Quaternion(restored.ship.state.basis).dot(Quaternion(original.ship.state.basis)) > 0.999999, label + ": orientation")
 		assert_true(restored.ship.state.angular_velocity.distance_to(original.ship.state.angular_velocity) < 1e-4, label + ": angular velocity")
 		assert_eq(restored.ship.state.gear, original.ship.state.gear, label + ": gear")
+		assert_eq(restored.ship.state.selected_gear, original.ship.state.selected_gear, label + ": selected gear")
 		assert_eq(restored.ship.state.landed, original.ship.state.landed, label + ": landed")
 		assert_eq(restored.mode, original.mode, label + ": mode")
 		assert_eq(restored.player_state.authority, original.player_state.authority, label + ": authority")

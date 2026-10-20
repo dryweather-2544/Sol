@@ -40,6 +40,15 @@ func _initialize() -> void:
 		"brake_from_combat_speed": _brake,
 		"gear_down_from_cruise": _gear_down,
 		"strafe_space": _strafe,
+		"escape_nose_up_cruise": _escape_nose_up,
+		"escape_belly_up_space_key": _escape_belly,
+		"precision_tap_and_release": _precision_tap,
+		"precision_hands_off_hover_50m": _precision_hover,
+		"precision_brake_from_20": _precision_brake,
+		"combat_tap_and_release": _combat_tap,
+		"gear_switch_continuity": _gear_switch,
+		"cruise_out_to_5000km": _cruise_out,
+		"precision_hands_off_from_450": _precision_from_fast,
 	}
 	for scenario_name in scenarios:
 		if only == "" or scenario_name.contains(only):
@@ -164,6 +173,121 @@ func _gear_down() -> void:
 	ship.state.gear = PilotCommand.GEAR_COMBAT
 	ship.state.velocity = -ship.state.basis.z * 5000.0
 	_run(ship, func(_t, _s): return _command(PilotCommand.GEAR_COMBAT), 6.0, [0.5, 1.0, 2.0, 3.0, 4.0, 6.0])
+
+
+## Selected gear (what the pilot asked for) and the gear in effect; older builds have only the latter.
+func _gears(ship: Ship) -> String:
+	var selected = ship.state.get("selected_gear")
+	return "gear=%d selected=%s" % [ship.state.gear, str(selected) if selected != null else "n/a"]
+
+
+## Flies until `seconds` or `stop` returns true, printing the first time each altitude in `altitudes` is passed, and
+## a summary: max speed, max per-tick velocity change (as acceleration, m/s^2) and the final row.
+func _measure(ship: Ship, function: Callable, seconds: float, altitudes: Array, stop := Callable()) -> Dictionary:
+	ship.controller.request_control(TimedPilot.new(function), &"pilot_seat")
+	var ticks := int(round(seconds / DELTA))
+	var next := 0
+	var max_speed := 0.0
+	var max_acceleration := 0.0
+	var previous_velocity := ship.state.velocity
+	var start := ship.state.position.duplicate_position()
+	var t := 0.0
+	for tick in range(1, ticks + 1):
+		ship.simulate_tick(DELTA)
+		t = tick * DELTA
+		max_speed = maxf(max_speed, ship.state.speed())
+		max_acceleration = maxf(max_acceleration, (ship.state.velocity - previous_velocity).length() / DELTA)
+		previous_velocity = ship.state.velocity
+		while next < altitudes.size() and ship.state.altitude_above_ground >= altitudes[next]:
+			print("  reached %9.0f m at t=%7.2f s  speed %8.1f m/s  %s" % [altitudes[next], t, ship.state.speed(), _gears(ship)])
+			next += 1
+		if stop.is_valid() and stop.call(t, ship.state):
+			break
+	for missing in range(next, altitudes.size()):
+		print("  never reached %9.0f m in %.0f s (altitude %.0f m, speed %.1f m/s)" % [altitudes[missing], seconds, ship.state.altitude_above_ground, ship.state.speed()])
+	var travelled := ship.state.position.distance_to(start)
+	print("  summary: t=%.2f s  max speed %.2f m/s  max accel %.1f m/s^2  travelled %.2f m  final %s" % [t, max_speed, max_acceleration, travelled, _row(t, ship)])
+	return {"t": t, "max_speed": max_speed, "travelled": travelled}
+
+
+## Standing on Aurelia's surface (support points just touching), level or nose-up.
+func _ship_on_ground(nose_up := false) -> Ship:
+	var ship := _ship_at(2.05, 90.0 if nose_up else 0.0)
+	if nose_up:
+		ship.state.position = ship.state.position.offset_by(_planet.up_at(ship.state.position) * 10.0) # clear the tail
+	return ship
+
+
+func _escape_nose_up() -> void:
+	var ship := _ship_on_ground(true)
+	_measure(ship, func(_t, _s): return _command(PilotCommand.GEAR_CRUISE, Vector3(0, 0, -1)), 240.0,
+		[100.0, 2000.0, 20000.0, 100000.0, 200000.0, 1000000.0, 5000000.0],
+		func(_t, s): return s.altitude_above_ground > 5000000.0)
+
+
+func _escape_belly() -> void:
+	var ship := _ship_on_ground(false)
+	_measure(ship, func(_t, _s): return _command(PilotCommand.GEAR_CRUISE, Vector3(0, 1, 0)), 240.0,
+		[100.0, 2000.0, 20000.0, 100000.0, 200000.0, 1000000.0],
+		func(_t, s): return s.altitude_above_ground > 1000000.0)
+
+
+## Precision gear, hovering 50 m up: forward for 0.25 s, then hands off. How fast, how far, does it stop?
+func _precision_tap() -> void:
+	var ship := _ship_at(50.0)
+	ship.state.gear = PilotCommand.GEAR_DOCK
+	var result := _measure(ship, func(t, _s): return _command(PilotCommand.GEAR_DOCK, Vector3(0, 0, -1) if t <= 0.25 else Vector3.ZERO), 6.0, [],
+		func(t, s): return t > 0.5 and s.speed() < 0.05)
+	print("  stopped: %s" % ("yes at t=%.2f s" % result["t"] if ship.state.speed() < 0.05 else "no (still %.2f m/s)" % ship.state.speed()))
+
+
+func _precision_hover() -> void:
+	var ship := _ship_at(50.0)
+	ship.state.gear = PilotCommand.GEAR_DOCK
+	var start_altitude := 50.0
+	_measure(ship, func(_t, _s): return _command(PilotCommand.GEAR_DOCK), 5.0, [])
+	print("  altitude change after 5 s hands off: %.2f m" % (ship.state.altitude_above_ground - start_altitude))
+
+
+func _precision_brake() -> void:
+	var ship := _ship_at(50.0)
+	ship.state.gear = PilotCommand.GEAR_DOCK
+	ship.state.velocity = -ship.state.basis.z * 20.0
+	var result := _measure(ship, func(_t, _s):
+		var command := _command(PilotCommand.GEAR_DOCK)
+		command.brake = true
+		return command, 6.0, [], func(_t, s): return Vector3(s.velocity - s.velocity.project(_planet.up_at(s.position))).length() < 0.05)
+	print("  horizontal stop: t=%.2f s over %.2f m" % [result["t"], result["travelled"]])
+
+
+func _combat_tap() -> void:
+	var ship := _ship_at(300.0)
+	_measure(ship, func(t, _s): return _command(PilotCommand.GEAR_COMBAT, Vector3(0, 0, -1) if t <= 0.25 else Vector3.ZERO), 3.0, [])
+
+
+## Cruise at 5000 m/s in space, then shift down a gear each second: the velocity must change smoothly.
+func _gear_switch() -> void:
+	var ship := _ship_in_space()
+	ship.state.gear = PilotCommand.GEAR_CRUISE
+	ship.state.velocity = -ship.state.basis.z * 5000.0
+	_measure(ship, func(t, _s): return _command(PilotCommand.GEAR_CRUISE if t < 1.0 else (PilotCommand.GEAR_COMBAT if t < 2.0 else PilotCommand.GEAR_DOCK)), 4.0, [])
+
+
+## Coming in fast (450 m/s level, 2 km up), shift to precision and let go: how long until it is down to a crawl?
+func _precision_from_fast() -> void:
+	var ship := _ship_at(2000.0)
+	ship.state.gear = PilotCommand.GEAR_DOCK
+	ship.state.velocity = -ship.state.basis.z * 450.0
+	var result := _measure(ship, func(_t, _s): return _command(PilotCommand.GEAR_DOCK), 30.0, [], func(_t, s): return s.speed() < 1.0)
+	print("  below 1 m/s after %.2f s over %.0f m" % [result["t"], result["travelled"]])
+
+
+## From 200 km up, nose up, full cruise: how long to 5000 km (on the way to another world)?
+func _cruise_out() -> void:
+	var ship := _ship_at(200000.0, 90.0)
+	ship.state.gear = PilotCommand.GEAR_CRUISE
+	_measure(ship, func(_t, _s): return _command(PilotCommand.GEAR_CRUISE, Vector3(0, 0, -1)), 120.0, [1000000.0, 5000000.0],
+		func(_t, s): return s.altitude_above_ground > 5000000.0)
 
 
 func _strafe() -> void:

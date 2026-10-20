@@ -26,7 +26,7 @@ class TravelPilot extends PilotSource:
 			# Belly toward the ground, descend gently.
 			var up := Vector3(ship_state.position.x, ship_state.position.y, ship_state.position.z).normalized()
 			ship_state.basis = Basis.looking_at(Vector3.UP.cross(up).normalized(), up)
-			command.gear = PilotCommand.GEAR_CRUISE if ship_state.altitude_above_ground > 4000.0 else PilotCommand.GEAR_DOCK
+			command.gear = PilotCommand.GEAR_CRUISE if ship_state.altitude_above_ground > 4000.0 else (PilotCommand.GEAR_COMBAT if ship_state.altitude_above_ground > 250.0 else PilotCommand.GEAR_DOCK)
 			command.thrust = Vector3(0, -clampf(ship_state.altitude_above_ground / 80.0, 0.04, 1.0), 0)
 		else:
 			ship_state.basis = Basis.looking_at(to_target.normalized(), Vector3.UP)

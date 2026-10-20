@@ -7,7 +7,10 @@ extends Resource
 ## relative-time multiplier; Sol's planets and distances are much smaller.
 
 ## Rodina MoveSpeed, m/s: the speed full thrust drives toward. Cruise is capped further by the environment.
-@export var gear_max_speed := PackedFloat64Array([100.0, 500.0, 2.0e7])
+## Gear 0 is Sol's PRECISION gear (Rodina's dock/landing gear, scaled to Sol's ship): Rodina's 100 m/s suits a ship
+## whose ramp alone is 32.4 m long (EGDataItems.lua:1155); Sol's whole ship is about 20 m, its ramp 4.2 m, so 30 m/s
+## (Sol's choice) gives the same few-ship-lengths-per-second feel near the ground.
+@export var gear_max_speed := PackedFloat64Array([30.0, 500.0, 2.0e7])
 ## Rodina Acceleration: velocity change per second, as a fraction of MoveSpeed (dock 66 m/s^2, combat 1000 m/s^2).
 @export var gear_acceleration := PackedFloat64Array([0.66, 2.0, 0.5])
 ## Rodina Deceleration: braking above MoveSpeed (fraction of current speed per second) and drag above DragSpeed.
@@ -16,9 +19,16 @@ extends Resource
 @export var gear_drag_speed_ratio := PackedFloat64Array([15.0, 3.0, 1.25])
 ## Rodina MoveStrengths, mapped to Sol axes: sideways (x), up/down (y) and backwards (+z). Forward is always full.
 ## They apply only while not braking (input with the motion, or none), so the ship can always stop.
+## Precision vertical is 0.4 (Rodina dock: 1.0) so full down thrust (12 m/s) touches down under the 15 m/s damage limit.
 @export var gear_lateral_strength := PackedFloat64Array([0.3, 0.3, 0.3])
-@export var gear_vertical_strength := PackedFloat64Array([1.0, 0.3, 0.3])
+@export var gear_vertical_strength := PackedFloat64Array([0.4, 0.3, 0.3])
 @export var gear_reverse_strength := PackedFloat64Array([0.3, 0.6, 0.6])
+## Station keeping (Sol's, for the precision gear): with no input the velocity is driven to zero at the gear's
+## acceleration instead of coasting, and the engines hold the ship against gravity up to hover_thrust_limit m/s^2.
+## It is Rodina's MoveLock idea (match a target velocity, which Rodina's AI uses) given to the pilot in one gear.
+## Combat and cruise keep Rodina's rule: no input, no force; momentum and gravity carry the ship.
+@export var gear_station_keeping := PackedByteArray([1, 0, 0])
+@export var hover_thrust_limit := 60.0
 ## Rodina RotationHardness: how hard full turn input accelerates the spin, as a fraction of rotation_speed per second.
 @export var gear_rotation_hardness := PackedFloat64Array([0.35, 0.7, 0.7])
 ## Atmosphere ratio at and below which rotation friction is the planet's full AtmosphereFriction (none at ratio 1 and

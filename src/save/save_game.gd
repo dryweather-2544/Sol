@@ -32,6 +32,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"orientation": _quaternion_to_array(Quaternion(ship_state.basis)),
 			"angular_velocity": _vector_to_array(ship_state.angular_velocity),
 			"gear": ship_state.gear,
+			"selected_gear": ship_state.selected_gear, # the pilot's choice (absent in older saves: same as gear)
 			"landed": ship_state.landed,
 			"hull": ship_state.hull,
 			"fuel": ship_state.fuel,
@@ -82,6 +83,7 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	ship_state.basis = Basis(_array_to_quaternion(ship_data["orientation"]).normalized())
 	ship_state.angular_velocity = _array_to_vector(ship_data["angular_velocity"])
 	ship_state.gear = int(ship_data["gear"])
+	ship_state.selected_gear = int(ship_data.get("selected_gear", ship_state.gear))
 	ship_state.landed = bool(ship_data["landed"])
 	ship_state.hull = float(ship_data.get("hull", 1.0))
 	ship_state.fuel = float(ship_data.get("fuel", 1.0))

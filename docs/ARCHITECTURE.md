@@ -228,7 +228,9 @@ static func step(state: ShipState, cmd: PilotCommand, env: FlightEnvironment, de
   friction only while coasting and only in air; per-gear table from `EGDataShipPlayer`; ships feel planet
   gravity x 3.5; entry resistance only while entering; roll-only levelling in the air (a setting). AI facing
   sets the turn rate directly; AI/scripted pilots hold velocity with `move_lock`. No altitude-triggered
-  attitude rule. Cruise speed scales with distance (Sol's stand-in for Rodina's relative time).
+  attitude rule. Gears: PRECISION (Sol's: scaled dock gear with station keeping and hover), COMBAT (Rodina's),
+  CRUISE (Rodina's in-air speeds; above the air distance-scaled, Sol's stand-in for relative time); the chosen
+  gear is kept in `ShipState.selected_gear` and the allowed one applied each tick.
 - **Fixed 60 Hz physics tick; flight runs in `_physics_process` only.** Deterministic given
   the same command stream → replay tests.
 - High-speed safety: at cruise (up to 10 km/s ≈ 167 m per tick) each step sweeps the segment

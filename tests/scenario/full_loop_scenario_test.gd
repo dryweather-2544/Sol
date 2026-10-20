@@ -25,7 +25,7 @@ class LoopPilot extends PilotSource:
 		var altitude := ship_state.altitude_above_ground
 		match phase:
 			Phase.DESCEND:
-				command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else PilotCommand.GEAR_DOCK
+				command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else (PilotCommand.GEAR_COMBAT if altitude > 250.0 else PilotCommand.GEAR_DOCK)
 				command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
 			Phase.TAKEOFF:
 				command.gear = PilotCommand.GEAR_CRUISE if altitude > 2500.0 else PilotCommand.GEAR_COMBAT

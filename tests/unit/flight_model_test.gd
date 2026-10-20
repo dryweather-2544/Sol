@@ -1,8 +1,10 @@
 extends "res://tests/test_case.gd"
-## Flight maths with hand-computed expectations from the Rodina rules (ShipTuning; docs/RODINA_PHYSICS_AUDIT.md).
-## Dock (gear 0): MoveSpeed 100, Acceleration 0.66 (66 m/s^2), Deceleration 0.9, DragSpeed 1500, strengths
-## lateral 0.3 / vertical 1.0 / reverse 0.3, hardness 0.35. Combat (gear 1): 500, 2.0 (1000 m/s^2), 0.75, 1500,
-## 0.3 / 0.3 / 0.6, hardness 0.7. RotationSpeed 2.5 rad/s, roll cap 5; player pitch/yaw push x 1.25 (ShipLookSpeed).
+## Flight maths with hand-computed expectations (ShipTuning; docs/RODINA_PHYSICS_AUDIT.md).
+## Combat (gear 1), Rodina's numbers: MoveSpeed 500, Acceleration 2.0 (1000 m/s^2), Deceleration 0.75, DragSpeed 1500,
+## strengths lateral 0.3 / vertical 0.3 / reverse 0.6, hardness 0.7. Precision (gear 0, Sol's scaled dock gear):
+## MoveSpeed 30, Acceleration 0.66 (19.8 m/s^2), Deceleration 0.9, DragSpeed 450, lateral 0.3 / vertical 0.4 /
+## reverse 0.3, station keeping (stops and hovers, engines hold up to 60 m/s^2 of gravity), hardness 0.35.
+## RotationSpeed 2.5 rad/s, roll cap 5; player pitch/yaw push x 1.25 (ShipLookSpeed).
 
 const DELTA := 1.0 / 60.0
 
@@ -41,31 +43,35 @@ func _pitch_and_roll(ship_state: ShipState, up := Vector3.UP) -> Vector2:
 	return Vector2(asin(clampf(-ship_state.basis.z.dot(up), -1.0, 1.0)), atan2(ship_state.basis.x.dot(up), ship_state.basis.y.dot(up)))
 
 
-# --- Linear ---------------------------------------------------------------------------------------------------------
+# --- Linear (Rodina rules, combat gear) ----------------------------------------------------------------------------
 
 func test_forward_thrust_accelerates_at_acceleration_times_move_speed() -> void:
-	var ship_state := ShipState.new()
-	_fly(ship_state, _thrust(Vector3(0, 0, -1)), 30)
-	assert_near(ship_state.velocity.z, -33.0, 1e-3, "0.66 x 100 = 66 m/s^2 for 0.5 s")
-	assert_near(ship_state.velocity.x, 0.0, 1e-6)
-	# semi-implicit Euler: position = accel * dt^2 * N(N+1)/2
-	assert_near(ship_state.position.z, -66.0 * DELTA * DELTA * 30.0 * 31.0 / 2.0, 1e-3)
 	var combat := ShipState.new()
 	_fly(combat, _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT), 15)
 	assert_near(combat.velocity.z, -250.0, 1e-3, "combat: 2 x 500 = 1000 m/s^2 for 0.25 s")
+	assert_near(combat.velocity.x, 0.0, 1e-6)
+	# semi-implicit Euler: position = accel * dt^2 * N(N+1)/2
+	assert_near(combat.position.z, -1000.0 * DELTA * DELTA * 15.0 * 16.0 / 2.0, 1e-3)
+	var precision := ShipState.new()
+	_fly(precision, _thrust(Vector3(0, 0, -1)), 30)
+	assert_near(precision.velocity.z, -9.9, 1e-3, "precision: 0.66 x 30 = 19.8 m/s^2 for 0.5 s")
 
 
 func test_speed_is_driven_to_the_gear_move_speed() -> void:
-	var ship_state := ShipState.new()
-	_fly(ship_state, _thrust(Vector3(0, 0, -1)), 300)
-	assert_near(ship_state.speed(), 100.0, 1e-4)
+	var combat := ShipState.new()
+	_fly(combat, _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT), 600)
+	assert_near(combat.speed(), 500.0, 1e-4)
+	var precision := ShipState.new()
+	_fly(precision, _thrust(Vector3(0, 0, -1)), 300)
+	assert_near(precision.speed(), 30.0, 1e-4)
 
 
 func test_sideways_vertical_and_reverse_are_weaker_per_gear() -> void:
 	var cases := [
-		[Vector3(1, 0, 0), PilotCommand.GEAR_DOCK, Vector3(30, 0, 0), "dock sideways 0.3"],
-		[Vector3(0, 1, 0), PilotCommand.GEAR_DOCK, Vector3(0, 100, 0), "dock vertical 1.0 (landing gear)"],
-		[Vector3(0, 0, 1), PilotCommand.GEAR_DOCK, Vector3(0, 0, 30), "dock reverse 0.3"],
+		[Vector3(1, 0, 0), PilotCommand.GEAR_DOCK, Vector3(9, 0, 0), "precision sideways 0.3"],
+		[Vector3(0, 1, 0), PilotCommand.GEAR_DOCK, Vector3(0, 12, 0), "precision vertical 0.4 (under the 15 m/s touchdown limit)"],
+		[Vector3(0, 0, 1), PilotCommand.GEAR_DOCK, Vector3(0, 0, 9), "precision reverse 0.3"],
+		[Vector3(1, 0, 0), PilotCommand.GEAR_COMBAT, Vector3(150, 0, 0), "combat sideways 0.3"],
 		[Vector3(0, 1, 0), PilotCommand.GEAR_COMBAT, Vector3(0, 150, 0), "combat vertical 0.3"],
 		[Vector3(0, 0, 1), PilotCommand.GEAR_COMBAT, Vector3(0, 0, 300), "combat reverse 0.6"],
 		[Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT, Vector3(0, 0, -500), "forward is always full"],
@@ -78,23 +84,23 @@ func test_sideways_vertical_and_reverse_are_weaker_per_gear() -> void:
 
 func test_diagonal_thrust_is_limited_to_unit_demand_then_scaled_per_axis() -> void:
 	var ship_state := ShipState.new()
-	_fly(ship_state, _thrust(Vector3(1, 1, -1)), 600)
-	var expected := Vector3(1, 1, -1).limit_length(1.0) * Vector3(0.3, 1.0, 1.0) * 100.0
+	_fly(ship_state, _thrust(Vector3(1, 1, -1), PilotCommand.GEAR_COMBAT), 600)
+	var expected := Vector3(1, 1, -1).limit_length(1.0) * Vector3(0.3, 0.3, 1.0) * 500.0
 	assert_near(ship_state.velocity.distance_to(expected), 0.0, 1e-3)
 
 
 func test_thrust_follows_ship_orientation() -> void:
 	var ship_state := ShipState.new()
 	ship_state.basis = Basis(Vector3.UP, PI / 2.0) # yaw 90 degrees left: forward (-z) now points at -x
-	_fly(ship_state, _thrust(Vector3(0, 0, -1)), 30)
-	assert_near(ship_state.velocity.x, -33.0, 1e-3)
+	_fly(ship_state, _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT), 15)
+	assert_near(ship_state.velocity.x, -250.0, 1e-3)
 	assert_near(ship_state.velocity.z, 0.0, 1e-3)
 
 
 func test_no_thrust_keeps_momentum() -> void:
 	var ship_state := ShipState.new()
 	ship_state.velocity = Vector3(5, -2, -40)
-	_fly(ship_state, PilotCommand.new(), 90)
+	_fly(ship_state, _thrust(Vector3.ZERO, PilotCommand.GEAR_COMBAT), 90)
 	assert_eq(ship_state.velocity, Vector3(5, -2, -40), "no input applies nothing: the ship coasts")
 
 
@@ -102,13 +108,13 @@ func test_drag_only_above_drag_speed() -> void:
 	var ship_state := ShipState.new()
 	ship_state.velocity = Vector3(0, 0, -2000.0) # over combat's 1500 m/s
 	_fly(ship_state, _thrust(Vector3.ZERO, PilotCommand.GEAR_COMBAT), 60)
-	# Each tick over 1500 m/s keeps (1 - 2 x 0.75 / 60) of the velocity; 12 ticks bring it under, then it coasts.
-	var expected := 2000.0 * pow(1.0 - 1.5 / 60.0, 12)
+	# Each tick over 1500 m/s keeps (1 - 0.75 / 60) of the velocity; 23 ticks bring it under, then it coasts.
+	var expected := 2000.0 * pow(1.0 - 0.75 / 60.0, 23)
 	assert_near(ship_state.speed(), expected, 1e-2, "drag down to just under DragSpeed, then momentum is kept")
-	var slow := ShipState.new()
-	slow.velocity = Vector3(0, 0, -300.0)
-	_fly(slow, _thrust(Vector3.ZERO, PilotCommand.GEAR_DOCK), 60)
-	assert_near(slow.speed(), 300.0, 1e-4, "300 m/s in dock gear is over MoveSpeed but under DragSpeed: no drag")
+	var fast := ShipState.new()
+	fast.velocity = Vector3(0, 0, -1000.0)
+	_fly(fast, _thrust(Vector3.ZERO, PilotCommand.GEAR_COMBAT), 60)
+	assert_near(fast.speed(), 1000.0, 1e-4, "1000 m/s in combat is over MoveSpeed but under DragSpeed: no drag")
 
 
 func test_reverse_input_over_move_speed_brakes_in_proportion_to_speed() -> void:
@@ -121,11 +127,11 @@ func test_reverse_input_over_move_speed_brakes_in_proportion_to_speed() -> void:
 
 func test_brake_drives_velocity_to_zero_at_the_reverse_thrust_rate() -> void:
 	var braking_state := ShipState.new()
-	braking_state.velocity = Vector3(0, 0, -40)
-	var brake_command := PilotCommand.new()
+	braking_state.velocity = Vector3(0, 0, -400)
+	var brake_command := _thrust(Vector3.ZERO, PilotCommand.GEAR_COMBAT)
 	brake_command.brake = true
 	_fly(braking_state, brake_command, 15)
-	assert_near(braking_state.velocity.z, -40.0 + 66.0 * 0.25, 1e-3, "dock: 66 m/s^2 toward zero")
+	assert_near(braking_state.velocity.z, -400.0 + 1000.0 * 0.25, 1e-3, "combat: 1000 m/s^2 toward zero")
 	_fly(braking_state, brake_command, 60)
 	assert_eq(braking_state.velocity, Vector3.ZERO, "and stops without reversing")
 
@@ -134,9 +140,9 @@ func test_lock_linear_coasts_and_ignores_thrust() -> void:
 	var ship_state := ShipState.new()
 	ship_state.velocity = Vector3(3, 0, -40)
 	_fly(ship_state, PilotCommand.parked(0), 120)
-	assert_eq(ship_state.velocity, Vector3(3, 0, -40))
+	assert_eq(ship_state.velocity, Vector3(3, 0, -40), "parked: no station keeping either")
 	assert_near(ship_state.position.z, -80.0, 1e-3, "40 m/s for 2 s")
-	var clutch := _thrust(Vector3(0, 0, -1))
+	var clutch := _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT)
 	clutch.lock_linear = true
 	_fly(ship_state, clutch, 60)
 	assert_eq(ship_state.velocity, Vector3(3, 0, -40), "clutch: thrust does nothing")
@@ -144,42 +150,106 @@ func test_lock_linear_coasts_and_ignores_thrust() -> void:
 
 func test_move_lock_matches_the_target_velocity_exactly() -> void:
 	var ship_state := ShipState.new()
-	var command := _thrust(Vector3(0, 0, -1))
+	var command := _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT)
 	command.move_lock = 1.0
 	_fly(ship_state, command, 1)
-	assert_near(ship_state.velocity.z, -100.0, 1e-4)
+	assert_near(ship_state.velocity.z, -500.0, 1e-4)
 	command.thrust = Vector3.ZERO
 	_fly(ship_state, command, 1)
 	assert_eq(ship_state.velocity, Vector3.ZERO, "and holds zero when asked for nothing")
 
 
 func test_boost_raises_the_move_speed() -> void:
-	var ship_state := ShipState.new()
-	var boost_command := _thrust(Vector3(0, 0, -1))
+	var combat := ShipState.new()
+	var boost_command := _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT)
 	boost_command.boost = true
-	_fly(ship_state, boost_command, 300)
-	assert_near(ship_state.speed(), 150.0, 1e-4)
+	_fly(combat, boost_command, 600)
+	assert_near(combat.speed(), 750.0, 1e-3)
+	var precision := ShipState.new()
+	boost_command.gear = PilotCommand.GEAR_DOCK
+	_fly(precision, boost_command, 600)
+	assert_near(precision.speed(), 45.0, 1e-3)
 
 
-func test_gear_changes_the_move_speed_and_is_clamped_to_available_gears() -> void:
-	var ship_state := ShipState.new()
-	var combat_command := _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT)
-	_fly(ship_state, combat_command, 600)
-	assert_near(ship_state.speed(), 500.0, 1e-3)
-	combat_command.gear = 99
-	_fly(ship_state, combat_command, 1)
-	assert_eq(ship_state.gear, 2, "99 clamps to the highest gear (cruise)")
-
-
-func test_gravity_accelerates_a_coasting_ship_and_a_hands_off_one() -> void:
+func test_gravity_pulls_a_coasting_or_hands_off_ship() -> void:
 	var environment := FlightEnvironment.new()
 	environment.gravity = Vector3(0, -10, 0)
 	var parked := ShipState.new()
 	_fly(parked, PilotCommand.parked(0), 60, environment)
 	assert_near(parked.velocity.y, -10.0, 1e-4)
 	var hands_off := ShipState.new()
-	_fly(hands_off, PilotCommand.new(), 60, environment)
-	assert_near(hands_off.velocity.y, -10.0, 1e-4, "no input does not hold the ship up")
+	_fly(hands_off, _thrust(Vector3.ZERO, PilotCommand.GEAR_COMBAT), 60, environment)
+	assert_near(hands_off.velocity.y, -10.0, 1e-4, "combat: no input does not hold the ship up")
+
+
+# --- Gears: selection, switching -------------------------------------------------------------------------------------
+
+func test_gear_selection_is_clamped_to_what_is_allowed_and_comes_back() -> void:
+	var ship_state := ShipState.new()
+	var environment := FlightEnvironment.new()
+	var cruise := _thrust(Vector3.ZERO, PilotCommand.GEAR_CRUISE)
+	environment.max_gear = PilotCommand.GEAR_COMBAT # e.g. an empty tank
+	_fly(ship_state, cruise, 1, environment)
+	assert_eq(ship_state.gear, PilotCommand.GEAR_COMBAT, "only combat allowed")
+	assert_eq(ship_state.selected_gear, PilotCommand.GEAR_CRUISE, "the choice is kept")
+	assert_eq(PilotController.new().poll_command(ship_state, DELTA).gear, PilotCommand.GEAR_CRUISE, "an unpiloted ship keeps the choice")
+	environment.max_gear = 99
+	_fly(ship_state, PilotController.new().poll_command(ship_state, DELTA), 1, environment)
+	assert_eq(ship_state.gear, PilotCommand.GEAR_CRUISE, "cruise again once allowed, without a new shift")
+	cruise.gear = 99
+	_fly(ship_state, cruise, 1)
+	assert_eq(ship_state.gear, 2, "99 clamps to the highest gear (cruise)")
+
+
+func test_shifting_down_at_speed_changes_velocity_smoothly() -> void:
+	var ship_state := ShipState.new()
+	ship_state.gear = PilotCommand.GEAR_CRUISE
+	ship_state.velocity = Vector3(0, 0, -5000.0)
+	var worst := 0.0
+	for gear in [PilotCommand.GEAR_COMBAT, PilotCommand.GEAR_DOCK]:
+		for tick in 60:
+			var before := ship_state.velocity
+			_fly(ship_state, _thrust(Vector3.ZERO, gear), 1)
+			worst = maxf(worst, (ship_state.velocity - before).length())
+	# Every change is in proportion to the speed, never a jump to the new gear's speed. Combat's drag at 5000 m/s takes
+	# 0.75 / 60 of it (62.5 m/s); a second later precision's drag plus its hands-off brake take 2 x 0.9 / 60 of what is
+	# left after 60 combat ticks (5000 x (1 - 0.75/60)^60 = 2351 m/s, so 70.5 m/s).
+	var after_combat := 5000.0 * pow(1.0 - 0.75 / 60.0, 60)
+	assert_near(worst, maxf(62.5, 2.0 * 0.9 / 60.0 * after_combat), 0.05, "worst one-tick change")
+	assert_true(ship_state.speed() > 30.0, "still faster than precision's speed after 2 s: speed is shed, not snapped")
+
+
+# --- Precision gear (Sol): station keeping ---------------------------------------------------------------------------
+
+func test_precision_tap_moves_a_little_and_stops_by_itself() -> void:
+	var ship_state := ShipState.new()
+	_fly(ship_state, _thrust(Vector3(0, 0, -1)), 15)
+	assert_near(ship_state.velocity.z, -4.95, 1e-3, "a quarter-second tap: 19.8 m/s^2 x 0.25 s")
+	_fly(ship_state, _thrust(Vector3.ZERO), 15)
+	assert_true(ship_state.velocity.length() < 1e-4, "let go: stopped a quarter-second later (%s)" % ship_state.velocity)
+	assert_true(absf(ship_state.position.z) < 1.3, "about a metre travelled in all: %f" % ship_state.position.z)
+
+
+func test_precision_hovers_against_gravity_up_to_the_engines_limit() -> void:
+	var environment := FlightEnvironment.new()
+	environment.gravity = Vector3(0, -42, 0) # Aurelia's ship gravity
+	var hovering := ShipState.new()
+	_fly(hovering, _thrust(Vector3.ZERO), 300, environment)
+	assert_eq(hovering.velocity, Vector3.ZERO, "hands off: hovers")
+	var heavy := FlightEnvironment.new()
+	heavy.gravity = Vector3(0, -100, 0) # more than the 60 m/s^2 the engines can hold
+	var sinking := ShipState.new()
+	_fly(sinking, _thrust(Vector3.ZERO), 60, heavy)
+	assert_near(sinking.velocity.y, -(40.0 - 19.8) * (59.0 / 60.0) - 40.0 / 60.0, 0.5, "the excess 40 m/s^2 less the 19.8 m/s^2 brake")
+
+
+func test_precision_hands_off_at_speed_brakes_in_proportion() -> void:
+	var ship_state := ShipState.new()
+	ship_state.velocity = Vector3(0, 0, -100.0)
+	_fly(ship_state, _thrust(Vector3.ZERO), 1)
+	assert_near(ship_state.velocity.z, -100.0 + 0.9 * 100.0 * DELTA, 1e-3, "over MoveSpeed: Deceleration 0.9 x speed")
+	_fly(ship_state, _thrust(Vector3.ZERO), 600)
+	assert_eq(ship_state.velocity, Vector3.ZERO)
 
 
 # --- Rotation -------------------------------------------------------------------------------------------------------

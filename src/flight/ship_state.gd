@@ -10,7 +10,11 @@ var velocity := Vector3.ZERO
 var basis := Basis.IDENTITY
 ## Ship-local angular velocity, radians per second about local x (pitch), y (yaw), z (roll).
 var angular_velocity := Vector3.ZERO
+## Gear in effect this tick (the selected one, or lower where the environment allows less, e.g. an empty tank).
 var gear := PilotCommand.GEAR_DOCK
+## Gear the pilot chose. Kept while a lower gear is forced, so the choice comes back (Rodina keeps the player's gear in
+## EGBehaviorPlayer and the vehicle clamps to the allowed one every update, EGBehaviorPlayer.lua:97-156).
+var selected_gear := PilotCommand.GEAR_DOCK
 
 ## Planet-relative telemetry, written by PlanetBody.fill_environment and GroundContact.
 var landed := false

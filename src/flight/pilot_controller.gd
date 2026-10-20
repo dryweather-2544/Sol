@@ -45,7 +45,7 @@ func is_parked() -> bool:
 
 func poll_command(ship_state: ShipState, delta: float) -> PilotCommand:
 	if current_source == null:
-		return PilotCommand.parked(ship_state.gear)
+		return PilotCommand.parked(ship_state.selected_gear)
 	var command := current_source.poll(ship_state, delta)
 	command.source_id = current_source.source_id
 	return command

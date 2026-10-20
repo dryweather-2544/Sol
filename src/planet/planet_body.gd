@@ -3,8 +3,15 @@ extends RefCounted
 ## One planet in its own frame (centre at the frame origin, non-rotating). Pure logic: gravity,
 ## atmosphere and terrain queries. Positions are WorldPos (64-bit).
 
-const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 2000.0
-const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 8000.0
+## Cruise speeds (see cruise_speed_limit). Rodina: 5000 m/s at the surface, 10000 m/s from 20 km, 5000 m/s while
+## entering the air (kAmosphericEntrySpeed). Sol: above the air, 0.3 m/s per metre of altitude, 500 m/s to 2e7 m/s.
+const CRUISE_SURFACE_SPEED := 5000.0
+const CRUISE_HIGH_SPEED := 10000.0
+const CRUISE_HIGH_SPEED_ALTITUDE := 20000.0
+const CRUISE_ENTRY_SPEED := 5000.0
+const CRUISE_SPEED_PER_METRE_OF_ALTITUDE := 0.3
+const CRUISE_MIN_SPEED := 500.0
+const CRUISE_MAX_SPEED := 2.0e7
 ## Ships feel planet gravity 3.5 times as strongly as people on foot (Rodina kGravityMovementMult = 9.8 * 3.5 per g of
 ## SurfaceGravity, EGVehicle.lua:8, applied at 1548-1554), and at least 0.33 g of surface gravity on any world
 ## (kGravityMinPlanetGravity, :9, via EGPlanet:GetGravity's minimum). Walkers use gravity_at unscaled.
@@ -91,16 +98,32 @@ func up_at(position: WorldPos) -> Vector3:
 	return Vector3(position.x / distance, position.y / distance, position.z / distance)
 
 
+## Cruise-gear top speed here, m/s.
+## - In the air: Rodina's cruise MoveSpeed, 5000 m/s at the surface rising to 10000 m/s 20 km up
+##   (EGDataShipPlayer.lua:169), and no more than 5000 m/s while still entering (EGVehicle:UpdateGearSettings,
+##   EGVehicle.lua:947-955; relative time is also off in the air there).
+## - Above the air (and over airless worlds): Sol's distance-scaled limit (0.3 x altitude, 2e7 m/s at most), standing
+##   in for Rodina's relative time; never below the in-air speed at the top of the atmosphere, so leaving it is smooth.
+## - Airless worlds near their surface keep Sol's 0.3 x altitude (at least 500 m/s): a tiny moon or asteroid cannot
+##   take Rodina's 5 km/s at ground level.
+func cruise_speed_limit(altitude: float, ratio: float, in_atmosphere: bool) -> float:
+	var distance_scaled := clampf(altitude * CRUISE_SPEED_PER_METRE_OF_ALTITUDE, CRUISE_MIN_SPEED, CRUISE_MAX_SPEED)
+	if atmosphere_height <= 0.0:
+		return distance_scaled
+	var in_air_speed := lerpf(CRUISE_SURFACE_SPEED, CRUISE_HIGH_SPEED, clampf(altitude / CRUISE_HIGH_SPEED_ALTITUDE, 0.0, 1.0))
+	if ratio < 1.0:
+		return in_air_speed if in_atmosphere else minf(in_air_speed, CRUISE_ENTRY_SPEED)
+	return maxf(distance_scaled, CRUISE_HIGH_SPEED)
+
+
 ## Fills the per-tick environment for a ship at ship_state.
 func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> void:
 	var ratio := atmosphere_ratio(ship_state.position)
 	ship_state.altitude_above_ground = altitude_above_ground(ship_state.position)
 	environment.gravity = Vector3.ZERO if ship_state.landed else ship_gravity_at(ship_state.position)
-	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
-	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
-	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
-	if ratio < 1.0:
-		environment.cruise_speed_limit = minf(environment.cruise_speed_limit, CRUISE_SPEED_LIMIT_IN_ATMOSPHERE)
+	# Cruise is allowed at any height, as in Rodina (gated only by the story there, EGDataShipPlayer.lua:52-81).
+	environment.max_gear = PilotCommand.GEAR_CRUISE
+	environment.cruise_speed_limit = cruise_speed_limit(ship_state.altitude_above_ground, ratio, ship_state.in_atmosphere)
 	environment.level_up = up_at(ship_state.position)
 	environment.atmosphere_ratio = ratio
 	environment.atmosphere_friction = atmosphere_friction if atmosphere_height > 0.0 else 0.0

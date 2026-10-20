@@ -53,6 +53,7 @@ func test_parked_ship_holds_velocity_and_keeps_gear() -> void:
 	var controller := PilotController.new()
 	var ship_state := ShipState.new()
 	ship_state.gear = 1
+	ship_state.selected_gear = 1 # the gear the pilot chose is the one a parked ship keeps
 	var command := controller.poll_command(ship_state, 0.016)
 	assert_true(command.lock_linear)
 	assert_eq(command.gear, 1)

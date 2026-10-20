@@ -8,6 +8,7 @@ extends RefCounted
 ## - Thrust steers the velocity toward a target (input x MoveSpeed) at a limited rate (SetDesiredMovement, 1458-1517).
 ##   With no input nothing is applied: the ship keeps its momentum and gravity keeps acting. Drag only above
 ##   DragSpeed (1473-1477). Sideways, vertical and reverse input are weaker unless braking (1482-1492).
+##   Sol's precision gear adds station keeping (ShipTuning.gear_station_keeping): it stops and hovers by itself.
 ## - Turn input accelerates the spin (SetDesiredRotation, 1263-1366). Releasing it leaves the ship spinning; rotation
 ##   friction, zero in space and the planet's AtmosphereFriction deep in its air, slows it only while not turning.
 ## - AI facing sets the turn rate directly (SetDesiredFacing, 1212-1244), a separate path from the player's.
@@ -25,9 +26,10 @@ const PLAYER_LOOK_SPEED := 1.25
 ## Cruise above its (distance-scaled) speed limit sheds the excess at this rate, 1/s: Sol's equivalent of Rodina's
 ## relative time falling back to its target (relativeTime * dt * 2, EGVehicle.lua:1462-1464).
 const CRUISE_EXCESS_DECAY := 2.0
-## Rodina's drag is applied twice: to the inertia the next velocity is built from and as an engine acceleration
-## (EGVehicle.lua:1474-1476), so the effective rate is twice min(1, Deceleration).
-const DRAG_APPLICATIONS := 2.0
+## Rodina's drag is written twice: into the inertia the next velocity is built from and as an engine acceleration
+## (EGVehicle.lua:1474-1476). Whether the engine's velocity drive then cancels the second is engine-side, so Sol applies
+## it once: velocity shrinks at min(1, Deceleration) per second while over DragSpeed.
+const DRAG_APPLICATIONS := 1.0
 const ROLL_SPEED_RATIO := 2.0 ## roll rate cap = 2 x rotation speed
 const ROLL_ACCELERATION_GAIN := 3.0
 const MAX_ROLL_HARDNESS := 2.0
@@ -44,7 +46,8 @@ const FACE_SLOWDOWN_ANGLE := 0.5
 
 
 static func step(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
-	ship_state.gear = clampi(command.gear, 0, mini(tuning.gear_count() - 1, environment.max_gear))
+	ship_state.selected_gear = clampi(command.gear, 0, tuning.gear_count() - 1)
+	ship_state.gear = mini(ship_state.selected_gear, environment.max_gear)
 	_update_atmosphere_state(ship_state, environment, delta)
 	_step_linear(ship_state, command, tuning, environment, delta)
 	_step_angular(ship_state, command, tuning, environment, delta)
@@ -84,7 +87,7 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 	if not command.lock_linear:
 		var speed := velocity.length()
 		var direction := velocity / speed if speed > 1e-9 else Vector3.ZERO
-		# Engine drag only well over the gear's speed (e.g. 1500 m/s in dock and combat; none in cruise).
+		# Engine drag only well over the gear's speed (1500 m/s in combat, 450 in precision; none in cruise).
 		if speed > tuning.gear_drag_speed_ratio[gear] * move_speed:
 			velocity *= maxf(0.0, 1.0 - DRAG_APPLICATIONS * minf(1.0, deceleration_factor) * delta)
 		var wish := command.thrust.limit_length(1.0)
@@ -105,6 +108,11 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 					target.z *= tuning.gear_reverse_strength[gear]
 			strength = target.length()
 			target *= move_speed
+		var station_keeping := tuning.gear_station_keeping[gear] != 0
+		if station_keeping:
+			strength = 1.0 # drive to the input's target (zero when released) at the gear's full rate: stop, hold, hover
+			if wish == Vector3.ZERO:
+				braking = 1.0 # hands off is a brake: over the gear's speed it sheds speed in proportion, like Rodina's braking
 		var rate := acceleration_factor * move_speed
 		if speed > move_speed and braking > 0.0:
 			rate = maxf(acceleration_factor, deceleration_factor) * speed
@@ -122,7 +130,10 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 			if over > 0.0:
 				velocity = velocity.normalized() * (velocity.length() - over * (1.0 - exp(-CRUISE_EXCESS_DECAY * delta)))
 	ship_state.velocity = ship_state.basis * velocity
-	ship_state.velocity += environment.gravity * delta
+	var gravity := environment.gravity
+	if tuning.gear_station_keeping[gear] != 0 and not command.lock_linear:
+		gravity -= gravity.limit_length(tuning.hover_thrust_limit) # the engines hold the ship up (as far as they can)
+	ship_state.velocity += gravity * delta
 	ship_state.position.x += ship_state.velocity.x * delta
 	ship_state.position.y += ship_state.velocity.y * delta
 	ship_state.position.z += ship_state.velocity.z * delta

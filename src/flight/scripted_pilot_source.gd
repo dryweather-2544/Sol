@@ -17,5 +17,5 @@ func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		tick_index += 1
 		return commands[tick_index - 1]
 	var neutral := PilotCommand.new()
-	neutral.gear = ship_state.gear
+	neutral.gear = ship_state.selected_gear
 	return neutral

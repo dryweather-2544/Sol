@@ -19,6 +19,21 @@ broke a requested behaviour; dependencies in brackets.
 | 11 | Cruise: Sol's distance-scaled speed limit, not Rodina's relative time | **Kept on purpose** (Sol's scale is far smaller; research 02 §10.6) | audit §7.6 |
 | 12 | Hover vs fall when hands-off (depends on how Havok mixes velocity and acceleration) | **Open question** - Sol follows the script literally (falls) | audit §7.1; check in Rodina: release keys at 1 km in dock gear |
 
+## Round 2: speeds, escape, low-speed control, gears
+
+Telemetry: `docs/physics_telemetry/modes_before.txt` and `after.txt` (scenarios `escape_*`, `precision_*`,
+`combat_tap_and_release`, `gear_switch_continuity`, `cruise_out_to_5000km`).
+
+| Problem | Cause found | Change | Before -> after |
+|---|---|---|---|
+| Climb out takes ages | Cruise refused below 2 km AGL and limited to 0.3 x altitude (600 m/s at 2 km, 8 km/s cap in the air); a ] pressed below 2 km was forgotten, leaving the ship in combat (500 m/s, or 150 m/s on Space) | Cruise at any height with Rodina's in-air speeds (5 to 10 km/s, 5 km/s cap while entering); selected gear kept | surface to 200 km, nose up: 34.7 s -> 21.9 s; on Space: 114.8 s -> 70.4 s; stuck in combat: ~400 s (nose up) / ~1300 s (Space) -> not possible any more |
+| Too fast near the ground | Dock gear was Rodina's 100 m/s with 66 m/s^2, no braking on release and no hover (the ship coasted and fell) | Precision gear: 30 m/s, 19.8 m/s^2, station keeping and hover | 0.25 s tap: fell 47 m and hit at 62 m/s -> 4.95 m/s peak, 1.24 m travelled, stopped in 0.52 s; hands-off 5 s at 50 m: -47 m (crash) -> -0.07 m; brake from 20 m/s: 1.02 s over 9.9 m |
+| Gears may not work | Gear forgotten when refused (above); HUD showed only the name; altitude gate | Selection kept and shown ("CRUISE selected: no fuel"), HUD shows the gear's top speed, gate removed | `flight_model_test::test_gear_selection_is_clamped_to_what_is_allowed_and_comes_back` |
+| Down-shift at speed | Rodina drag applied twice | Applied once | 5000 m/s, cruise to combat: 7500 -> 3750 m/s^2, smooth (`test_shifting_down_at_speed_changes_velocity_smoothly`) |
+
+Unchanged on purpose: combat gear (Rodina's numbers; a 0.25 s tap gives 250 m/s and it coasts), cruise above the air
+(200 km to 5000 km in 12.4 s before and 12.6 s after), Rodina's 0.3 up/down strength in cruise (nose-up is the fast way out).
+
 ## Order used (each stage tested before the next)
 
 1. Baseline: full suite 273 tests / 6 pre-existing failures (`audio_library_test` parse error, 5 decal-name asserts),

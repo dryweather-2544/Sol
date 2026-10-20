@@ -7,5 +7,5 @@ var source_id: StringName = &"unnamed"
 
 func poll(_ship_state: ShipState, _delta: float) -> PilotCommand:
 	var command := PilotCommand.new()
-	command.gear = _ship_state.gear
+	command.gear = _ship_state.selected_gear
 	return command

@@ -5,10 +5,11 @@ extends "res://tests/test_case.gd"
 ## If you change flight tuning on purpose, re-record them; otherwise a failure here is a bug.
 
 const DELTA := 1.0 / 60.0
-## Re-recorded for the Rodina flight model (inertial rotation, momentum kept, per-gear axis strengths).
-const EXPECTED_X := -494.601353
-const EXPECTED_Y := -589.974328
-const EXPECTED_Z := -118.900775
+## Re-recorded for the Rodina flight model (inertial rotation, momentum kept, per-gear axis strengths) with Sol's
+## precision gear 0 (30 m/s, station keeping).
+const EXPECTED_X := -435.534650
+const EXPECTED_Y := -595.856051
+const EXPECTED_Z := 152.234997
 const EXPECTED_VELOCITY := Vector3.ZERO
 
 

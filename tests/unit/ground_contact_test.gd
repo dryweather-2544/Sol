@@ -49,7 +49,7 @@ class GentleDescent extends PilotSource:
 	func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		var command := PilotCommand.new()
 		if not ship_state.landed: # hands off once down
-			command.thrust = Vector3(0, -0.02, 0)
+			command.thrust = Vector3(0, -2.0 / 12.0, 0) # precision gear: full down is 0.4 x 30 = 12 m/s
 			command.move_lock = 1.0
 		return command
 

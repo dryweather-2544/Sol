@@ -17,10 +17,18 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 
 1. You start in orbit, 300 km above Aurelia, in cruise gear. Point the nose at the planet (mouse), hold **W**.
    The ship flies like Rodina's: it keeps its speed and its spin when you let go (only the air slows a spin), and
-   it feels the planet's pull, so with no thrust it falls. Enter the air no faster than about 4 km/s nose-down or
-   the hull burns ("STEEP REENTRY"). Near the ground drop to DOCK gear (**[**), where up/down thrust is strongest,
-   and hold **Space** to slow the descent; touch down belly-down below about 15 m/s or the hull is damaged. In the
-   air the ship eases its *roll* level (never its pitch); turn that off or down in Settings, "Ship horizon levelling".
+   it feels the planet's pull. Enter the air no faster than about 4 km/s nose-down or the hull burns ("STEEP
+   REENTRY"). **[ ]** change gear; the HUD shows the gear and its top speed:
+   - **PRECISION** - up to 30 m/s (12 m/s up/down): for landing, take-off, hovering and moving around structures.
+     Let go and it stops and hovers by itself. Touch down belly-down below about 15 m/s.
+   - **COMBAT** - up to 500 m/s, very quick to respond, keeps its momentum when you let go and falls if you do not
+     hold it up (Rodina's combat gear). **X** brakes.
+   - **CRUISE** - 5 km/s near the ground rising to 10 km/s in the upper air, then faster and faster with distance
+     above it (hundreds of km/s a few thousand km out). To leave a planet, point the nose up and hold **W**: about
+     20 s to space (with **Space** alone it is three times slower, up/down thrust is only 30% in cruise).
+   Your gear choice is kept: if it is not available (an empty tank allows combat at most) it comes back by itself.
+   In the air the ship eases its *roll* level (never its pitch); turn that off or down in Settings, "Ship horizon
+   levelling".
 2. When the HUD says LANDED, press **F** to stand up. Walk to the cabin's rear (the airlock): panels glow green
    next to each door; **F** at a panel toggles the door. Inner door first, step in, close it, then the outer door
    (this also lowers the ramp). Walk down the ramp onto the ground.

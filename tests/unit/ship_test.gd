@@ -6,6 +6,7 @@ func test_ship_follows_scripted_pilot_and_transform_matches_state() -> void:
 	var commands: Array[PilotCommand] = []
 	for tick in 60:
 		var command := PilotCommand.new()
+		command.gear = PilotCommand.GEAR_COMBAT
 		command.thrust = Vector3(0, 0, -1)
 		command.turn = Vector3(0, 0.5, 0)
 		commands.append(command)

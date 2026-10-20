@@ -15,7 +15,7 @@ class DescentPilot extends PilotSource:
 		command.move_lock = 1.0 # scripted pilot: holds the velocity it asks for (Rodina AI mover MoveLock)
 		command.stop_rotation = true # and holds its attitude (Rodina AI sets its turn rate directly)
 		var altitude := ship_state.altitude_above_ground
-		command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else PilotCommand.GEAR_DOCK
+		command.gear = PilotCommand.GEAR_CRUISE if altitude > 4000.0 else (PilotCommand.GEAR_COMBAT if altitude > 250.0 else PilotCommand.GEAR_DOCK)
 		# Ship is oriented belly-down (ship up = planet up), so descending means thrusting along -y.
 		command.thrust = Vector3(0, -clampf(altitude / 80.0, 0.04, 1.0), 0)
 		return command

@@ -110,6 +110,30 @@ Verified unchanged: a frame switch converts only position and velocity (`src/gam
 not rotate, so orientation and spin pass through untouched. Rotation is integrated once per 60 Hz tick from ship-local
 spin with a normalised quaternion step (`flight_model.gd`); the camera only reads the ship transform.
 
+## 6b. Gears (flight-speed modes)
+
+| Rule | Source | Tag |
+|---|---|---|
+| Four gears: 1 dock/landing, 2 combat, 3 cruise, 4 Limnal (table in §2) | `EGDataShipPlayer.lua:131-233` | C |
+| The player's chosen gear lives in the player behaviour; every update the vehicle is set to the highest **allowed** gear, and the choice is kept | `EGBehaviorPlayer.lua:97-156`, `EGShipPlayer:GetAllowedGear` `EGDataShipPlayer.lua:52-81` | C |
+| Gating is by story and items only (cruise needs `CruiseEngineAcquired`, Limnal needs Diaconium and a clear path), never by altitude | `EGDataShipPlayer.lua:52-81` | C |
+| Shifting: hold CLUTCH (right mouse) and press SHIFT UP/DOWN (W/S); a refused shift plays "ShiftGrind" | `EGBehaviorPlayer.lua:102-148`; `EGDataActionBindings.lua:97-98` | C |
+| Cruise MoveSpeed 5000 m/s at the surface rising to 10000 m/s at 20 km, lowered near other ships | `EGDataShipPlayer.lua:169-170` | C |
+| In the air relative time is forced to 1; while entering (not yet "in") MoveSpeed <= 5000 and DragSpeed <= 6000 | `EGVehicle.lua:944-958` | C |
+| Above the air, cruise speed is multiplied by relative time `min(CruiseMax, CruiseMult x (d / cruiseRadius)^CruiseExponent)` | `EGDataShipPlayer.lua:178-195` | C |
+| The HUD shows the current gear | `EGMenuHUD.lua:516-536` | C |
+
+**Sol (`src/flight/flight_model.gd`, `src/planet/planet_body.gd`, `src/flight/ship_tuning.gd`):** three gears (Sol has no
+Limnal; its warp coil gates open-space cruise instead). `ShipState.selected_gear` keeps the choice and `gear` is the
+gear in effect, as Rodina does; both are saved. Cruise is allowed at any height (Sol had refused it below 2 km and
+capped it at 0.3 x altitude: 600 m/s at 2 km, the main cause of the slow climb), with Rodina's in-air speeds and entry
+cap; above the air Sol's distance-scaled limit stands in for relative time. Combat is Rodina's unchanged.
+**Sol's own, not Rodina's [I]:** gear 0 is a *precision* gear - Rodina's dock gear scaled to Sol's ship (30 m/s, up/down
+0.4 so full descent is 12 m/s, under the touchdown damage limit) with station keeping (no input drives the velocity
+to zero and the engines hold up to 60 m/s^2 of gravity); small airless worlds keep Sol's 0.3 x altitude cruise limit;
+`[ ]` shift directly (no clutch). The drag above DragSpeed is applied once (Rodina writes it twice; how the engine
+combines the two is engine-side).
+
 ## 7. Open questions (not settled by the scripts)
 
 1. **[E] How Havok combines `SetMovementVelocity` with `AddLocalAcceleration`.** Sol assumes gravity and drag act on

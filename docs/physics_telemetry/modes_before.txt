@@ -1,0 +1,34 @@
+== escape_nose_up_cruise
+  reached       100 m at t=   0.45 s  speed    431.1 m/s  gear=1 selected=n/a
+  reached      2000 m at t=   4.27 s  speed    503.6 m/s  gear=2 selected=n/a
+  reached     20000 m at t=  12.03 s  speed   6023.6 m/s  gear=2 selected=n/a
+  reached    100000 m at t=  22.15 s  speed   7999.3 m/s  gear=2 selected=n/a
+  reached    200000 m at t=  34.65 s  speed   7999.3 m/s  gear=2 selected=n/a
+  reached   1000000 m at t=  40.98 s  speed 300442.2 m/s  gear=2 selected=n/a
+  reached   5000000 m at t=  46.37 s  speed 1504524.0 m/s  gear=2 selected=n/a
+  summary: t=46.37 s  max speed 1504524.00 m/s  max accel 449112.9 m/s^2  travelled 5040144.00 m  final t=46.37 speed=1504524.00 v_local=(   0.06    0.00 -1504524.00) alt=5015080.5 pitch= 90.00 roll=-135.00 rate=(  0.00   0.00   0.00) gear=2 landed=false
+== escape_belly_up_space_key
+  reached       100 m at t=   0.95 s  speed    149.3 m/s  gear=1 selected=n/a
+  reached      2000 m at t=  13.68 s  speed    150.1 m/s  gear=2 selected=n/a
+  reached     20000 m at t=  39.40 s  speed   1801.5 m/s  gear=2 selected=n/a
+  reached    100000 m at t=  73.17 s  speed   2399.3 m/s  gear=2 selected=n/a
+  reached    200000 m at t= 114.83 s  speed   2399.3 m/s  gear=2 selected=n/a
+  reached   1000000 m at t= 133.75 s  speed  90082.4 m/s  gear=2 selected=n/a
+  summary: t=133.75 s  max speed 90082.39 m/s  max accel 9902.8 m/s^2  travelled 1002420.44 m  final t=133.75 speed=90082.39 v_local=(   0.00 90082.39    0.00) alt=1000921.0 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=2 landed=false
+== precision_tap_and_release
+  summary: t=1.55 s  max speed 65.56 m/s  max accel 3933.7 m/s^2  travelled 54.40 m  final t= 1.55 speed=    0.00 v_local=(  -0.00   -0.00   -0.00) alt=      3.0 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+  stopped: yes at t=1.55 s
+== precision_hands_off_hover_50m
+  summary: t=5.00 s  max speed 62.31 m/s  max accel 3738.7 m/s^2  travelled 47.15 m  final t= 5.00 speed=    0.00 v_local=(  -0.00    0.00   -0.00) alt=      2.8 pitch= -4.81 roll=   0.46 rate=(  0.00   0.00   0.00) gear=0 landed=true
+  altitude change after 5 s hands off: -47.22 m
+== precision_brake_from_20
+  summary: t=0.47 s  max speed 18.91 m/s  max accel 78.2 m/s^2  travelled 3.61 m  final t= 0.47 speed=    1.25 v_local=(   0.00   -1.25   -0.02) alt=     48.5 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+  horizontal stop: t=0.47 s over 3.61 m
+== combat_tap_and_release
+  summary: t=3.00 s  max speed 278.58 m/s  max accel 1000.9 m/s^2  travelled 743.24 m  final t= 3.00 speed=  278.58 v_local=(   0.00 -122.97 -249.97) alt=    140.1 pitch=  0.01 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== gear_switch_continuity
+  summary: t=4.00 s  max speed 5000.00 m/s  max accel 7500.0 m/s^2  travelled 10490.31 m  final t= 4.00 speed= 1483.17 v_local=(   0.00    0.00 -1483.17) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+== cruise_out_to_5000km
+  reached   1000000 m at t=   7.02 s  speed 301153.1 m/s  gear=2 selected=n/a
+  reached   5000000 m at t=  12.38 s  speed 1500581.0 m/s  gear=2 selected=n/a
+  summary: t=12.38 s  max speed 1500581.00 m/s  max accel 447938.4 m/s^2  travelled 4826947.00 m  final t=12.38 speed=1500581.00 v_local=(   0.06   -0.03 -1500581.00) alt=5001937.0 pitch= 90.00 roll=-135.00 rate=(  0.00   0.00   0.00) gear=2 landed=false
