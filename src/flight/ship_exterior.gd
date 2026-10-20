@@ -149,6 +149,11 @@ func update_exhaust(demand: float, delta: float) -> void:
 		disc.transparency = 1.0 - clampf(0.35 + 0.65 * _exhaust_level, 0.0, 1.0) if hot else 0.0
 
 
+## The two nozzle nodes (port, starboard), for effects that follow them.
+func nacelles() -> Array[MeshInstance3D]:
+	return _nacelles
+
+
 ## Tilts both pods toward upright (`upright`) or level, and carries the nozzles with them. delta 0 snaps.
 func update_pods(upright: bool, delta: float) -> void:
 	var target := PI * 0.5 if upright else 0.0

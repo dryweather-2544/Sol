@@ -12,6 +12,8 @@ var _station_screens := {} # station id -> StandardMaterial3D (emission shows th
 var _smoke_nodes := {}    # room id -> CPUParticles3D
 var _scorch_decals := {}  # room id -> Decal, hidden until the room has had a fire this session (not saved: saves may not change in N9)
 var exterior := ShipExterior.new()
+## Rodina-style plumes and entry heat (hidden in the sol style).
+var effects := ShipEffects.new()
 ## Doors slide sideways (+x) into the wall beside the opening; sliding up would push them out through the roof.
 const DOOR_SLIDE := 1.45
 ## Photo tools only (tools/ship_shots.gd): show the flight pose (pods level) while parked.
@@ -42,6 +44,8 @@ func _ready() -> void:
 	_build_seat_and_console(layout)
 	_build_panels(layout)
 	exterior.build(self, layout, ship.systems.turret.muzzle_offset, _nozzle_material, _exhaust_disc)
+	add_child(effects)
+	effects.setup(exterior.nacelles())
 	_build_lights(layout)
 	if _wall_material != _hull_material:
 		_build_reflection_probe(layout)
@@ -75,6 +79,7 @@ func _process(delta: float) -> void:
 	exterior.update_pods(low_and_slow and not force_pods_level, 0.0 if force_pods_level else delta)
 	var command := ship.last_command
 	exterior.update_exhaust(1.0 if command.boost else minf(command.thrust.length(), 1.0), delta)
+	effects.update_effects(ship, delta)
 	exterior.update_ramp(ship.systems.walkway.progress, asin(clampf(drop / layout.ramp_rect.size.y, -0.9, 0.9)))
 
 
