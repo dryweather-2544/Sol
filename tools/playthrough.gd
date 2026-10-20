@@ -173,7 +173,8 @@ func _process(_delta: float) -> bool:
 				_say("back in space: PLAYTHROUGH OK")
 				return _finish()
 	if _frames % 600 == 0:
-		_say("step %d mode %d pos %s speed %s" % [_step, session.mode, str(session.interior_body.position), str(session.interior_body.velocity)])
+		_say("step %d mode %d pos %s speed %s message '%s' outer door %s walkway %d ship speed %.2f landed %s" % [_step, session.mode, str(session.interior_body.position), str(session.interior_body.velocity),
+			session.message, str(session.systems.airlock.outer.target_open), session.systems.walkway.state, session.ship.state.speed(), str(session.ship.state.landed)])
 	if _frames > 40000:
 		_say("FAIL: timed out in step %d (mode %d)" % [_step, session.mode])
 		return _finish()

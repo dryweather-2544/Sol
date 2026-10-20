@@ -80,6 +80,28 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 		ship_state.angular_velocity.x = 0.0
 		ship_state.angular_velocity.z = 0.0
 		_align_to(ship_state, ground_normal, delta)
+		# Tilting turns the ship about its centre, which can lift one end's feet; a resting ship stays seated on its
+		# lowest foot (unless it is climbing away). Without this a hovering gear could hold it just off the ground.
+		if normal_speed <= 0.0:
+			var gap := lowest_clearance_of(ship_state, planet, tuning)
+			if gap > 0.0:
+				var seat_up := planet.up_at(ship_state.position)
+				ship_state.position.x -= seat_up.x * gap
+				ship_state.position.y -= seat_up.y * gap
+				ship_state.position.z -= seat_up.z * gap
+
+
+## Smallest height of any support point above the terrain (negative = below it).
+static func lowest_clearance_of(ship_state: ShipState, planet: PlanetBody, tuning: ShipTuning) -> float:
+	var lowest := INF
+	for support_point in tuning.support_points:
+		var world_offset := ship_state.basis * support_point
+		var point_x := ship_state.position.x + world_offset.x
+		var point_y := ship_state.position.y + world_offset.y
+		var point_z := ship_state.position.z + world_offset.z
+		var point_distance := sqrt(point_x * point_x + point_y * point_y + point_z * point_z)
+		lowest = minf(lowest, point_distance - planet.surface_radius_xyz(point_x / point_distance, point_y / point_distance, point_z / point_distance))
+	return lowest
 
 
 static func _align_to(ship_state: ShipState, ground_normal: Vector3, delta: float) -> void:
