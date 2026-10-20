@@ -121,6 +121,9 @@ func _process(delta: float) -> void:
 	if session == null:
 		return
 	_apply_volumes()
+	if get_tree().paused:
+		_mute_gameplay_loops_for_pause()
+		return
 	_play_alarm(delta)
 	var inside := session.mode == GameSession.Mode.INSIDE or session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
 	var engine_bus: StringName = &"Interior" if inside else &"Ambience"
@@ -159,6 +162,17 @@ func _process(delta: float) -> void:
 	_play_event_cues(delta)
 	_play_state_cues()
 	_play_ship_control_cues(delta)
+
+
+## Paused menus run above the game; gameplay loops must not. UI one-shots on _sfx_players are
+## deliberately left alone so menu highlight/click calls made while paused stay audible.
+func _mute_gameplay_loops_for_pause() -> void:
+	for loop_player in _sample_loops.values():
+		(loop_player as AudioStreamPlayer).volume_db = -80.0
+	_engine_player.volume_db = -80.0
+	_wind_player.volume_db = -80.0
+	for world_player in _world_players:
+		world_player.stop()
 
 
 ## Plays a synthesised cue by name, or the recorded sound `sample_id` when there is one (falling back to the synthesised cue).

@@ -27,12 +27,12 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 ## N12 — ship flicker/ghosting fix (branch `n12-render-flicker`)
 - Root cause: after a floating-origin rebase the chase camera's interpolation history was reset before its new transform was written; the ship and camera rendered from different origins for a frame.
 - Fixed by applying the anchor first and recomputing/resetting the chase camera after the shift. Graphical probes: rest 0 px, COMBAT 21.09 px, CRUISE 69.32 px, WARP 0 px (0/1/10/132 rebases); all keep the ship visible. Before fix, a cruise rebase showed the camera behind the ship and a 1125 px projection jump.
-- Full suite: 322 tests / 97,116 assertions / 0 failures. Details: `docs/N12_RENDER_FIX.md`.
+- Full suite: 323 tests / 97,120 assertions / 0 failures (including paused gameplay-audio mute). Details: `docs/N12_RENDER_FIX.md`.
 
 ## N11 — Rodina reference audio (branch `n11-rodina-audio`)
 - 62 actual Rodina 1.6.2 WAV SFX copied byte-identically under `assets/sol/audio/rodina/`; engine/gear/warp/atmosphere/wind/RCS/weapons/impacts/doors/UI/pickup integrated through the existing library/service.
 - Responsive engine crossfades, power-scaled gain, WARP loop transitions, 3D projectile impacts and service lifecycle cleanup.
-- Headless suite 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 19/19 events. Footsteps and RCS hiss removed after playtest.
+- Headless suite 323 tests / 97,120 assertions / 0 failures; live CoreAudio check 19/19 events. Footsteps and RCS hiss removed after playtest.
 - Music `.egu` unsupported and not integrated. Human listening/levels still unjudged. Details: `docs/N11_REPORT.md`.
 
 ## N10 — WARP gear (branch `n10-warp`, latest remote base `143ca6e`)

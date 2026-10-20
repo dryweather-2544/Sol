@@ -264,7 +264,7 @@ and the commit is pushed.
 - [x] Copy all 62 shipped Rodina SFX into Sol's own asset tree without conversion, with hashes and inventory.
 - [x] Route engine/gear/warp, atmosphere/wind, RCS, guns/impacts, doors, UI and pickups through the existing audio service.
 - [x] Responsive gear engine crossfades, power-scaled gain, WARP transitions, 3D impact pool and lifecycle cleanup.
-- [x] Headless 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 19/19 after removing footsteps and the RCS hiss.
+- [x] Headless 323 tests / 97,120 assertions / 0 failures; live CoreAudio check 19/19 after removing footsteps and the RCS hiss; gameplay loops mute behind menus.
 - [ ] Human listening/level/loop-seam pass; music integration remains blocked by proprietary `.egu`.
 
 
@@ -273,5 +273,5 @@ and the commit is pushed.
 - [x] Reproduced the high-speed fault in the real main scene and separated it from the planet-behind case.
 - [x] Fixed chase-camera interpolation after floating-origin rebases; anchor is shifted first.
 - [x] Regression test for camera transform after rebase.
-- [x] 322 tests / 97,116 assertions / 0 failures; graphical probes before/after recorded.
+- [x] 323 tests / 97,120 assertions / 0 failures; graphical probes before/after recorded.
 - [ ] Human long-session playtest at COMBAT/CRUISE/WARP against a planet.

@@ -79,7 +79,7 @@ The flight model, WARP/gear behaviour, camera smoothing and origin threshold are
 ## Validation
 
 ```text
-Godot 4.7.2 | files 60 | tests 322 | assertions 97,116 | failures 0
+Godot 4.7.2 | files 60 | tests 323 | assertions 97,120 | failures 0
 ```
 
 Graphical checks used the real main scene with Metal and the chase camera. No human long-session

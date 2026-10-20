@@ -27,6 +27,10 @@ After the first playtest, footsteps and all RCS/attitude-control audio were remo
 fired on mouse-turn input, and the player asked for both sounds to be gone. The reference assets
 remain inventoried but are no longer routed to gameplay.
 
+A later playtest reported gameplay noise behind the pause menu. `AudioService._process` now runs
+`_mute_gameplay_loops_for_pause()` whenever the tree is paused, muting engine/wind/ambient loops and
+stopping 3D world players while leaving UI one-shots available for menu highlight/click.
+
 WARP activation/exit is tied to the existing N10 gear transition: the authored gear-up/down cue
 sounds and the warp loop crossfades; no second warp system was introduced. Engine loops are created
 once and reused, faded at 4/s; power-starved/damaged engines lower their gain.
@@ -52,7 +56,7 @@ once and reused, faded at 4/s; power-starved/damaged engines lower their gain.
 Headless suite:
 
 ```text
-Godot 4.7.2 | files 60 | tests 320 | assertions 97,109 | failures 0
+Godot 4.7.2 | files 60 | tests 323 | assertions 97,120 | failures 0
 ```
 
 Live check (real main scene, CoreAudio, display):
