@@ -222,10 +222,13 @@ static func step(state: ShipState, cmd: PilotCommand, env: FlightEnvironment, de
 - `ShipState` (pure data): planet-frame position (doubles), velocity, orientation (Basis),
   angular velocity, gear, landed flags. `FlightEnvironment`: gravity vector, atmosphere ratio,
   terrain query callable.
-- Flight model [D, informed by FLY-05..12]: 6DOF with inertia and flight assist; per-gear
-  max speed, acceleration, lateral strength (Rodina's `MoveStrengths` idea); gravity from the
-  planet; atmosphere drag and optional roll auto-level (Rodina is roll-only, FLY-28);
-  cruise speed scales with altitude. Not copying relative-time/Limnal math.
+- Flight model *(ADR 0008; rules and evidence in `docs/RODINA_PHYSICS_AUDIT.md`)*: Sol's implementation of
+  Rodina 1.6.2's `EGVehicle` rules. Thrust steers the velocity toward a target at a limited rate and no input
+  applies nothing (momentum kept; drag only far over the gear speed); turn input is angular acceleration with
+  friction only while coasting and only in air; per-gear table from `EGDataShipPlayer`; ships feel planet
+  gravity x 3.5; entry resistance only while entering; roll-only levelling in the air (a setting). AI facing
+  sets the turn rate directly; AI/scripted pilots hold velocity with `move_lock`. No altitude-triggered
+  attitude rule. Cruise speed scales with distance (Sol's stand-in for Rodina's relative time).
 - **Fixed 60 Hz physics tick; flight runs in `_physics_process` only.** Deterministic given
   the same command stream → replay tests.
 - High-speed safety: at cruise (up to 10 km/s ≈ 167 m per tick) each step sweeps the segment

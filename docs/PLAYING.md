@@ -16,8 +16,11 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 ## The loop
 
 1. You start in orbit, 300 km above Aurelia, in cruise gear. Point the nose at the planet (mouse), hold **W**.
-   The ship slows itself near the ground. Below 400 m it eases itself upright; land belly-down, gently
-   (touchdown over about 15 m/s damages the hull).
+   The ship flies like Rodina's: it keeps its speed and its spin when you let go (only the air slows a spin), and
+   it feels the planet's pull, so with no thrust it falls. Enter the air no faster than about 4 km/s nose-down or
+   the hull burns ("STEEP REENTRY"). Near the ground drop to DOCK gear (**[**), where up/down thrust is strongest,
+   and hold **Space** to slow the descent; touch down belly-down below about 15 m/s or the hull is damaged. In the
+   air the ship eases its *roll* level (never its pitch); turn that off or down in Settings, "Ship horizon levelling".
 2. When the HUD says LANDED, press **F** to stand up. Walk to the cabin's rear (the airlock): panels glow green
    next to each door; **F** at a panel toggles the door. Inner door first, step in, close it, then the outer door
    (this also lowers the ramp). Walk down the ramp onto the ground.

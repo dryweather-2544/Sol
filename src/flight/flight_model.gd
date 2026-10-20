@@ -158,7 +158,7 @@ static func _entry_push(ship_state: ShipState, environment: FlightEnvironment, d
 
 
 ## Rotation friction for this gear here: the planet's AtmosphereFriction at and below the gear's full-friction ratio,
-## fading to none at the top of the atmosphere (EGDataShipPlayer.lua:136,152,164).
+## fading to none at the top of the atmosphere (EGDataShipPlayer.lua:139,157,177).
 static func rotation_friction(tuning: ShipTuning, gear: int, environment: FlightEnvironment) -> float:
 	var full_ratio: float = tuning.gear_full_friction_ratio[gear]
 	var fade := clampf((environment.atmosphere_ratio - full_ratio) / (1.0 - full_ratio), 0.0, 1.0)

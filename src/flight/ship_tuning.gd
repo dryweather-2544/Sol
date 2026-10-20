@@ -2,7 +2,7 @@ class_name ShipTuning
 extends Resource
 ## Handling numbers for one ship, per gear (Sol gear 0 dock, 1 combat, 2 cruise = Rodina gears 1, 2, 3). Values are
 ## the player-ship table of Rodina 1.6.2 (Scripts/DataGameplay/EGDataShipPlayer.lua, EGShipPlayer:UpdateGearSettings,
-## lines 125-170), used by FlightModel in Sol's own implementation of the same rules; see docs/RODINA_PHYSICS_AUDIT.md.
+## lines 131-177), used by FlightModel in Sol's own implementation of the same rules; see docs/RODINA_PHYSICS_AUDIT.md.
 ## Cruise top speed is Sol's own distance-scaled limit (FlightEnvironment.cruise_speed_limit) instead of Rodina's
 ## relative-time multiplier; Sol's planets and distances are much smaller.
 
