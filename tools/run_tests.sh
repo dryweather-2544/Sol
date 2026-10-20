@@ -13,4 +13,4 @@ else echo "Godot not found. Set GODOT=/path/to/Godot or install Godot 4.7.2." >&
 echo "Using: $godot_bin"; "$godot_bin" --version
 # First run (or after deleting .godot/) needs an import so class_name scripts are registered.
 "$godot_bin" --headless --path . --import >/dev/null 2>&1 || true
-"$godot_bin" --headless --path . -s res://tests/run_tests.gd
+"$godot_bin" --headless --path . -s res://tests/run_tests.gd "$@"

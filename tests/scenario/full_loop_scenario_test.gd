@@ -178,7 +178,7 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 	assert_true(farthest > 40.0, "really is far from the ship: %f" % farthest)
 
 	# 5. Come back and walk up the ramp.
-	assert_true(_walk_outside_to_local(Vector3(0, -2.0, 12.6), GameSession.Mode.INSIDE), "walked back up the ramp (mode %d)" % _session.mode)
+	assert_true(_walk_outside_to_local(Vector3(0, -1.0, 10.9), GameSession.Mode.INSIDE), "walked back up the ramp to the door (mode %d)" % _session.mode)
 	assert_eq(_session.mode, GameSession.Mode.INSIDE)
 
 	# 6. Close the outer door behind, open the inner door, walk to the cockpit (doors are still open) and sit.

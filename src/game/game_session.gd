@@ -9,11 +9,15 @@ enum Mode { SEATED, SITTING, INSIDE, OUTSIDE }
 
 const ACTOR := &"player"
 const PILOT_SEAT := &"pilot_seat"
-## How far past the ramp's last metre before the walker is considered outside.
-## The walker's body stops RADIUS short of the ramp's end, so "reached the end" means within this margin of that.
-const RAMP_EXIT_MARGIN := 0.1
-## How far onto the ramp an outside walker must be before counting as boarded.
-const RAMP_ENTER_DEPTH := 0.8
+## The deployed ramp is walked on as ground (an outside floor), so walking along, across or off it follows the input.
+## The walker changes between the ship's interior and the outside at the outer doorway, at the hull's rear face:
+## going in a little before it, coming out a little after it (the gap stops flip-flopping on the line).
+const DOOR_ENTER_Z := ShipHullCollision.HULL_REAR_Z + 0.1
+const DOOR_EXIT_Z := ShipHullCollision.HULL_REAR_Z + 0.35
+## Feet may be this far below the ramp surface and still step onto it; any lower and the ramp's edge is a wall.
+const RAMP_STEP_UP := 0.4
+## Radius of the walker against the hull and the ramp's sides.
+const OUTSIDE_RADIUS := 0.4
 const DOORWAY_MARGIN := 0.5
 ## Crew stations that exist in the layout but are not usable yet (reactor panel and fire gear come with N4, the gun with N6).
 const STATION_NAMES := {&"engine_station": "Engine station", &"gunner_seat": "Gunner seat"}
@@ -347,10 +351,10 @@ func _is_anyone_on_ramp() -> bool:
 	return false
 
 
-## Inside -> outside once the walker reaches the far end of the ramp.
+## Inside -> outside once the walker is out through the outer doorway onto the ramp. Position, heading and velocity
+## carry over unchanged; from here the ramp is an outside floor (see _ramp_floor_distance).
 func _maybe_walk_out() -> void:
-	var ramp := systems.layout.ramp_rect
-	if not systems.layout.ramp_walkable or interior_body.position.z < ramp.end.y - InteriorBody.RADIUS - RAMP_EXIT_MARGIN:
+	if not systems.layout.ramp_walkable or interior_body.position.z < DOOR_EXIT_Z:
 		return
 	if not player_state.try_go_outside().ok():
 		return
@@ -361,24 +365,27 @@ func _maybe_walk_out() -> void:
 	mode = Mode.OUTSIDE
 
 
-## Outside -> inside when the walker steps onto the deployed ramp's far end.
+## Outside -> inside when the walker, on the deployed ramp, reaches the outer doorway. Position, heading and
+## velocity carry over unchanged.
 func _maybe_walk_in() -> void:
 	if not systems.walkway.is_deployed():
 		return
 	var local := ShipFrame.local_from_world(ship.state, exterior_body.position)
 	var ramp := systems.layout.ramp_rect
-	var on_ramp_end := absf(local.x) < ramp.size.x * 0.5 and local.z < ramp.end.y - RAMP_ENTER_DEPTH and local.z > ramp.position.y
-	if not on_ramp_end or not player_state.try_go_inside().ok():
+	var in_doorway := absf(local.x) <= ramp.size.x * 0.5 - InteriorBody.RADIUS and local.z < DOOR_ENTER_Z and local.z > ramp.position.y - OUTSIDE_RADIUS
+	if not in_doorway or not player_state.try_go_inside().ok():
 		return
 	var facing_local := ship.state.basis.transposed() * exterior_body.heading
 	var yaw := atan2(-facing_local.x, -facing_local.z)
+	var velocity_local := ship.state.basis.transposed() * exterior_body.velocity
 	interior_body.place(Vector3(local.x, systems.layout.floor_height_at(local.x, local.z), local.z), yaw)
+	interior_body.velocity = Vector2(velocity_local.x, velocity_local.z)
 	mode = Mode.INSIDE
 
 
 func _keep_outside_body_out_of_hull() -> void:
 	var local := ShipFrame.local_from_world(ship.state, exterior_body.position)
-	var corrected := ShipHullCollision.push_out(local, 0.4, systems.layout.ramp_rect, systems.walkway.progress > 0.0)
+	var corrected := ShipHullCollision.push_out(local, OUTSIDE_RADIUS, systems.layout.ramp_rect, systems.walkway.progress > 0.0)
 	if corrected != local:
 		var corrected_world := ShipFrame.world_from_local(ship.state, corrected)
 		if exterior_body.grounded:
@@ -386,6 +393,48 @@ func _keep_outside_body_out_of_hull() -> void:
 		else:
 			exterior_body.position = corrected_world
 			exterior_body.velocity = Vector3.ZERO
+		local = corrected
+	_keep_out_of_ramp_sides(local)
+
+
+## The deployed ramp is a solid wedge: from the ground beside it, its sides are a wall wherever its surface is more
+## than RAMP_STEP_UP above the feet. The walker slides along that wall (only the velocity into it is removed).
+func _keep_out_of_ramp_sides(local: Vector3) -> void:
+	if not systems.walkway.is_deployed():
+		return
+	var layout := systems.layout
+	var ramp := layout.ramp_rect
+	var half_width := ramp.size.x * 0.5
+	if absf(local.x) >= half_width + OUTSIDE_RADIUS or local.z <= ramp.position.y or local.z >= ramp.end.y:
+		return
+	if local.y >= layout.floor_height_at(clampf(local.x, -half_width, half_width), local.z) - RAMP_STEP_UP:
+		return # standing on the ramp (or able to step onto it)
+	var side := 1.0 if local.x >= 0.0 else -1.0
+	var outward := ship.state.basis.x * side
+	var corrected_world := ShipFrame.world_from_local(ship.state, Vector3(side * (half_width + OUTSIDE_RADIUS), local.y, local.z))
+	var velocity := exterior_body.velocity
+	velocity -= outward * minf(0.0, velocity.dot(outward))
+	if exterior_body.grounded:
+		exterior_body.place_on_ground(planet, corrected_world, exterior_body.heading)
+	else:
+		exterior_body.position = corrected_world
+	exterior_body.velocity = velocity
+
+
+## Radial distance of the deployed ramp's surface above a planet-frame point, or -1 if the point is not over the ramp
+## or is too far below its surface to step onto it (then the ground under the ramp is the floor, and its sides walls).
+func _ramp_floor_distance(point_x: float, point_y: float, point_z: float) -> float:
+	if ship == null or systems == null or not systems.walkway.is_deployed():
+		return -1.0
+	var layout := systems.layout
+	var local := ShipFrame.local_from_world(ship.state, WorldPos.new(ship.state.position.frame_id, point_x, point_y, point_z))
+	if not layout.ramp_rect.has_point(Vector2(local.x, local.z)):
+		return -1.0
+	var surface_y := layout.floor_height_at(local.x, local.z)
+	if local.y < surface_y - RAMP_STEP_UP:
+		return -1.0
+	var surface := ShipFrame.world_from_local(ship.state, Vector3(local.x, surface_y, local.z))
+	return planet.distance_from_center(surface)
 
 
 ## Shows a short message in the prompt line.
@@ -622,8 +671,11 @@ func player_fire(aim_direction: Vector3) -> void:
 	pistol.try_fire(projectiles, muzzle, aim_direction, exterior_body.velocity, 0, self)
 
 
-## Floor radius under a point if it is inside an outpost depot, else -1 (use the terrain).
+## Floor radius under a point if it is on the deployed ramp or inside an outpost depot, else -1 (use the terrain).
 func _floor_override(point_x: float, point_y: float, point_z: float) -> float:
+	var ramp_floor := _ramp_floor_distance(point_x, point_y, point_z)
+	if ramp_floor >= 0.0:
+		return ramp_floor
 	for instance in nearby_pois:
 		if instance.type != PoiDefinition.Type.OUTPOST:
 			continue

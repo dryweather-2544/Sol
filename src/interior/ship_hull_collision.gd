@@ -20,10 +20,12 @@ const POD_BOTTOM_Y := -1.6
 const POD_TOP_Y := 3.25
 
 
-## Returns the (possibly corrected) ship-local feet position. ramp_rect is only excepted when deployed.
+## Returns the (possibly corrected) ship-local feet position. When the ramp is deployed the outer doorway at its
+## top is open: a walker lined up with it (clear of the frame by `radius`) can pass into the hull's rear face.
 static func push_out(local_feet: Vector3, radius: float, ramp_rect: Rect2, ramp_deployed: bool) -> Vector3:
 	var feet := local_feet
-	if not (ramp_deployed and ramp_rect.grow(radius).has_point(Vector2(feet.x, feet.z))):
+	var in_doorway := absf(feet.x) <= ramp_rect.size.x * 0.5 - radius and feet.z >= ramp_rect.position.y - radius
+	if not (ramp_deployed and in_doorway):
 		feet = _push_out_of_box(feet, radius, -HULL_HALF_WIDTH, HULL_HALF_WIDTH, HULL_FRONT_Z, HULL_REAR_Z, HULL_BOTTOM_Y, HULL_TOP_Y)
 	for side in [-1.0, 1.0]:
 		var min_x := POD_MIN_X if side > 0.0 else -POD_MAX_X

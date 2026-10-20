@@ -44,7 +44,7 @@ func place_on_ground(planet: PlanetBody, new_position: WorldPos, facing: Vector3
 	var direction_x := new_position.x / distance
 	var direction_y := new_position.y / distance
 	var direction_z := new_position.z / distance
-	var ground_distance := planet.surface_radius_xyz(direction_x, direction_y, direction_z)
+	var ground_distance := _ground_distance(planet, direction_x, direction_y, direction_z, new_position.x, new_position.y, new_position.z)
 	position = WorldPos.new(new_position.frame_id, direction_x * ground_distance, direction_y * ground_distance, direction_z * ground_distance)
 	heading = _tangent_unit(facing, up)
 	velocity = Vector3.ZERO
