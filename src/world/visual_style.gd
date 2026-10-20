@@ -162,7 +162,7 @@ static func _ochre_steppe() -> PlanetLook:
 	look.back_color = _hex("#6b5a80")
 	look.ambient_space = _hex("#2a2236")
 	look.ambient_day = _hex("#8a7a86")
-	look.rim_color = _hex("#9fb0ff")
+	look.rim_color = _hex("#b4a0d0") # the bluer #9fb0ff read as a vivid blue ring round a violet-and-peach sky
 	look.impostor_color = _hex("#c79a6c")
 	return look
 
