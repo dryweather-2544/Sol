@@ -30,7 +30,9 @@ func update() -> void:
 		return
 	rebase_count += 1
 	var targets: Array = get_tree().get_nodes_in_group("origin_shift") if is_inside_tree() else []
-	if not targets.has(anchor):
-		targets.append(anchor)
+	# The anchor must move first: the chase camera recomputes its transform from the anchor in
+	# apply_origin_shift. Camera-after-ship also matches the order in the main scene.
+	targets.erase(anchor)
+	targets.push_front(anchor)
 	for target in targets:
 		target.apply_origin_shift(shift)

@@ -13,9 +13,14 @@ var target: Node3D
 var _smoothed_orientation := Quaternion.IDENTITY
 
 
-## Origin shifts move everything by a constant, so the camera just follows the ship; this only
-## clears interpolation history so it does not smear across the jump.
+## Origin shifts move everything by a constant. The ship is shifted first; recompute the camera
+## from it and reset interpolation afterwards so no pre-rebase camera sample survives.
 func apply_origin_shift(_shift: Vector3) -> void:
+	# The ship has already been moved to the new render origin (FloatingOrigin applies it first).
+	# Recompute the camera's current transform here as well, then reset its interpolation history:
+	# resetting before the next physics update would leave one pre-rebase camera sample to smear.
+	if target != null:
+		_apply(0.0)
 	reset_physics_interpolation()
 
 
@@ -28,6 +33,7 @@ func snap_to_target() -> void:
 		return
 	_smoothed_orientation = Quaternion(target.global_basis.orthonormalized())
 	_apply(0.0)
+	reset_physics_interpolation()
 
 
 func _physics_process(delta: float) -> void:

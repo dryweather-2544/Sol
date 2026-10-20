@@ -39,3 +39,19 @@ func test_fifty_km_flight_rebases_often_and_never_jumps() -> void:
 	assert_true(worst_local_distance < 1024.0 + 20.0, "ship stays near render origin: %f" % worst_local_distance)
 	floating_origin.free()
 	ship.free()
+
+
+func test_chase_camera_recomputes_its_transform_after_an_origin_rebase() -> void:
+	# The camera is reset after the ship moves, not before: otherwise the renderer keeps one
+	# pre-rebase camera sample and draws the ship at the edge of / behind the camera for a frame.
+	var ship := Ship.new()
+	var camera := ChaseCamera.new()
+	camera.target = ship
+	ship.position = Vector3(1200.0, 0.0, 0.0)
+	camera.snap_to_target()
+	ship.position = Vector3.ZERO
+	camera.apply_origin_shift(Vector3(1200.0, 0.0, 0.0))
+	var expected := ship.position + Basis.IDENTITY * camera.offset_behind_up
+	assert_near(camera.position.distance_to(expected), 0.0, 1e-5, "camera follows the rebased ship immediately")
+	camera.free()
+	ship.free()
