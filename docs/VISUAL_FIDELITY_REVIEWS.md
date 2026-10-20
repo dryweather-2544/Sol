@@ -51,7 +51,7 @@ zero at low speed and when the style is `sol`.
 - Remaining visual gap in that capture: trails are straighter/sparser than the reference's curved
   twin trails; the debug HUD dominates; the reference's painted galaxy band and blocky entry fire
   are still absent. Those are the next priorities, not reasons to undo this change.
-- Tests: 324 tests / 97,126 assertions / 0 failures. The camera-rebase test from N12 still passes.
+- Tests: 324 tests / 97,129 assertions / 0 failures. The camera-rebase test from N12 still passes.
 
 **Next iteration priority:** add the blue/white COMBAT-SPEED streak field or a galaxy/sky pass only
 after checking the corresponding reference sequence; do not add invented WARP visuals.
@@ -74,4 +74,4 @@ and more structured. The shipped `sky/tex_sky_starfield.png` is the intended tex
 current `starfield=false` setting hides it, so this procedural band is only a fallback under that
 setting. Sol style keeps `galaxy_amount=0` and is unchanged.
 
-Tests after both iterations: 324 tests / 97,126 assertions / 0 failures.
+Tests after both iterations: 324 tests / 97,129 assertions / 0 failures.
