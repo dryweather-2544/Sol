@@ -82,6 +82,9 @@ var ambient_energy_day := 0.55
 ## Glowing rim of the atmosphere seen from space, and the colour of the far-away impostor sphere.
 var rim_color := Color(0.35, 0.6, 1.0)
 var rim_power := 6.0 ## limb sharpness (lower = wider glow)
+## Rodina's atmosphere model (rodina_atmosphere.gdshaderinc) for sky and shell: shader parameter name -> value.
+## Empty = off (the Sol look and airless worlds keep the original sky and rim).
+var rodina_atmosphere := {}
 var rim_haze := 0.0 ## atmosphere colour laid over the lit disc from space
 var impostor_color := Color(0.5, 0.5, 0.5)
 

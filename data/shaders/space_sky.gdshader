@@ -6,6 +6,7 @@
 // style sets a per-planet two-colour gradient, a sun disc with a squared halo that widens toward the horizon and a sunset tint
 // on the sun-facing horizon (technique from research rendering_notes §4.3; constants are Sol's own).
 shader_type sky;
+#include "res://data/shaders/rodina_atmosphere.gdshaderinc"
 
 uniform sampler2D starfield : source_color, filter_linear, repeat_enable;
 uniform float starfield_amount : hint_range(0.0, 1.0) = 0.0;
@@ -37,6 +38,7 @@ uniform vec3 sunset_color = vec3(1.0, 0.5, 0.2);
 uniform float sunset_gain = 0.0;
 uniform vec3 up_direction = vec3(0.0, 1.0, 0.0); // local up of the viewer (the sky's horizon follows the planet surface)
 uniform float local_up_amount = 0.0; // 0 = the original world-Y gradient, 1 = gradient and sunset measured against up_direction
+uniform vec3 atm_eye = vec3(0.0, 1.0, 0.0); // viewer position in planet radii from the planet centre (rodina_atmosphere)
 
 float hash13(vec3 p) {
 	p = fract(p * 0.1031);
@@ -55,6 +57,20 @@ void sky() {
 		stars = textureLod(starfield, uv, 0.0).rgb;
 	}
 	stars = pow(max(stars, vec3(0.0)), vec3(star_gamma)) * star_gain * star_tint;
+	if (rodina_atmosphere) {
+		// Rodina: the atmosphere pass over space and stars (see rodina_atmosphere.gdshaderinc); thin airs let stars through.
+		vec3 eye_dir = normalize(EYEDIR);
+		float filter_amount;
+		vec4 air = rodina_atmosphere_at(atm_eye, eye_dir, sun_direction, 1.0e6, filter_amount);
+		float transmit = 1.0 - clamp(atm_density - 1.0, 0.0, 1.0) * air.a;
+		vec3 sky_color = (space_color + stars) * transmit + air.rgb * air.a;
+		// The star seen through the air (RodinaStar: filter-tinted), large as in the screenshots.
+		float sun_angle = acos(clamp(dot(eye_dir, sun_direction), -1.0, 1.0));
+		float star_disc = 1.0 - smoothstep(sun_disc_radius - 0.002, sun_disc_radius + 0.002, sun_angle);
+		vec3 disc_tint = sun_disc_color.r < 0.0 ? sun_color : sun_disc_color;
+		sky_color = mix(sky_color, disc_tint, star_disc * smoothstep(0.02, 0.2, air.a) * sun_disc_gain);
+		COLOR = sky_color;
+	} else {
 	vec3 space = space_color + stars * (1.0 - daylight);
 
 	vec3 up = normalize(up_direction);
@@ -87,4 +103,5 @@ void sky() {
 	space += sun_color * space_disc * sun_disc_gain * (1.0 - daylight) + sun_color * halo * halo * sun_halo_gain * 0.3 * (1.0 - daylight);
 	// (in space the star keeps its own colour: the filter colours belong to the air)
 	COLOR = mix(space, day_color, daylight);
+	}
 }

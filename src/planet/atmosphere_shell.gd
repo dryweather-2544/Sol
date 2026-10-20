@@ -19,8 +19,35 @@ func _init() -> void:
 	extra_cull_margin = 16384.0
 
 
+## Rodina style: the shell is the atmosphere itself, drawn with Rodina's atmosphere maths (rodina_atmosphere_shell).
+var _rodina_material := ShaderMaterial.new()
+
+
+## Shows Rodina's atmosphere around a planet of planet_radius (metres) with air atmosphere_height high. parameters: the
+## PlanetLook's rodina_atmosphere values. Returns false (and does nothing) when the look has none.
+func update_rodina(planet_radius: float, atmosphere_height: float, centre: Vector3, sun_direction: Vector3, star_radius_angle: float, parameters: Dictionary) -> bool:
+	if parameters.is_empty():
+		return false
+	if _rodina_material.shader == null:
+		_rodina_material.shader = load("res://data/shaders/rodina_atmosphere_shell.gdshader")
+	material_override = _rodina_material
+	position = centre
+	scale = Vector3.ONE * (planet_radius + atmosphere_height) * 1.005
+	for parameter in parameters:
+		var value: Variant = parameters[parameter]
+		_rodina_material.set_shader_parameter(parameter, Vector3(value.r, value.g, value.b) if value is Color else value)
+	_rodina_material.set_shader_parameter("rodina_atmosphere", true)
+	_rodina_material.set_shader_parameter("planet_centre", centre)
+	_rodina_material.set_shader_parameter("planet_radius", planet_radius)
+	_rodina_material.set_shader_parameter("atm_height", atmosphere_height / planet_radius)
+	_rodina_material.set_shader_parameter("atm_star_radius_angle", star_radius_angle)
+	_rodina_material.set_shader_parameter("sun_direction", sun_direction)
+	return true
+
+
 ## radius_metres: planet radius plus atmosphere height. centre: render-space position of the planet centre.
 func update_shell(radius_metres: float, centre: Vector3, sun_direction: Vector3, rim_color: Color, rim_power: float = 6.0, disc_haze: float = 0.0) -> void:
+	material_override = _material
 	position = centre
 	scale = Vector3.ONE * radius_metres
 	_material.set_shader_parameter("sun_direction", sun_direction)

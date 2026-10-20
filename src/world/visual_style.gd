@@ -230,9 +230,9 @@ static func _teal_alien() -> PlanetLook:
 ## colour now that the colours are known (docs/RODINA_PLANET_TYPES.md paired by orbit before they were); the ground
 ## palettes are unchanged.
 const RODINA_ATMOSPHERES := {
-	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0], "terminator": [0.2, -0.2], "surface_ambient": [32.0, 0.2, 0.25]},
-	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7], "terminator": [0.2, -0.5]},
-	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0], "terminator": [0.2, -0.5]},
+	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0], "halo": [0.02, 0.02, 0.2, 0.0],  "terminator": [0.2, -0.2], "surface_ambient": [32.0, 0.2, 0.25]},
+	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7], "halo": [0.1, 0.1, 0.2, 0.0],  "terminator": [0.2, -0.5]},
+	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0], "halo": [0.05, 0.2, 0.2, -1.0],  "terminator": [0.2, -0.5]},
 }
 
 
@@ -270,6 +270,7 @@ static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> P
 	look.sun_disc_gain = 1.0
 	look.fog_density = 6.0e-5
 	look.fog_aerial_perspective = 0.85
+	look.fog_thins_with_altitude = true # from orbit and high up the atmosphere shader does the haze, not the fog
 	# From orbit Rodina's limb is a soft pale glow (the owner's orbit screenshot), so the paler ScatterColor2 is used there.
 	look.rim_color = rodina_atmosphere_color(body_id, "scatter2")
 	# Lighting (N13 lighting pass), from Rodina's planet data and lighting model (rendering_notes §6.1-6.3):
@@ -292,6 +293,13 @@ static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> P
 	look.terminator_enabled = true
 	look.terminator_begin = data["terminator"][0]
 	look.terminator_end = data["terminator"][1]
+	# StarHalo, SunsetStarHalo, SunsetStarAngleBuffer, SunsetHorizonLimit from the same PlanetDef.
+	var halo: Array = data["halo"]
+	look.rodina_atmosphere = {
+		"atm_scatter1": rodina_atmosphere_color(body_id, "scatter1"), "atm_scatter2": rodina_atmosphere_color(body_id, "scatter2"),
+		"atm_filter1": rodina_atmosphere_color(body_id, "filter1"), "atm_filter2": rodina_atmosphere_color(body_id, "filter2"),
+		"atm_density": float(data["density"]), "atm_star_halo": halo[0], "atm_sunset_star_halo": halo[1],
+		"atm_sunset_star_buffer": halo[2], "atm_sunset_horizon_limit": halo[3]}
 	look.rim_power = 2.5
 	look.rim_haze = 0.15
 	look.orbit_color = look.orbit_color.lerp(look.rim_color, 0.25) # the terrain's far colour leans to the air's tint

@@ -173,3 +173,19 @@ From Rodina's planet data and lighting model (rendering_notes §6.1-6.3) and the
 - No back light: Jarilo's StarBacksideColor is black, and only Morena sets one.
 - Sunlight fades through TerminatorBegin..End (Jarilo .2/-.2, Veles and Zosia .2/-.5) by the sun's height.
 - Engine nozzle glow follows forward thrust only; reverse and strafe fire the thruster jets, as in Rodina.
+
+## 9. Rodina's atmosphere model in the sky and from orbit (rodina style)
+
+`data/shaders/rodina_atmosphere.gdshaderinc` rebuilds `_atmosphere.h` step by step from the audit
+(rendering_notes §4.1-4.6, line numbers in the file): the view-angle horizon factors with the 0.66 rad band,
+`color` blending Scatter1/2 and Filter1/2, `Approach` depth and the altitude-ratio density, the squared halo that
+widens through sunset, the sun-side sunset term, the 10-sample terminator shading, tint = saturate(D) and
+transmittance 1 - saturate(D - 1) * alpha (stars show through Jarilo's thin air, as in the screenshot). Each world's
+StarHalo, SunsetStarHalo, SunsetStarAngleBuffer and SunsetHorizonLimit come from its PlanetDef.
+- Sky (`space_sky.gdshader`): replaces the Sol two-colour gradient in the rodina style when in a planet's air.
+- From space (`rodina_atmosphere_shell.gdshader`): the same maths on a sphere the size of the atmosphere, added over
+  the scene with Rodina's transmittance. Over the ground the scatter is scaled to 0.35 (inferred, calibrated on the
+  owner's orbit screenshot: full strength washed the planet out to a flat disc).
+- Fog thins with altitude again (the shader does the high-altitude haze).
+Not in the audit, so inferred: EaseOutSin's input clamp, which factor the halo/sunset use as the horizon term, and the
+shade samples' range. Shots: `docs/n13_shots/v5` (first pass), `v6`, `v7` (orbit calibrated).

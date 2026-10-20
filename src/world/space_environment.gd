@@ -65,9 +65,11 @@ func apply_look(look: PlanetLook) -> void:
 		"sun_disc_radius": look.sun_disc_radius, "sun_halo_width": look.sun_halo_width, "sunset_halo_width": look.sunset_halo_width,
 		"sunset_color": look.sunset_color, "sunset_gain": look.sunset_gain,
 		"local_up_amount": 0.0 if look.family == &"sol" else 1.0}
+	parameters.merge(look.rodina_atmosphere)
 	for parameter in parameters:
 		var value: Variant = parameters[parameter]
 		_sky_material.set_shader_parameter(parameter, Vector3(value.r, value.g, value.b) if value is Color else value)
+	_sky_material.set_shader_parameter("rodina_atmosphere", false)
 
 
 ## daylight: 0 = space, 1 = full sky. up_direction: local up, for the horizon glow.
@@ -84,6 +86,18 @@ func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float
 	_environment.fog_sky_affect = 0.0
 	_environment.ambient_light_energy = lerpf(_look.ambient_energy_space, _look.ambient_energy_day, daylight)
 	_environment.ambient_light_color = _look.ambient_space.lerp(_look.ambient_day, daylight)
+
+
+## Rodina atmosphere sky (only when the look has one and the viewer is in a planet frame with air): eye in planet radii
+## from the centre (render axes), the atmosphere height over the radius, and the star's angular radius.
+func set_rodina_viewer(enabled: bool, eye: Vector3 = Vector3.UP, height_ratio: float = 0.03, star_radius_angle: float = 0.01) -> void:
+	var on := enabled and not _look.rodina_atmosphere.is_empty()
+	_sky_material.set_shader_parameter("rodina_atmosphere", on)
+	if on:
+		_sky_material.set_shader_parameter("atm_eye", eye)
+		_sky_material.set_shader_parameter("atm_height", height_ratio)
+		_sky_material.set_shader_parameter("atm_star_radius_angle", star_radius_angle)
+		# Rodina's air colours the ground haze too (its filter pass); keep the fog in the horizon scatter colour.
 
 
 ## sun_elevation: cosine of the sun's angle from the local up (dot(up, toward the sun)); 1 in open space. Rodina fades
