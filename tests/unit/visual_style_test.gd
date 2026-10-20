@@ -119,3 +119,29 @@ func test_rodina_profile_is_explicit_and_does_not_enter_flight_state() -> void:
 	assert_true(state.speed() > 0.0, "the ship still flies")
 	environment.free()
 	_reset()
+
+
+func test_rodina_terrain_uses_its_own_palette_and_plain_material() -> void:
+	_reset()
+	var profile := TerrainProfile.new()
+	var sol_color := ChunkMesher._color_for(profile, 0.0, 0.0, 0.0)
+	GameSettings.instance().visual_style = VisualStyleScript.RODINA
+	VisualStyleScript.set_style(VisualStyleScript.RODINA)
+	var rodina_color := ChunkMesher._color_for(profile, 0.0, 0.0, 0.0)
+	assert_true(not sol_color.is_equal_approx(rodina_color), "Rodina uses the separate terrain palette")
+	var terrain := PlanetTerrain.new(PlanetBody.new())
+	terrain.set_visual_style(true)
+	assert_true(terrain._rodina_mode, "terrain records the alternate detail presentation")
+	terrain.free()
+	_reset()
+
+
+func test_rodina_palette_values_are_not_a_global_tint() -> void:
+	_reset()
+	var system := StarSystem.default_system()
+	var home: TerrainProfile = (system.bodies[&"planet"] as BodyDef).terrain_profile
+	var verdant: TerrainProfile = (system.bodies[&"verdant"] as BodyDef).terrain_profile
+	assert_true(home.rodina_palette_mid != verdant.rodina_palette_mid, "worlds have distinct terrain palettes")
+	assert_true(home.rodina_palette_mid.r > home.rodina_palette_mid.b, "Aurelia's midland is warm")
+	assert_true(verdant.rodina_palette_mid.g > verdant.rodina_palette_mid.r, "Verdant's midland is cool/teal")
+	_reset()

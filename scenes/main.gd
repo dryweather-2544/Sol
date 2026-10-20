@@ -203,6 +203,10 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	VisualStyleScript.refresh_from_settings()
 	_apply_field_of_view()
+	if terrain != null:
+		terrain.set_visual_style(VisualStyleScript.is_rodina())
+	if ship.exterior_hull != null:
+		ship.exterior_hull.apply_visual_style(VisualStyleScript.is_rodina())
 	var actor_position := session.player_world_position()
 	if terrain != null:
 		terrain.viewer = actor_position
@@ -236,6 +240,7 @@ func _process(_delta: float) -> void:
 		sun_direction = Vector3(here.x - to_star.x, here.y - to_star.y, here.z - to_star.z).normalized()
 	space_environment.set_sun_direction(sun_direction)
 	if rocks != null:
+		rocks.set_density_scale(0.35 if VisualStyleScript.is_rodina() else 1.0)
 		var rock_viewer := session.player_world_position()
 		var rock_altitude := planet.altitude_above_ground(rock_viewer) if planet != null else INF
 		rocks.visible = planet != null and rock_altitude < 500.0
@@ -517,9 +522,10 @@ func _on_menu_resume() -> void:
 
 
 func _apply_field_of_view() -> void:
-	var fov := GameSettings.instance().field_of_view
-	var speed_pull := clampf(ship.state.speed() / 12000.0, 0.0, 1.0) * 6.0
-	var entry_pull := clampf(ship.state.entry_heat, 0.0, 1.0) * 4.0
+	var rodina := VisualStyleScript.is_rodina()
+	var fov := 60.0 if rodina else GameSettings.instance().field_of_view
+	var speed_pull := 0.0 if rodina else clampf(ship.state.speed() / 12000.0, 0.0, 1.0) * 6.0
+	var entry_pull := clampf(ship.state.entry_heat, 0.0, 1.0) * (2.0 if rodina else 4.0)
 	chase_camera.fov = fov + speed_pull + entry_pull
 	chase_camera.set_flight_effects(ship.state.speed(), ship.state.entry_heat)
 	cockpit_camera.fov = fov + entry_pull * 0.6

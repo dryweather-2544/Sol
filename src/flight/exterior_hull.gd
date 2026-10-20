@@ -31,6 +31,9 @@ var active := false
 var silhouette: HullSilhouette
 ## The hull's bounds in ship-local metres once placed (empty when not active).
 var bounds_in_ship := AABB()
+var _rodina_materials := false
+var _saved_surface_overrides := {} # MeshInstance3D -> Array[Material]
+var _rodina_material_cache := {} # original Material -> Material
 
 
 static func layer_bit(layer_number: int) -> int:
@@ -66,6 +69,59 @@ func _ready() -> void:
 		for side in [-1.0, 1.0]:
 			_add_leg(points, side * gear.x, gear.y)
 	active = true
+
+
+## Rodina profile: keep the cargo hull geometry and collision, but replace its yellow PBR surfaces
+## with a restrained dark industrial material. Emissive maps/normal detail are retained so small
+## accents and panel shape still read; the original surface overrides are restored for Sol.
+func apply_visual_style(rodina: bool) -> void:
+	if not active or rodina == _rodina_materials:
+		return
+	_rodina_materials = rodina
+	for instance in find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := instance as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		if rodina:
+			if not _saved_surface_overrides.has(mesh_instance):
+				var saved: Array[Material] = []
+				for surface in mesh_instance.mesh.get_surface_count():
+					saved.append(mesh_instance.get_surface_override_material(surface))
+				_saved_surface_overrides[mesh_instance] = saved
+			for surface in mesh_instance.mesh.get_surface_count():
+				var original := mesh_instance.get_surface_override_material(surface)
+				if original == null:
+					original = mesh_instance.mesh.surface_get_material(surface)
+				var dark_material := _rodina_material(original)
+				mesh_instance.set_surface_override_material(surface, dark_material)
+		else:
+			var saved_overrides: Array = _saved_surface_overrides.get(mesh_instance, [])
+			for surface in mesh_instance.mesh.get_surface_count():
+				mesh_instance.set_surface_override_material(surface, saved_overrides[surface] if surface < saved_overrides.size() else null)
+	_saved_surface_overrides.clear() if not rodina else null
+
+
+func _rodina_material(original: Material) -> Material:
+	if _rodina_material_cache.has(original):
+		return _rodina_material_cache[original]
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.16, 0.17, 0.19)
+	dark.metallic = 0.22
+	dark.roughness = 0.84
+	if original is BaseMaterial3D:
+		var source := original as BaseMaterial3D
+		dark.albedo_texture = source.albedo_texture
+		dark.normal_enabled = source.normal_enabled
+		dark.normal_texture = source.normal_texture
+		dark.normal_scale = source.normal_scale
+		dark.ao_enabled = source.ao_enabled
+		dark.ao_texture = source.ao_texture
+		dark.emission_enabled = source.emission_enabled
+		dark.emission_texture = source.emission_texture
+		dark.emission = source.emission
+		dark.emission_energy_multiplier = source.emission_energy_multiplier * 0.02
+	_rodina_material_cache[original] = dark
+	return dark
 
 
 ## The four gear contacts (same order GroundContact fits its ground plane to: -x-z, +x-z, -x+z, +x+z), then the nose and tail points that

@@ -40,6 +40,11 @@ static func default_system() -> StarSystem:
 	home.terrain_profile.palette_mid = Color(0.30, 0.27, 0.19)
 	home.terrain_profile.palette_high = Color(0.42, 0.40, 0.36)
 	home.terrain_profile.palette_rock = Color(0.24, 0.22, 0.20)
+	home.terrain_profile.rodina_palette_low = Color(0.24, 0.15, 0.09)
+	home.terrain_profile.rodina_palette_mid = Color(0.42, 0.27, 0.16)
+	home.terrain_profile.rodina_palette_high = Color(0.58, 0.40, 0.27)
+	home.terrain_profile.rodina_palette_snow = Color(0.68, 0.72, 0.77)
+	home.terrain_profile.rodina_palette_rock = Color(0.20, 0.16, 0.13)
 	home.color = Color(0.4, 0.55, 0.35)
 	home.rodina_color = Color(0.62, 0.42, 0.26) # ochre/salmon body disc
 	home.rodina_space_color = Color(0.040, 0.012, 0.070)
@@ -68,6 +73,11 @@ static func default_system() -> StarSystem:
 	moon.terrain_profile.palette_mid = Color(0.6, 0.6, 0.62)
 	moon.terrain_profile.palette_high = Color(0.78, 0.78, 0.8)
 	moon.terrain_profile.palette_rock = Color(0.3, 0.3, 0.32)
+	moon.terrain_profile.rodina_palette_low = Color(0.16, 0.14, 0.18)
+	moon.terrain_profile.rodina_palette_mid = Color(0.27, 0.24, 0.29)
+	moon.terrain_profile.rodina_palette_high = Color(0.40, 0.36, 0.42)
+	moon.terrain_profile.rodina_palette_rock = Color(0.13, 0.11, 0.15)
+	moon.terrain_profile.rodina_palette_snow = Color(0.56, 0.55, 0.62)
 	moon.terrain_profile.snow_height = 1.0e9
 	moon.terrain_profile.mid_amplitude = 100.0
 	moon.terrain_profile.large_amplitude = 300.0
@@ -104,6 +114,11 @@ static func default_system() -> StarSystem:
 	inner.terrain_profile.palette_mid = Color(0.7, 0.4, 0.2)
 	inner.terrain_profile.palette_high = Color(0.35, 0.25, 0.22)
 	inner.terrain_profile.snow_height = 1.0e9
+	inner.terrain_profile.rodina_palette_low = Color(0.25, 0.09, 0.04)
+	inner.terrain_profile.rodina_palette_mid = Color(0.48, 0.20, 0.08)
+	inner.terrain_profile.rodina_palette_high = Color(0.68, 0.34, 0.15)
+	inner.terrain_profile.rodina_palette_rock = Color(0.18, 0.07, 0.04)
+	inner.terrain_profile.rodina_palette_snow = Color(0.58, 0.32, 0.22)
 	system.bodies[inner.id] = inner
 
 	var outer := BodyDef.new()
@@ -132,6 +147,11 @@ static func default_system() -> StarSystem:
 	outer.terrain_profile.palette_low = Color(0.15, 0.4, 0.3)
 	outer.terrain_profile.palette_mid = Color(0.3, 0.55, 0.35)
 	outer.terrain_profile.palette_high = Color(0.5, 0.5, 0.45)
+	outer.terrain_profile.rodina_palette_low = Color(0.06, 0.20, 0.19)
+	outer.terrain_profile.rodina_palette_mid = Color(0.12, 0.36, 0.31)
+	outer.terrain_profile.rodina_palette_high = Color(0.27, 0.50, 0.40)
+	outer.terrain_profile.rodina_palette_rock = Color(0.12, 0.20, 0.18)
+	outer.terrain_profile.rodina_palette_snow = Color(0.65, 0.80, 0.80)
 	system.bodies[outer.id] = outer
 
 	var asteroid := BodyDef.new()
@@ -158,6 +178,11 @@ static func default_system() -> StarSystem:
 	asteroid.terrain_profile.palette_mid = Color(0.5, 0.45, 0.4)
 	asteroid.terrain_profile.palette_high = Color(0.6, 0.55, 0.5)
 	asteroid.terrain_profile.snow_height = 1.0e9
+	asteroid.terrain_profile.rodina_palette_low = Color(0.20, 0.16, 0.13)
+	asteroid.terrain_profile.rodina_palette_mid = Color(0.33, 0.27, 0.21)
+	asteroid.terrain_profile.rodina_palette_high = Color(0.44, 0.37, 0.30)
+	asteroid.terrain_profile.rodina_palette_rock = Color(0.14, 0.11, 0.09)
+	asteroid.terrain_profile.rodina_palette_snow = Color(0.50, 0.48, 0.46)
 	system.bodies[asteroid.id] = asteroid
 	return system
 

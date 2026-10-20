@@ -11,6 +11,7 @@ const MIN_DISTANCE := 9.0
 const REBUILD_DISTANCE := 9.0
 
 var planet: PlanetBody
+var density_scale := 1.0
 var _last_viewer := WorldPos.new(&"planet")
 var _last_origin := WorldPos.new(&"planet", INF, INF, INF)
 var _built := false
@@ -38,6 +39,14 @@ func _fallback_material() -> StandardMaterial3D:
 	material.albedo_color = Color(0.24, 0.22, 0.20)
 	material.roughness = 0.95
 	return material
+
+
+## Rodina mode keeps rocks as sparse landmarks rather than a dense scatter.
+func set_density_scale(value: float) -> void:
+	var clamped := clampf(value, 0.0, 1.0)
+	if not is_equal_approx(clamped, density_scale):
+		density_scale = clamped
+		_built = false
 
 
 ## viewer: current player/ship position in the planet frame. origin: render-space origin.
@@ -82,7 +91,7 @@ func _build(viewer: WorldPos, origin: WorldPos) -> void:
 					continue
 				var rng := RandomNumberGenerator.new()
 				rng.seed = SeedHash.string_hash("rock:%d:%d:%d" % [cx, cy, cz])
-				if rng.randf() > 0.34:
+				if rng.randf() > 0.34 * density_scale:
 					continue
 				var jitter := Vector3(rng.randf_range(-CELL * 0.42, CELL * 0.42), 0.0, rng.randf_range(-CELL * 0.42, CELL * 0.42))
 				var local := tangent + right * jitter.x + forward * jitter.z

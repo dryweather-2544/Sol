@@ -152,3 +152,28 @@ func test_legs_reach_the_ground_and_support_points_follow_the_hull() -> void:
 	assert_true(points[5].z < ShipHullCollision.HULL_REAR_Z, "the tail point is inside the hull")
 	_discard(ship)
 	settings.exterior_hull = original
+
+
+func test_rodina_hull_material_is_dark_and_restores_to_sol() -> void:
+	var settings := GameSettings.instance()
+	var original := settings.exterior_hull
+	settings.exterior_hull = true
+	var ship := _player_ship()
+	var hull := ship.exterior_hull
+	assert_true(hull != null and hull.active, "the cargo hull is available")
+	if hull != null and hull.active:
+		var mesh_instance: MeshInstance3D = null
+		for node in hull.find_children("*", "MeshInstance3D", true, false):
+			mesh_instance = node as MeshInstance3D
+			if mesh_instance.mesh != null and mesh_instance.mesh.get_surface_count() > 0:
+				break
+		assert_true(mesh_instance != null, "found a hull surface")
+		if mesh_instance != null:
+			hull.apply_visual_style(true)
+			var dark := mesh_instance.get_surface_override_material(0) as StandardMaterial3D
+			assert_true(dark != null and dark.albedo_color.v < 0.25, "Rodina hull is dark")
+			assert_true(dark.roughness > 0.7, "Rodina hull is not glossy")
+			hull.apply_visual_style(false)
+			assert_true(mesh_instance.get_surface_override_material(0) == null, "Sol restores the imported material")
+	_discard(ship)
+	settings.exterior_hull = original

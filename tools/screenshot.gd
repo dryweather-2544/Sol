@@ -42,6 +42,10 @@ func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 2 and not (OS.get_cmdline_user_args().size() > 0 and OS.get_cmdline_user_args()[0].ends_with("menu_title.png")):
 		_main.menu.dismiss() # skip the title screen
+	# A background screenshot process can lose focus (or inherit a pause) between runs. Keep the
+	# menu out of the reference captures; gameplay is unaffected.
+	if _frames > 2 and _main.menu.visible and not OS.get_cmdline_user_args()[0].ends_with("menu_title.png"):
+		_main.menu.dismiss()
 	var arguments := _args()
 	var mode := arguments[3] if arguments.size() > 3 else ""
 	if _frames == 2:

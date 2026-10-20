@@ -270,3 +270,18 @@ Changes that did not improve the result and were rejected:
 
 Still visibly wrong after P1: terrain is green and detail-dense, the cargo hull is bright and large,
 the HUD is modern, and entry effects remain smooth. Those are P2/P3/P4/P5 work, not P1 failures.
+
+## P2/P3 implementation audit
+
+P2/P3 added a dark material override and far camera framing for the cargo hull, plus separate
+per-body terrain palettes, plain vertex-colour terrain (no high-frequency detail texture) and a
+35% rock-scatter density for Rodina mode. The Sol profile remains unchanged.
+
+What improved: the yellow cargo hull now reads as a small dark silhouette; terrain is brown/ochre
+instead of green and loses the grass-like detail; per-body palette data is distinct.
+
+What did not: a 200 m camera reduced the ship to a dot; the current 100 m framing is a compromise.
+Retaining the bright emissive maps left a white canopy, so emission was reduced. The local captures
+sit on a low-relief plain, so the large mountain silhouettes seen in the references still need a
+dedicated terrain-location capture. The far camera costs low-descent performance (Rodina ~64 fps vs
+Sol ~79 fps at 1600x900), which needs a follow-up LOD/performance pass.

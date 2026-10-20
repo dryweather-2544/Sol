@@ -29,3 +29,11 @@ extends Resource
 @export var palette_snow := Color(0.95, 0.96, 1.0)
 @export var palette_rock := Color(0.38, 0.36, 0.34)
 @export var snow_height := 4200.0
+
+## Rodina-profile broad colour fields. Kept separate from the Sol palette so switching styles does not
+## mutate the original terrain definition (and Sol screenshots remain unchanged).
+@export var rodina_palette_low := Color(0.24, 0.15, 0.09)
+@export var rodina_palette_mid := Color(0.42, 0.27, 0.16)
+@export var rodina_palette_high := Color(0.58, 0.40, 0.27)
+@export var rodina_palette_snow := Color(0.68, 0.72, 0.77)
+@export var rodina_palette_rock := Color(0.20, 0.16, 0.13)

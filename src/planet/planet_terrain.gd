@@ -1,5 +1,6 @@
 class_name PlanetTerrain
 extends Node3D
+const VisualStyleScript = preload("res://src/world/visual_style.gd")
 ## The visible planet: keeps the set of chunk meshes matching the viewer position. Chunk meshes are
 ## built on worker threads and swapped in without leaving holes (a coarse chunk stays until its
 ## replacements are all on screen). Collision is not meshes: ship and player query the same
@@ -25,6 +26,7 @@ var viewer := WorldPos.new(&"planet")
 
 var _material := StandardMaterial3D.new()
 var _detail_material: ShaderMaterial ## null = plain vertex-colour material (switch off, or an asset missing)
+var _rodina_mode := false
 var _displayed := {}          # key -> {node, origin: WorldPos}
 var _displayed_prefixes := {} # key -> count of displayed descendants (so coverage checks are cheap)
 var _desired := {}
@@ -37,6 +39,7 @@ var _seconds_since_plan := PLAN_INTERVAL_SECONDS
 
 func _init(planet_body: PlanetBody = null) -> void:
 	name = "PlanetTerrain"
+	_rodina_mode = VisualStyleScript.is_rodina()
 	process_mode = Node.PROCESS_MODE_ALWAYS # keeps loading chunks behind the title screen / pause menu
 	planet = planet_body
 	planner = LodPlanner.new(planet_body)
@@ -57,6 +60,27 @@ func _process(delta: float) -> void:
 		_seconds_since_plan = 0.0
 		_replan()
 	_collect_finished_builds()
+
+
+## Switch terrain presentation without changing the generator. Rodina mode uses the authored
+## palette and plain vertex-colour material, so it removes the high-frequency detail texture while
+## keeping the same geometry and collision. Existing chunks are rebuilt because their vertex colours
+## are baked at build time.
+func set_visual_style(rodina: bool) -> void:
+	if rodina == _rodina_mode:
+		return
+	_rodina_mode = rodina
+	for key in _displayed:
+		(_displayed[key]["node"] as Node).queue_free()
+	_displayed.clear()
+	_displayed_prefixes.clear()
+	_desired.clear()
+	_pending.clear()
+	_build_queue.clear()
+	_build_state.cancelled = true
+	_build_state = BuildState.new()
+	_task_ids.clear()
+	_seconds_since_plan = PLAN_INTERVAL_SECONDS
 
 
 func apply_origin_shift(shift: Vector3) -> void:
@@ -148,7 +172,7 @@ func _show_chunk(key: int, mesh_data: Dictionary) -> void:
 	var origin_components: PackedFloat64Array = mesh_data["origin"]
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
-	if _detail_material != null:
+	if _detail_material != null and not _rodina_mode:
 		instance.material_override = _detail_material
 		instance.set_instance_shader_parameter("tile_offset", TerrainDetail.tile_offset(mesh_data["origin"]))
 	else:

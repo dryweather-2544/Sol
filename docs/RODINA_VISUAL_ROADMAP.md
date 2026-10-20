@@ -159,6 +159,12 @@ For each milestone:
 - Do not copy Rodina's proprietary shader/model/texture assets into Sol. The reference is
   behavioural/visual evidence.
 
+## P2/P3 status
+
+P2/P3 are implemented: dark cargo-hull material, far Rodina chase framing, per-body terrain
+palettes, plain vertex-colour terrain and reduced rock density. See `RODINA_VISUAL_P23_RESULTS.md`.
+P2/P3 need a mountain-location and per-body visual capture, plus a low-descent performance pass.
+
 ## P0/P1 status
 
 P0 and P1 are implemented and validated in the reversible profile. See

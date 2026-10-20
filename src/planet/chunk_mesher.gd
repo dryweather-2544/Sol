@@ -1,5 +1,6 @@
 class_name ChunkMesher
 extends RefCounted
+const VisualStyleScript = preload("res://src/world/visual_style.gd")
 ## Builds the mesh arrays for one chunk. Pure and thread-safe (reads the planet only), so it
 ## can run on worker threads. Vertices are stored relative to the chunk's origin point so they
 ## stay small; the caller places the node at origin - render_origin.
@@ -117,14 +118,20 @@ static func _border_indices(vertices_per_edge: int, which: int) -> PackedInt32Ar
 ## polar caps, and bare rock on steep ground (the material "gates" of research PLN-10, as simple CPU rules).
 static func _color_for(profile: TerrainProfile, height: float, steepness: float, latitude_sine: float) -> Color:
 	var latitude := absf(latitude_sine)
+	var rodina := VisualStyleScript.is_rodina()
+	var low := profile.rodina_palette_low if rodina else profile.palette_low
+	var mid := profile.rodina_palette_mid if rodina else profile.palette_mid
+	var high := profile.rodina_palette_high if rodina else profile.palette_high
+	var snow := profile.rodina_palette_snow if rodina else profile.palette_snow
+	var rock := profile.rodina_palette_rock if rodina else profile.palette_rock
 	var color: Color
 	if height < 1500.0:
-		color = profile.palette_low.lerp(profile.palette_mid, clampf((height + 500.0) / 2000.0, 0.0, 1.0))
+		color = low.lerp(mid, clampf((height + 500.0) / 2000.0, 0.0, 1.0))
 	else:
-		color = profile.palette_mid.lerp(profile.palette_high, clampf((height - 1500.0) / 2500.0, 0.0, 1.0))
+		color = mid.lerp(high, clampf((height - 1500.0) / 2500.0, 0.0, 1.0))
 	var snow_line := profile.snow_height - latitude * 3500.0
 	var snow_amount := clampf((height - snow_line) / 600.0, 0.0, 1.0)
 	if profile.snow_height < 1.0e8: # worlds with snow_height set absurdly high have no snow or ice at all
 		snow_amount = maxf(snow_amount, smoothstep(0.82, 0.95, latitude))
-	color = color.lerp(profile.palette_snow, snow_amount * (1.0 - clampf(steepness * 8.0, 0.0, 0.7)))
-	return color.lerp(profile.palette_rock, clampf(steepness * 6.0, 0.0, 0.8))
+	color = color.lerp(snow, snow_amount * (1.0 - clampf(steepness * 8.0, 0.0, 0.7)))
+	return color.lerp(rock, clampf(steepness * 6.0, 0.0, 0.8))
