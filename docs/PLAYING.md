@@ -15,7 +15,7 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 
 ## The loop
 
-1. You start in orbit, 300 km above Aurelia, in cruise gear. Point the nose at the planet (mouse), hold **W**.
+1. You start in orbit, 300 km above Aurelia, in CRUISE gear. Point the nose at the planet (mouse), hold **W**.
    The ship flies like Rodina's: it keeps its speed and its spin when you let go (only the air slows a spin), and
    it feels the planet's pull. Enter the air no faster than about 4 km/s nose-down or the hull burns ("STEEP
    REENTRY"). **[ ]** change gear; the HUD shows the gear and its top speed:

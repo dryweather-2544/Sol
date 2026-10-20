@@ -89,6 +89,8 @@ func _process(_delta: float) -> void:
 	gear_text += " (up to %s)" % ("%.0f m/s" % top_speed if top_speed < 1.0e4 else "%.0f km/s" % (top_speed / 1000.0))
 	if state.selected_gear != state.gear:
 		gear_text += ", %s selected: %s" % [gear_names[state.selected_gear], "no fuel" if state.fuel <= 0.0 else "not available here"]
+	elif state.gear < PilotCommand.GEAR_CRUISE and state.altitude_above_ground > 20000.0:
+		gear_text += "   - press ] for %s" % ("CRUISE" if state.gear == PilotCommand.GEAR_COMBAT else "COMBAT, then ] again for CRUISE")
 	_label.text = "fps %d   chunks %d\nspeed %.1f m/s   vertical %.1f m/s\n%s   %s\ngear %s   pilot: %s\n%s\n\nWASD thrust/strafe  Space/C up/down  Q/E roll\nmouse or arrows pitch/yaw  Shift boost  X brake\n[ ] gear: PRECISION (hovers, stops by itself) / COMBAT / CRUISE   V view  F stand up  F5 save  F9 load  Esc menu" % [
 		Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 		state.speed(), vertical_speed, altitude_text, FlightRegime.label(state.regime),

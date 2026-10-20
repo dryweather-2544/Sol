@@ -58,6 +58,8 @@ func _ready() -> void:
 	ship.planet = planet
 	ship.state.position = WorldPos.new(planet.frame_id, start_up.x * (planet.radius + START_ALTITUDE), start_up.y * (planet.radius + START_ALTITUDE), start_up.z * (planet.radius + START_ALTITUDE))
 	ship.state.basis = Basis.looking_at(-start_up, Vector3.UP) # nose toward the planet
+	ship.state.gear = PilotCommand.GEAR_CRUISE # start in orbit in cruise (PRECISION is for near the ground)
+	ship.state.selected_gear = PilotCommand.GEAR_CRUISE
 	ship.render_origin = ship.state.position.duplicate_position()
 	ship.state.gear = PilotCommand.GEAR_CRUISE # start in orbit, 300 km up: cruise gets you down in half a minute
 	session = GameSession.new(planet, ship, player_source) # gives the ship its interior systems
