@@ -202,21 +202,23 @@ static func _teal_alien() -> PlanetLook:
 		{"color": _hex("#a9c9c2"), "latitude_min": 0.88, "latitude_fade": 0.03, "slope_max": 0.12},
 		{"color": _hex("#2e3d3a"), "slope_min": 0.1, "slope_fade": 0.03},
 		{"color": _hex("#6f7a52"), "height_min": 2400.0, "height_fade": 500.0},
+		# Olive moss in broad patches breaks up the teal (the first photo pass was one flat teal from ground to sky).
+		{"color": _hex("#5b6b3a"), "mask_scale": 12000.0, "mask_min": 0.3, "mask_fade": 0.12, "mask_seed": 5},
 		{"color": _hex("#2f6f62"), "mask_scale": 7000.0, "mask_min": 0.2, "mask_fade": 0.12, "mask_seed": 3},
 		{"color": _hex("#1f4440"), "height_max": 300.0, "height_fade": 350.0},
 	]
 	look.base_color = _hex("#2b5a4f")
 	look.orbit_color = _hex("#3f7a6c")
-	look.sky_zenith = _hex("#2f6f7a")
-	look.sky_horizon = _hex("#9fd7c4")
+	look.sky_zenith = _hex("#3a6f9e") # bluer than the ground, so sky and land separate
+	look.sky_horizon = _hex("#bcdccc")
 	look.sunset_color = _hex("#ffb070")
-	look.fog_color = _hex("#7fb8a8")
-	look.fog_density = 3.0e-5
+	look.fog_color = _hex("#9cc4b8")
+	look.fog_density = 2.2e-5
 	look.sun_color = _hex("#d6fff0")
 	look.back_color = _hex("#22404a")
 	look.ambient_space = _hex("#14262a")
 	look.ambient_day = _hex("#4a6a68")
-	look.rim_color = _hex("#7fffd0")
+	look.rim_color = _hex("#86c9b4") # the vivid #7fffd0 read as neon in the orbit photo
 	look.impostor_color = _hex("#3f7a6c")
 	return look
 
