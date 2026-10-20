@@ -33,6 +33,9 @@ var atmosphere_scattering := true
 var clouds := true
 ## Prototype: show the Cargo Spaceship hull to outside cameras (see ExteriorHull); off keeps the blockout exterior.
 var exterior_hull := true
+## Presentation profile: "sol" is the existing renderer; "rodina" is the evidence-based
+## alternate sky/space/atmosphere/lighting look. This is a preference, never save data.
+var visual_style := "sol"
 
 
 static func instance() -> GameSettings:
@@ -64,6 +67,7 @@ func save_to_file() -> String:
 	config.set_value("assets", "atmosphere_scattering", atmosphere_scattering)
 	config.set_value("assets", "clouds", clouds)
 	config.set_value("assets", "exterior_hull", exterior_hull)
+	config.set_value("video", "visual_style", visual_style)
 	config.set_value("meta", "version", SETTINGS_VERSION)
 	var error := config.save(path)
 	return "" if error == OK else "could not save settings (error %d)" % error
@@ -90,6 +94,7 @@ func load_from_file() -> void:
 	atmosphere_scattering = bool(config.get_value("assets", "atmosphere_scattering", atmosphere_scattering))
 	clouds = bool(config.get_value("assets", "clouds", clouds))
 	exterior_hull = bool(config.get_value("assets", "exterior_hull", exterior_hull))
+	visual_style = str(config.get_value("video", "visual_style", visual_style))
 	if version < SETTINGS_VERSION:
 		# One-time migration from the N9 tooling file. Apply it after reading the old keys so the
 		# explicit all-off state cannot override the repaired values. A file missing these keys

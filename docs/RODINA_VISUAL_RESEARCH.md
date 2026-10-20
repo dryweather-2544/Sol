@@ -243,3 +243,30 @@ Unknown:
 - Full planet-by-planet data values; Rodina stores atmosphere/filter/feature colours in data, not
   in one universal palette.
 - Whether some Rodina shots use custom mods or debug settings.
+
+## P1 implementation audit
+
+P0/P1 was implemented after this research. The profile is reversible via the pause-menu setting or
+`SOL_VISUAL_STYLE`; see `RODINA_VISUAL_P1_RESULTS.md` for the implementation and comparisons.
+
+Actual results that improved fidelity:
+
+- near-black purple space with visible stars;
+- flat salmon/teal sky instead of the physical blue-white atmosphere;
+- a hard cyan sun disc and much lower ambient/SSAO/ACES contribution;
+- clouds hidden in the alternate profile;
+- a simple cool two-colour orbital limb instead of the thick scattering shell;
+- distinct authored sky/sun palettes for Aurelia, Cinder, Verdant and airless bodies.
+
+Changes that did not improve the result and were rejected:
+
+- keeping the physical scattering shader and only recolouring it: the limb remained too thick and
+  made the orbit read as Sol with a tint;
+- retaining the existing cloud shell: it dominates the sky and hides the reference's flat horizon;
+- a wide additive atmosphere rim: it produced a brown/tan band over the green terrain; the final
+  version uses a much tighter rim and a cool limb colour.
+- a global saturation multiplier: not used; the visible colour changes come from per-body authored
+  palettes and a warmer per-body sun light.
+
+Still visibly wrong after P1: terrain is green and detail-dense, the cargo hull is bright and large,
+the HUD is modern, and entry effects remain smooth. Those are P2/P3/P4/P5 work, not P1 failures.

@@ -1,5 +1,6 @@
 class_name BodyImpostors
 extends Node3D
+const VisualStyleScript = preload("res://src/world/visual_style.gd")
 ## Draws every body that is not the active planet (other planets, moons, the star) as a sphere
 ## placed along the true direction at a fixed render distance, scaled so its angular size is
 ## correct. The active planet has real terrain instead. Lit by the same sun as everything else,
@@ -52,11 +53,13 @@ func _process(_delta: float) -> void:
 	for body_id in _nodes:
 		var node: MeshInstance3D = _nodes[body_id]
 		var body: BodyDef = system.bodies[body_id]
+		if node.material_override is StandardMaterial3D:
+			(node.material_override as StandardMaterial3D).albedo_color = body.rodina_color if VisualStyleScript.is_rodina() else body.color
 		node.visible = body_id != runtime.active_frame
 		if _shells.has(body_id):
 			(_shells[body_id] as Node3D).visible = node.visible
 		if _cloud_shells.has(body_id):
-			(_cloud_shells[body_id] as Node3D).visible = node.visible and GameSettings.instance().clouds
+			(_cloud_shells[body_id] as Node3D).visible = node.visible and GameSettings.instance().clouds and not VisualStyleScript.is_rodina()
 		if not node.visible:
 			continue
 		var center := system.body_position(body_id, runtime.time_seconds)
@@ -77,6 +80,6 @@ func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_fa
 	if not _shells.has(body_id):
 		return
 	var sun := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds) if runtime.active_frame != StarSystem.SYSTEM_FRAME else Vector3(0, 0, -1)
-	(_shells[body_id] as AtmosphereShell).update_shell(body.radius * scale_factor, body.atmosphere_height * scale_factor, centre, sun, body.atmosphere_color)
+	(_shells[body_id] as AtmosphereShell).update_shell(body.radius * scale_factor, body.atmosphere_height * scale_factor, centre, sun, body.atmosphere_color, body)
 	if _cloud_shells.has(body_id):
 		(_cloud_shells[body_id] as CloudShell).update_shell(body.radius * scale_factor, body.cloud_altitude * scale_factor, centre, sun, body, runtime.time_seconds)

@@ -1,5 +1,6 @@
 class_name PauseMenu
 extends CanvasLayer
+const VisualStyleScript = preload("res://src/world/visual_style.gd")
 ## Title screen and pause menu in one: the same buttons, the title screen just adds the game name
 ## and a "New game" that waits for the terrain to load. Pauses the tree while visible.
 
@@ -112,6 +113,17 @@ func _build_settings() -> void:
 	invert.button_pressed = settings.invert_pitch
 	invert.toggled.connect(func(pressed): settings.invert_pitch = pressed)
 	_box.add_child(invert)
+	var style_label := Label.new()
+	style_label.text = "Visual style"
+	_box.add_child(style_label)
+	var style_button := Button.new()
+	style_button.text = "Visual style: " + VisualStyleScript.label(settings.visual_style)
+	style_button.custom_minimum_size = Vector2(320, 40)
+	style_button.pressed.connect(func():
+		settings.visual_style = VisualStyleScript.RODINA if settings.visual_style == VisualStyleScript.SOL else VisualStyleScript.SOL
+		VisualStyleScript.set_style(settings.visual_style)
+		style_button.text = "Visual style: " + VisualStyleScript.label(settings.visual_style))
+	_box.add_child(style_button)
 	_add_button("Back", func():
 		var error := settings.save_to_file()
 		_status.text = error

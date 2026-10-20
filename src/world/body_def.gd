@@ -25,6 +25,19 @@ var color := Color(0.5, 0.5, 0.5)
 ## Colour of the glowing rim around the atmosphere.
 var atmosphere_color := Color(0.29, 0.48, 1.0) # default: Earth-like Rayleigh blue (ratio of 1 / wavelength^4 at 0.65 / 0.57 / 0.475 um)
 
+## Rodina presentation palette. These are deliberately separate from the physical atmosphere/terrain
+## colours so the Rodina profile can use flat, saturated skies without changing the Sol profile or
+## the terrain surfaces. Values are authored as sRGB and converted by source_color shader uniforms.
+var rodina_space_color := Color(0.040, 0.012, 0.070)
+var rodina_sky_zenith := Color(0.10, 0.18, 0.24)
+var rodina_sky_horizon := Color(0.72, 0.50, 0.44)
+var rodina_sun_color := Color(0.35, 0.92, 0.92)
+## Sunlight used on surfaces in Rodina profile; can be warmer than the visible disc.
+var rodina_light_color := Color(1.0, 0.90, 0.78)
+var rodina_ambient_color := Color(0.045, 0.035, 0.055)
+## Colour used for the body's distant impostor sphere in Rodina profile.
+var rodina_color := Color(0.55, 0.50, 0.42)
+
 
 ## Distance within which this body's own frame takes over (research PRC-01: 10 x radius).
 func sphere_of_influence() -> float:

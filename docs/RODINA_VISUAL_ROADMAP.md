@@ -159,7 +159,13 @@ For each milestone:
 - Do not copy Rodina's proprietary shader/model/texture assets into Sol. The reference is
   behavioural/visual evidence.
 
-## Immediate next step
+## P0/P1 status
+
+P0 and P1 are implemented and validated in the reversible profile. See
+`RODINA_VISUAL_P1_RESULTS.md` for screenshots, tests and performance. P2/P3 are the next
+priorities: ship silhouette/material value, then terrain colour/detail/framing.
+
+## Immediate next step (after P1)
 
 Implement Priority 0 + 1 as a reversible `rodina` visual profile: capture the current baseline,
 then change only the sky/space palette, exposure/ambient and sun/limb. Review the orbit and 50 km

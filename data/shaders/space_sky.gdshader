@@ -10,6 +10,15 @@ uniform float daylight : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0);
 // 1 = the original gradient day sky; lowered when the scattering atmosphere shell supplies the sky colour.
 uniform float gradient_amount : hint_range(0.0, 1.0) = 1.0;
+// Rodina profile: a deliberately flat, colour-led sky. Separate from the physical Sol atmosphere.
+uniform float rodina_mode : hint_range(0.0, 1.0) = 0.0;
+uniform vec4 rodina_space_color : source_color = vec4(0.040, 0.012, 0.070, 1.0);
+uniform vec4 rodina_sky_zenith : source_color = vec4(0.10, 0.18, 0.24, 1.0);
+uniform vec4 rodina_sky_horizon : source_color = vec4(0.72, 0.50, 0.44, 1.0);
+uniform vec4 rodina_sun_color : source_color = vec4(0.35, 0.92, 0.92, 1.0);
+uniform vec3 horizon_up = vec3(0.0, 1.0, 0.0);
+uniform float rodina_sun_size : hint_range(0.99, 0.99999) = 0.9990;
+uniform float rodina_star_strength : hint_range(0.0, 2.0) = 0.9;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.1031);
@@ -55,6 +64,20 @@ void sky() {
 	vec3 space_color = vec3(0.003, 0.004, 0.010) + stars * (1.0 - daylight);
 
 	vec3 eye = normalize(EYEDIR);
+	if (rodina_mode > 0.5) {
+		vec3 rodina_space = rodina_space_color.rgb + stars * rodina_star_strength;
+		float up = dot(eye, normalize(horizon_up));
+		float horizon = pow(clamp(1.0 - abs(up), 0.0, 1.0), 3.0);
+		vec3 day = mix(rodina_sky_zenith.rgb, rodina_sky_horizon.rgb, horizon);
+		// Stars remain visible in the reference daylight skies; they are part of the graphic read.
+		day += stars * rodina_star_strength * 0.28;
+		float sun_amount = max(dot(eye, normalize(sun_direction)), 0.0);
+		float disc = smoothstep(rodina_sun_size - 0.00015, rodina_sun_size, sun_amount);
+		float halo = pow(sun_amount, 32.0) * 0.35 + pow(sun_amount, 256.0) * 0.8;
+		day = mix(day, rodina_sun_color.rgb, disc);
+		day += rodina_sun_color.rgb * halo;
+		COLOR = mix(rodina_space, day, daylight);
+	} else {
 	float sun_amount = max(dot(eye, sun_direction), 0.0);
 	float up = clamp(eye.y, 0.0, 1.0);
 	float horizon = pow(clamp(1.0 - abs(eye.y), 0.0, 1.0), 5.0);
@@ -71,4 +94,5 @@ void sky() {
 	float cloud_band = smoothstep(0.50, 0.74, cloud) * smoothstep(0.02, 0.22, eye.y) * (1.0 - smoothstep(0.58, 0.88, eye.y));
 	day_color = mix(day_color, vec3(0.80, 0.83, 0.86), cloud_band * 0.22);
 	COLOR = mix(space_color, day_color * gradient_amount, daylight);
+	}
 }

@@ -22,6 +22,8 @@ static func default_system() -> StarSystem:
 	star.radius = 3.0e8
 	star.atmosphere_height = 0.0
 	star.color = Color(1.0, 0.9, 0.6)
+	star.rodina_color = Color(0.62, 0.98, 0.98) # cyan/white sun disc in the Rodina profile
+	star.rodina_space_color = Color(0.040, 0.012, 0.070)
 	system.bodies[star.id] = star
 
 	var home := BodyDef.new()
@@ -39,6 +41,13 @@ static func default_system() -> StarSystem:
 	home.terrain_profile.palette_high = Color(0.42, 0.40, 0.36)
 	home.terrain_profile.palette_rock = Color(0.24, 0.22, 0.20)
 	home.color = Color(0.4, 0.55, 0.35)
+	home.rodina_color = Color(0.62, 0.42, 0.26) # ochre/salmon body disc
+	home.rodina_space_color = Color(0.040, 0.012, 0.070)
+	home.rodina_sky_zenith = Color(0.10, 0.20, 0.24) # dark teal upper sky
+	home.rodina_sky_horizon = Color(0.78, 0.53, 0.46) # salmon horizon
+	home.rodina_sun_color = Color(0.35, 0.92, 0.92) # cyan sun disc
+	home.rodina_light_color = Color(1.0, 0.72, 0.52) # warm sunlight over ochre/brown terrain
+	home.rodina_ambient_color = Color(0.045, 0.035, 0.055)
 	home.cloud_coverage = 0.42
 	system.bodies[home.id] = home
 
@@ -63,6 +72,8 @@ static func default_system() -> StarSystem:
 	moon.terrain_profile.mid_amplitude = 100.0
 	moon.terrain_profile.large_amplitude = 300.0
 	moon.color = Color(0.7, 0.7, 0.72)
+	moon.rodina_color = Color(0.62, 0.62, 0.64)
+	moon.rodina_space_color = Color(0.025, 0.010, 0.035)
 	system.bodies[moon.id] = moon
 
 	var inner := BodyDef.new()
@@ -82,6 +93,13 @@ static func default_system() -> StarSystem:
 	inner.cloud_coverage = 0.75 # a thick ochre deck
 	inner.cloud_color = Color(0.85, 0.66, 0.45)
 	inner.cloud_altitude = 6000.0
+	inner.rodina_color = Color(0.78, 0.40, 0.18)
+	inner.rodina_space_color = Color(0.050, 0.015, 0.020)
+	inner.rodina_sky_zenith = Color(0.16, 0.06, 0.06)
+	inner.rodina_sky_horizon = Color(0.80, 0.42, 0.22)
+	inner.rodina_sun_color = Color(1.00, 0.70, 0.40)
+	inner.rodina_light_color = Color(1.0, 0.62, 0.36)
+	inner.rodina_ambient_color = Color(0.055, 0.022, 0.018)
 	inner.terrain_profile.palette_low = Color(0.55, 0.25, 0.15)
 	inner.terrain_profile.palette_mid = Color(0.7, 0.4, 0.2)
 	inner.terrain_profile.palette_high = Color(0.35, 0.25, 0.22)
@@ -104,6 +122,13 @@ static func default_system() -> StarSystem:
 	outer.cloud_coverage = 0.4
 	outer.cloud_color = Color(0.95, 1.0, 1.0)
 	outer.cloud_altitude = 12000.0
+	outer.rodina_color = Color(0.28, 0.55, 0.58)
+	outer.rodina_space_color = Color(0.020, 0.030, 0.060)
+	outer.rodina_sky_zenith = Color(0.04, 0.14, 0.18)
+	outer.rodina_sky_horizon = Color(0.50, 0.72, 0.68)
+	outer.rodina_sun_color = Color(0.70, 1.00, 0.95)
+	outer.rodina_light_color = Color(0.72, 0.95, 0.84)
+	outer.rodina_ambient_color = Color(0.030, 0.050, 0.060)
 	outer.terrain_profile.palette_low = Color(0.15, 0.4, 0.3)
 	outer.terrain_profile.palette_mid = Color(0.3, 0.55, 0.35)
 	outer.terrain_profile.palette_high = Color(0.5, 0.5, 0.45)
@@ -127,6 +152,8 @@ static func default_system() -> StarSystem:
 	asteroid.terrain_profile.mid_wavelength = 1500.0
 	asteroid.terrain_profile.large_wavelength = 6000.0
 	asteroid.color = Color(0.5, 0.45, 0.4)
+	asteroid.rodina_color = Color(0.52, 0.43, 0.34)
+	asteroid.rodina_space_color = Color(0.025, 0.012, 0.035)
 	asteroid.terrain_profile.palette_low = Color(0.35, 0.3, 0.26)
 	asteroid.terrain_profile.palette_mid = Color(0.5, 0.45, 0.4)
 	asteroid.terrain_profile.palette_high = Color(0.6, 0.55, 0.5)

@@ -1,4 +1,5 @@
 extends Node3D
+const VisualStyleScript = preload("res://src/world/visual_style.gd")
 ## Boot scene: one planet, the ship in orbit, the player in the pilot seat. This script only
 ## builds nodes, turns keys/mouse into commands for GameSession, and picks the active camera;
 ## all game rules live in GameSession and the classes it uses.
@@ -48,6 +49,7 @@ var _seconds_since_autosave := 0.0
 
 
 func _ready() -> void:
+	VisualStyleScript.refresh_from_settings()
 	system = StarSystem.default_system()
 	planet = system.build_planet_body(system.home_id)
 	space_environment = SpaceEnvironment.new()
@@ -199,6 +201,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	VisualStyleScript.refresh_from_settings()
 	_apply_field_of_view()
 	var actor_position := session.player_world_position()
 	if terrain != null:
@@ -242,14 +245,15 @@ func _process(_delta: float) -> void:
 	var planet_centre := WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if planet != null and terrain != null else Vector3.ZERO
 	if atmosphere_shell.visible:
 		var cloud_body: BodyDef = system.bodies[runtime.active_frame]
-		cloud_shell.visible = GameSettings.instance().clouds and cloud_body.cloud_coverage > 0.0
+		cloud_shell.visible = GameSettings.instance().clouds and cloud_body.cloud_coverage > 0.0 and not VisualStyleScript.is_rodina()
 		if cloud_shell.visible:
 			cloud_shell.update_shell(planet.radius, cloud_body.cloud_altitude, planet_centre, sun_direction, cloud_body, runtime.time_seconds)
 	else:
 		cloud_shell.visible = false
 	if atmosphere_shell.visible:
 		var home_body: BodyDef = system.bodies[runtime.active_frame]
-		atmosphere_shell.update_shell(planet.radius, planet.atmosphere_height, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color)
+		space_environment.apply_body_style(home_body)
+		atmosphere_shell.update_shell(planet.radius, planet.atmosphere_height, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color, home_body)
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
