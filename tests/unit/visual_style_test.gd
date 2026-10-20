@@ -77,6 +77,17 @@ func test_rodina_feature_gates_pick_rock_on_cliffs_and_ice_at_the_poles() -> voi
 	_after()
 
 
+func test_rodina_high_speed_presentation_is_darker_and_wider() -> void:
+	VisualStyle.set_active(VisualStyle.RODINA)
+	assert_true(VisualStyle.hull_tint().get_luminance() < 0.5, "Rodina hull reads dark")
+	assert_true(VisualStyle.chase_camera_offset().z > 40.0, "Rodina chase framing leaves negative space")
+	assert_true(ShipEffects.trails_should_emit(500.0, PilotCommand.GEAR_CRUISE), "cruise speed emits trails")
+	assert_true(ShipEffects.trails_should_emit(500.0, PilotCommand.GEAR_COMBAT), "combat speed emits trails")
+	assert_true(not ShipEffects.trails_should_emit(100.0, PilotCommand.GEAR_DOCK), "low-speed precision has no trail")
+	assert_true(not ShipEffects.trails_should_emit(500.0, PilotCommand.GEAR_DOCK), "precision never emits a speed trail")
+	_after()
+
+
 func test_setting_survives_save_and_load_and_rejects_unknown_values() -> void:
 	DirAccess.remove_absolute(SETTINGS_PATH)
 	var settings := GameSettings.new()

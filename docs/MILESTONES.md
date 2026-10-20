@@ -275,3 +275,12 @@ and the commit is pushed.
 - [x] Regression test for camera transform after rebase.
 - [x] 323 tests / 97,120 assertions / 0 failures; graphical probes before/after recorded.
 - [ ] Human long-session playtest at COMBAT/CRUISE/WARP against a planet.
+
+
+## N13 — visual reference and high-speed identity
+
+- [x] Indexed actual local Rodina trailer/gameplay videos and screenshots; extracted COMBAT/CRUISE sequences frame-by-frame.
+- [x] Added visual-reference spec and dated fidelity review; documented the missing unambiguous WARP reference.
+- [x] Rodina style: wider 85 m chase framing, dark hull silhouette and state-driven twin dotted exhaust trails.
+- [x] 324 tests / 97,126 assertions / 0 failures.
+- [ ] Human visual comparison; COMBAT-SPEED streak field, galaxy band, entry fire and HUD remain.

@@ -1,0 +1,57 @@
+# Visual fidelity reviews
+
+## 2026-10-21 — high-speed ship, camera and exhaust
+
+**Reference reviewed:** trailer 78–92 s (COMBAT SPEED, 28 frames at 2 fps) and 96–110 s (CRUISE
+SPEED, 28 frames at 2 fps), plus official Steam orbit screenshot `steam06_orbit_ochre.jpg`.
+
+**Current Sol captures:**
+
+- `/tmp/n13_sol_rodina/rodina_planet_orbit.png` — Rodina style orbit.
+- `/tmp/n13_sol_effects/rodina_planet_effects.png` — Rodina style entry/engine view.
+- `Sol/app_userdata/Sol/n12_render_check/cruise.png` — Rodina style chase at 5,000 m/s.
+
+**Observed discrepancies, in priority order:**
+
+1. **High-speed exhaust/wake is missing.** Reference has two long lime trails and a huge blue/white
+   speed-streak field at COMBAT/CRUISE. Sol has only short cyan-white plumes.
+2. **Ship is too large in chase view.** Reference ship is a small dark silhouette; Sol's 17 m chase
+   camera fills roughly half the frame with a bright hull.
+3. **Ship value is too light.** Reference hull reads black; Sol's Rodina-style hull is tan/grey with
+   large cyan exhaust discs.
+4. **Orbit composition:** Sol's planet occupies a smaller part of the frame than the official orbit
+   shot; stars lack the painted Milky Way band visible in reference.
+5. **Entry effect** is smooth orange vs reference blocky purple/orange; not addressed in this pass.
+6. **HUD** is a debug overlay, not the cyan bitmap reference; not addressed in this pass.
+
+**Selected change this pass:** implement the high-speed identity gap with (a) a far Rodina-style
+chase offset, (b) a darker Rodina-style hull tint, and (c) two state-driven lime exhaust trails.
+No flight-model or save changes. Entry/HUD/starfield remain follow-up work.
+
+**Verification plan:** capture Rodina-style chase at rest, COMBAT, CRUISE and WARP with the same
+planet-behind setup; compare ship scale, trail length and camera stability; ensure trail emission is
+zero at low speed and when the style is `sol`.
+
+### Outcome after the first implementation (2026-10-21)
+
+- Rodina chase offset: 17 m -> **85 m** (`VisualStyle.chase_camera_offset`). The ship now reads as a
+  small dark silhouette with negative space, closer to the trailer's CRUISE/COMBAT framing.
+- Rodina hull tint: `(0.74,0.77,0.84)` -> **`(0.28,0.30,0.34)`**. The silhouette is now dark; the
+  small cyan engine points remain.
+- Added two **dotted lime/yellow trail meshes** driven by actual speed/gear. They appear at and above
+  COMBAT speed, are hidden below 180 m/s and in the `sol` style, and switch to blue/white for WARP
+  (the WARP colour is an inference; no labelled WARP reference was found).
+- Current verification capture: `/tmp/n13_final_cruise.png` (5,000 m/s, tangential motion over
+  Aurelia, Rodina style). It shows the small dark ship and two separated dotted trails; this is a
+  clear structural improvement over the previous large bright ship with only short plumes.
+- A second capture with the user's asset switches temporarily enabled is
+  `/tmp/n13_assets_cruise.png`; the textured terrain and hull remain subordinate to the dark ship
+  silhouette. The user's persisted settings were restored after capture (`asset_materials=false`,
+  `decals=false`, `terrain_detail=false`, `starfield=false`, `visual_style=rodina`).
+- Remaining visual gap in that capture: trails are straighter/sparser than the reference's curved
+  twin trails; the debug HUD dominates; the reference's painted galaxy band and blocky entry fire
+  are still absent. Those are the next priorities, not reasons to undo this change.
+- Tests: 324 tests / 97,126 assertions / 0 failures. The camera-rebase test from N12 still passes.
+
+**Next iteration priority:** add the blue/white COMBAT-SPEED streak field or a galaxy/sky pass only
+after checking the corresponding reference sequence; do not add invented WARP visuals.

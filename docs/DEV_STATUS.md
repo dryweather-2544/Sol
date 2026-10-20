@@ -24,6 +24,12 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - No 4 s atmosphere-entry timer, no reentry damage, no ship damage at all.
 - `docs/ARCHITECTURE.md` text predates ADRs 0002-0004; the ADRs win.
 
+## N13 — visual reference research and high-speed identity
+- Indexed the actual local Rodina screenshot/video archive, extracted trailer COMBAT/CRUISE sequences frame-by-frame, and recorded `VISUAL_REFERENCE_INDEX.md`, `RODINA_VISUAL_SPECIFICATION.md`, `VISUAL_FIDELITY_REVIEWS.md`.
+- Implemented the evidence-backed speed gap in the Rodina style: 85 m chase framing, dark hull silhouette, twin state-driven dotted exhaust trails (lime for cruise, blue-white for WARP). Sol style is unchanged.
+- Tests: 324 tests / 97,126 assertions / 0 failures. Graphical captures in `/tmp/n13_final_cruise.png`; no human visual test yet.
+- Next: COMBAT-SPEED streak field/galaxy band/entry effect/HUD, guided by the video index.
+
 ## N12 — ship flicker/ghosting fix (branch `n12-render-flicker`)
 - Root cause: after a floating-origin rebase the chase camera's interpolation history was reset before its new transform was written; the ship and camera rendered from different origins for a frame.
 - Fixed by applying the anchor first and recomputing/resetting the chase camera after the shift. Graphical probes: rest 0 px, COMBAT 21.09 px, CRUISE 69.32 px, WARP 0 px (0/1/10/132 rebases); all keep the ship visible. Before fix, a cruise rebase showed the camera behind the ship and a 1125 px projection jump.

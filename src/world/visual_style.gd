@@ -78,9 +78,16 @@ static func space_parameters() -> Dictionary:
 	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0}
 
 
-## Multiplier on the ship's painted hull materials (Sol: none).
+## Multiplier on the ship's painted hull materials (Sol: none). Rodina's player ship reads as a
+## dark silhouette against bright planets, not a light grey PBR hull.
 static func hull_tint() -> Color:
-	return Color(0.74, 0.77, 0.84) if is_rodina() else Color.WHITE
+	return Color(0.28, 0.30, 0.34) if is_rodina() else Color.WHITE
+
+
+## Chase-camera offset for the Rodina-inspired presentation. The reference keeps the ship as a
+## small dark shape with negative space around it; 17 m fills too much of the frame.
+static func chase_camera_offset() -> Vector3:
+	return Vector3(0.0, 8.0, 85.0) if is_rodina() else Vector3(0.0, 3.4, 17.0)
 
 
 # --- the original Sol look: built from the existing data, so nothing changes --------------------------------------
