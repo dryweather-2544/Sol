@@ -20,8 +20,10 @@ func _init() -> void:
 
 
 ## radius_metres: planet radius plus atmosphere height. centre: render-space position of the planet centre.
-func update_shell(radius_metres: float, centre: Vector3, sun_direction: Vector3, rim_color: Color) -> void:
+func update_shell(radius_metres: float, centre: Vector3, sun_direction: Vector3, rim_color: Color, rim_power: float = 6.0, disc_haze: float = 0.0) -> void:
 	position = centre
 	scale = Vector3.ONE * radius_metres
 	_material.set_shader_parameter("sun_direction", sun_direction)
 	_material.set_shader_parameter("rim_color", rim_color)
+	_material.set_shader_parameter("rim_power", rim_power)
+	_material.set_shader_parameter("disc_haze", disc_haze)

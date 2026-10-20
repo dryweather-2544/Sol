@@ -61,7 +61,8 @@ func apply_look(look: PlanetLook) -> void:
 		"sky_zenith": look.sky_zenith, "sky_horizon": look.sky_horizon, "gradient_scale": look.gradient_scale,
 		"gradient_bias": look.gradient_bias, "gradient_power": look.gradient_power, "legacy_glow": look.legacy_sun_glow,
 		"legacy_glow_color": look.legacy_sun_glow_color, "sun_color": look.sun_color, "sun_disc_gain": look.sun_disc_gain,
-		"sun_halo_gain": look.sun_halo_gain, "sun_halo_width": look.sun_halo_width, "sunset_halo_width": look.sunset_halo_width,
+		"sun_halo_gain": look.sun_halo_gain, "sun_disc_color": look.sun_disc_color, "sun_halo_color": look.sun_halo_color,
+		"sun_disc_radius": look.sun_disc_radius, "sun_halo_width": look.sun_halo_width, "sunset_halo_width": look.sunset_halo_width,
 		"sunset_color": look.sunset_color, "sunset_gain": look.sunset_gain,
 		"local_up_amount": 0.0 if look.family == &"sol" else 1.0}
 	for parameter in parameters:

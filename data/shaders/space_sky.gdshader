@@ -24,6 +24,11 @@ uniform float gradient_power = 1.0;
 uniform vec3 legacy_glow_color = vec3(1.0, 0.9, 0.7);
 uniform float legacy_glow = 0.8;
 uniform vec3 sun_color = vec3(1.0);
+// Rodina (N13): the star seen through the air takes the atmosphere's filter colours (screenshots: blue sun on Jarilo,
+// cyan on Perun, red on Morena) and is drawn large. Negative = use sun_color; the Sol style leaves these at defaults.
+uniform vec3 sun_disc_color = vec3(-1.0);
+uniform vec3 sun_halo_color = vec3(-1.0);
+uniform float sun_disc_radius = 0.0095;
 uniform float sun_disc_gain = 0.0;
 uniform float sun_halo_gain = 0.0;
 uniform float sun_halo_width = 0.12;
@@ -65,15 +70,21 @@ void sky() {
 	float angle = acos(clamp(dot(normalize(EYEDIR), sun_direction), -1.0, 1.0));
 	float halo = 1.0 - smoothstep(0.0, mix(sun_halo_width, sunset_halo_width, near_horizon), angle);
 	halo *= halo;
-	float disc = 1.0 - smoothstep(0.0085, 0.0105, angle);
+	float disc = 1.0 - smoothstep(sun_disc_radius - 0.001, sun_disc_radius + 0.001, angle);
+	vec3 disc_tint = sun_disc_color.r < 0.0 ? sun_color : sun_disc_color;
+	vec3 halo_tint = sun_halo_color.r < 0.0 ? sun_color : sun_halo_color;
 	vec3 eye_flat = normalize(EYEDIR - up * dot(EYEDIR, up) + vec3(1e-5));
 	vec3 sun_flat = normalize(sun_direction - up * sun_height + vec3(1e-5));
 	float facing = smoothstep(-0.2, 0.8, dot(eye_flat, sun_flat));
 	float horizon_band = 1.0 - t;
-	day_color += sun_color * (halo * sun_halo_gain + disc * sun_disc_gain);
+	day_color = mix(day_color, halo_tint, clamp(halo * sun_halo_gain, 0.0, 1.0));
+	day_color = mix(day_color, disc_tint, clamp(disc * sun_disc_gain, 0.0, 1.0));
 	day_color = mix(day_color, sunset_color, clamp(near_horizon * facing * horizon_band * sunset_gain, 0.0, 1.0));
 
 	// A sun disc on the black sky of airless worlds and space, too (Rodina draws the star there: RodinaStar).
-	space += sun_color * disc * sun_disc_gain * (1.0 - daylight) + sun_color * halo * halo * sun_halo_gain * 0.3 * (1.0 - daylight);
+	// The space disc keeps the original small size: the large filtered star belongs to the air (sun_disc_radius).
+	float space_disc = 1.0 - smoothstep(0.0085, 0.0105, angle);
+	space += sun_color * space_disc * sun_disc_gain * (1.0 - daylight) + sun_color * halo * halo * sun_halo_gain * 0.3 * (1.0 - daylight);
+	// (in space the star keeps its own colour: the filter colours belong to the air)
 	COLOR = mix(space, day_color, daylight);
 }

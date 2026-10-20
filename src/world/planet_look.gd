@@ -48,6 +48,11 @@ var sun_halo_gain := 0.0
 var sun_halo_width := 0.12   # radians, sun high
 var sunset_halo_width := 0.45 # radians, sun at the horizon
 var sunset_color := Color(1.0, 0.5, 0.2)
+## Star disc and halo colours in the sky (Rodina: the atmosphere's filter colours) and the disc's angular radius.
+## A negative red means "use sun_color" (the default, so the Sol look is unchanged).
+var sun_disc_color := Color(-1.0, -1.0, -1.0)
+var sun_halo_color := Color(-1.0, -1.0, -1.0)
+var sun_disc_radius := 0.0095
 var sunset_gain := 0.0
 
 ## Haze: Godot distance fog. Density is scaled by daylight and thins with altitude (SpaceEnvironment).
@@ -71,6 +76,8 @@ var ambient_energy_day := 0.55
 
 ## Glowing rim of the atmosphere seen from space, and the colour of the far-away impostor sphere.
 var rim_color := Color(0.35, 0.6, 1.0)
+var rim_power := 6.0 ## limb sharpness (lower = wider glow)
+var rim_haze := 0.0 ## atmosphere colour laid over the lit disc from space
 var impostor_color := Color(0.5, 0.5, 0.5)
 
 var _mask_noise: FastNoiseLite

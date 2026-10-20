@@ -230,16 +230,19 @@ func _process(_delta: float) -> void:
 	atmosphere_shell.visible = planet != null and planet.atmosphere_height > 0.0
 	if atmosphere_shell.visible:
 		var home_body: BodyDef = system.bodies[runtime.active_frame]
-		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, VisualStyle.look_for(home_body).rim_color)
+		var home_look := VisualStyle.look_for(home_body)
+		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_look.rim_color, home_look.rim_power, home_look.rim_haze)
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
 		var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-sun_direction))
+		impostors.hide_star = VisualStyle.is_rodina() and daylight > 0.02
 		var viewer_altitude := 2.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground
 		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position), 0.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground)
 		if terrain != null:
 			terrain.set_viewer_altitude(viewer_altitude)
 	else:
+		impostors.hide_star = false
 		space_environment.set_daylight(0.0, Vector3.UP)
 	overlay.frame_text = _frame_and_nav_text()
 

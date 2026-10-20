@@ -56,19 +56,22 @@ func test_gear_engines_follow_thrust_axes() -> void:
 		var effects: ShipEffects = objects[1]
 		ship.state.gear = PilotCommand.GEAR_CRUISE
 		ship.last_command = _command(Vector3(0, 0, -1)) # full forward
-		effects.update_effects(ship, 1.0 / 60.0)
+		effects.update_effects(ship, 0.0) # delta 0 snaps the flame to its target
 		var active := effects.active_effects()
-		assert_eq(active.get("Engine Fire Effect 1", {}).get("material"), "CruiseEngineMain")
-		assert_eq(active.get("Engine Fire Effect 2", {}).get("material"), "CruiseEngineMain")
-		assert_near(active["Engine Fire Effect 1"]["strength"], 1.0, 1e-6)
-		assert_eq(active.size(), 2, "only the main engines: %s" % str(active.keys()))
-		# Combat: same slots, combat flame.
+		assert_eq(active.size(), 0, "full forward fires only the main engine flames, no jets: %s" % str(active.keys()))
+		var flame := effects.flame_state()
+		assert_eq(flame["gear"], PilotCommand.GEAR_CRUISE)
+		assert_near(flame["strength"], 1.0, 1e-6)
+		assert_true(flame["visible"])
+		# Combat at half thrust: the flame follows the thrust, easing at FLAME_RESPONSE per second.
 		ship.state.gear = PilotCommand.GEAR_COMBAT
 		ship.last_command = _command(Vector3(0, 0, -0.5))
 		effects.update_effects(ship, 1.0 / 60.0)
-		active = effects.active_effects()
-		assert_eq(active["Engine Fire Effect 1"]["material"], "CombatEngineMain")
-		assert_near(active["Engine Fire Effect 1"]["strength"], 0.5, 1e-6)
+		assert_near(effects.flame_state()["strength"], 1.0 - ShipEffects.FLAME_RESPONSE / 60.0, 1e-6)
+		for tick in 60:
+			effects.update_effects(ship, 1.0 / 60.0)
+		assert_near(effects.flame_state()["strength"], 0.5, 1e-6)
+		assert_eq(effects.flame_state()["gear"], PilotCommand.GEAR_COMBAT)
 		# Precision gear, thrust up: three DockAirDown jets; down thrust runs at 0.75; the main engine is off.
 		ship.state.gear = PilotCommand.GEAR_DOCK
 		ship.last_command = _command(Vector3(0, 1, 0))
@@ -76,7 +79,9 @@ func test_gear_engines_follow_thrust_axes() -> void:
 		active = effects.active_effects()
 		for index in [1, 2, 3]:
 			assert_eq(active.get("Engine DockD %d" % index, {}).get("material"), "DockAirDown")
-		assert_true(not active.has("Engine Fire Effect 1"), "main engine stops when not driven")
+		for tick in 60:
+			effects.update_effects(ship, 1.0 / 60.0)
+		assert_true(not effects.flame_state()["visible"], "the flame dies out in precision gear")
 		ship.last_command = _command(Vector3(0, -1, 0))
 		effects.update_effects(ship, 1.0 / 60.0)
 		active = effects.active_effects()
@@ -90,18 +95,21 @@ func test_gear_engines_follow_thrust_axes() -> void:
 		_free(objects))
 
 
-func test_main_engine_runs_along_each_nozzle() -> void:
+func test_main_engine_flame_runs_along_each_nozzle() -> void:
 	_with_rodina(func() -> void:
 		var objects := _setup()
 		var ship: Ship = objects[0]
 		var effects: ShipEffects = objects[1]
 		ship.state.gear = PilotCommand.GEAR_COMBAT
 		ship.last_command = _command(Vector3(0, 0, -1))
-		effects.update_effects(ship, 1.0 / 60.0)
-		var emitter := effects.get_node("Rodina_CombatEngineMain") as RodinaEmitter
-		assert_true(emitter != null)
-		var aft := emitter.transform.basis.y.normalized()
-		assert_true(aft.dot(Vector3(0, 0, 1)) > 0.999, "exhaust direction is the nozzle's +y (aft): %s" % str(aft))
+		effects.update_effects(ship, 0.0)
+		var flame := effects.get_node("EngineFlame1") as MeshInstance3D
+		assert_true(flame != null and flame.visible)
+		var aft := flame.transform.basis.y.normalized()
+		assert_true(aft.dot(Vector3(0, 0, 1)) > 0.999, "flame runs along the nozzle's +y (aft): %s" % str(aft))
+		var length := flame.transform.basis.y.length()
+		assert_near(length, 2.0 + 10.0, 1e-4, "combat flame at full thrust")
+		assert_true(flame.transform.origin.z > 9.0, "starts at the nozzle and extends aft")
 		_free(objects))
 
 

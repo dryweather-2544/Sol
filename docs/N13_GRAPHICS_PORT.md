@@ -140,3 +140,24 @@ sheath and sparks replaced), `src/world/visual_style.gd`, `tests/unit/visual_sty
 The particle tables, constants and colours are Rodina's (Elliptic Games). They are recorded in `ATTRIBUTION.md` as
 owner-authorised local reference use, like the N11 audio. **The Sol GitHub repository is public**, so this branch
 should not be pushed there unless the repository is made private first.
+
+## 7. Second pass: calibrated against the owner's Rodina screenshots
+
+The owner supplied nine Rodina 1.6.2 screenshots (Jarilo ground, Perun and Jarilo from orbit, an icy world with a green
+sky, cockpit and interior views, combat). They confirm the data reading: the sky is the atmosphere's ScatterColor
+(peach Jarilo, purple Perun, green Morena), and the star seen through the air takes its FilterColor (blue on Jarilo,
+cyan on Perun, red on Morena). Changed to match (rodina style only):
+- **Default style is now `rodina`** (GameSettings.visual_style). The owner was playing in the `sol` style and saw
+  none of the earlier work. A saved settings file that already says `sol` keeps `sol`.
+- **Sun in the air:** a ~9-degree disc of FilterColor1 inside a wide FilterColor2 halo (measured on the Jarilo
+  shot); the fogged world-space star sphere is hidden inside the air so it no longer covers it. In space the star
+  is unchanged.
+- **Sky strength:** the scatter colours are laid over Rodina's space base at saturate(AtmosphereDensity); Jarilo's
+  0.75 matches the screenshot (its sky is ~77% of the raw colour).
+- **Haze:** fog 6e-5 per m in the air colour, so ridges sink into the sky within tens of km.
+- **From orbit:** a soft, wide limb in the pale ScatterColor2 plus a faint haze over the lit disc (rim power 2.5,
+  haze 0.15), instead of the thin bright Sol rim.
+- **Engines:** a blue flame cone and glow per nozzle replace the CombatEngineMain/CruiseEngineMain sparks (owner
+  request). Combat: Rodina's cyan to blue, 2-12 m long with thrust; cruise: blue-violet, 3-21 m.
+Shots: `docs/n13_shots/v2/`. Still different: Rodina's landforms (tall snowy peaks, ice canyons) are terrain
+generation, not a style, and are not changed here.

@@ -16,6 +16,11 @@ var _nodes := {} # body id -> MeshInstance3D
 var _shells := {} # body id -> AtmosphereShell (only for worlds with an atmosphere)
 
 
+## Rodina style inside an atmosphere: the sky shader draws the star, tinted by the air's filter colours (Rodina's
+## RodinaStar takes the atmosphere filter); the world-space star sphere would be fogged over it, so it is hidden.
+var hide_star := false
+
+
 func _ready() -> void:
 	for body_id in system.bodies:
 		var body: BodyDef = system.bodies[body_id]
@@ -55,7 +60,7 @@ func _process(_delta: float) -> void:
 	for body_id in _nodes:
 		var node: MeshInstance3D = _nodes[body_id]
 		var body: BodyDef = system.bodies[body_id]
-		node.visible = body_id != runtime.active_frame
+		node.visible = body_id != runtime.active_frame and not (body.is_star and hide_star)
 		if _shells.has(body_id):
 			(_shells[body_id] as Node3D).visible = node.visible
 		if not node.visible:
@@ -78,4 +83,5 @@ func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_fa
 	if not _shells.has(body_id):
 		return
 	var sun := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds) if runtime.active_frame != StarSystem.SYSTEM_FRAME else Vector3(0, 0, -1)
-	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 1.6) * scale_factor, centre, sun, VisualStyle.look_for(body).rim_color)
+	var look := VisualStyle.look_for(body)
+	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 1.6) * scale_factor, centre, sun, look.rim_color, look.rim_power, look.rim_haze)

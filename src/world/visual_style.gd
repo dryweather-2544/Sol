@@ -25,7 +25,7 @@ static func active() -> StringName:
 	if from_environment in ["sol", "rodina"]:
 		return StringName(from_environment)
 	var from_settings := StringName(GameSettings.instance().visual_style)
-	return from_settings if from_settings in IDS else SOL
+	return from_settings if from_settings in IDS else RODINA
 
 
 static func is_rodina() -> bool:
@@ -230,9 +230,9 @@ static func _teal_alien() -> PlanetLook:
 ## colour now that the colours are known (docs/RODINA_PLANET_TYPES.md paired by orbit before they were); the ground
 ## palettes are unchanged.
 const RODINA_ATMOSPHERES := {
-	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0]},
-	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7]},
-	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0]},
+	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0]},
+	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7]},
+	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0]},
 }
 
 
@@ -246,14 +246,35 @@ static func rodina_atmosphere_color(body_id: StringName, key: String) -> Color:
 ## Sky, sunset, limb and haze from the Rodina world's atmosphere colours. Rodina's horizon shader blends between
 ## ScatterColor1 and 2 by its horizon factor and toward FilterColor 1/2 by its sunset/halo factor (rendering_notes
 ## §4.2-4.3). Inferred, because _atmosphere.h is not in this session: which end each colour takes. Here the more
-## saturated ScatterColor1 is the zenith and the limb seen from orbit, the paler ScatterColor2 the horizon and the
-## haze, and FilterColor2 the sunset glow.
+## saturated ScatterColor1 is the zenith, the paler ScatterColor2 the horizon, the haze and the limb seen from orbit,
+## and FilterColor2 the sunset glow.
 static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> PlanetLook:
-	look.sky_zenith = rodina_atmosphere_color(body_id, "scatter1")
-	look.sky_horizon = rodina_atmosphere_color(body_id, "scatter2")
+	# saturate(AtmosphereDensity) is Rodina's tint strength (rendering_notes §4.1): the sky is the scatter colour laid over
+	# black-violet space at that strength. Jarilo's 0.75 matches the owner's Jarilo screenshot (sky ~77% of the raw colour).
+	var tint := clampf(RODINA_ATMOSPHERES[body_id]["density"], 0.0, 1.0)
+	var space := Color(0.025, 0.0, 0.05).srgb_to_linear() # RodinaSkybox base colour (rendering_notes §6.4)
+	look.sky_zenith = space.lerp(rodina_atmosphere_color(body_id, "scatter1"), tint)
+	look.sky_horizon = space.lerp(rodina_atmosphere_color(body_id, "scatter2"), tint)
 	look.sunset_color = rodina_atmosphere_color(body_id, "filter2")
 	look.rim_color = rodina_atmosphere_color(body_id, "scatter1")
 	look.fog_color = rodina_atmosphere_color(body_id, "scatter2")
+	# Seen against Rodina screenshots (owner-supplied, N13): the star through the air is large (~9 degrees across on
+	# Jarilo) with a wide soft halo, a pale disc of FilterColor1 inside a FilterColor2 halo (blue sun on peach Jarilo);
+	# distant ridges sink into the sky colour within a few tens of km.
+	look.sun_disc_color = rodina_atmosphere_color(body_id, "filter1").lerp(Color.WHITE, 0.25)
+	look.sun_halo_color = rodina_atmosphere_color(body_id, "filter2")
+	look.sun_disc_radius = 0.08 # ~9 degrees across, measured on the Jarilo screenshot
+	look.sun_halo_width = 0.3
+	look.sunset_halo_width = 0.45
+	look.sun_halo_gain = 0.85
+	look.sun_disc_gain = 1.0
+	look.fog_density = 6.0e-5
+	look.fog_aerial_perspective = 0.85
+	# From orbit Rodina's limb is a soft pale glow (the owner's orbit screenshot), so the paler ScatterColor2 is used there.
+	look.rim_color = rodina_atmosphere_color(body_id, "scatter2")
+	look.rim_power = 2.5
+	look.rim_haze = 0.15
+	look.orbit_color = look.orbit_color.lerp(look.rim_color, 0.25) # the terrain's far colour leans to the air's tint
 	return look
 
 

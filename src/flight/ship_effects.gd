@@ -8,8 +8,8 @@ extends Node3D
 ## What drives what (Rodina gear 1..4 = Sol PRECISION, COMBAT, CRUISE, WARP):
 ## - Warp gear: before LimnalActivation reaches 1, "Limnal Startup Ring" at strength LimnalActivation and "Limnal Drive
 ##   Air"; from 1 on, "Limnal Drive", "Limnal Pink Air" and "LimnalShipBlur". The thrusters are off.
-## - Other gears, unless the camera is inside the ship: the main engine ("DockAir" in precision on two aft vents,
-##   "CombatEngineMain" in combat, "CruiseEngineMain" in cruise) at the forward-thrust strength, and twelve thruster
+## - Other gears, unless the camera is inside the ship: the main engine ("DockAir" in precision on two aft vents; in
+##   combat and cruise a blue flame per nozzle, see FLAME_COLORS) at the forward-thrust strength, and twelve thruster
 ##   jets for back/up/down/left/right thrust ("DockAir"/"DockAirDown" in precision, "CombatEngineSmall" in combat,
 ##   "CruiseEngineSmall" in cruise); down thrust at 0.75.
 ## - Cruise above Rodina's 10 km/s cruise speed: "CruiseEngineInertia" along the velocity at
@@ -43,6 +43,23 @@ var camera_inside := false
 
 var _nacelles: Array[MeshInstance3D] = []
 var _slots := {} # slot name -> {material name -> RodinaEmitter}
+## The main engines are a flame cone per nozzle, not Rodina's CombatEngineMain/CruiseEngineMain sparks: the owner's Rodina
+## screenshots and request show a blue flame out of the engines that grows with speed (N13). Colours are those
+## materials' key colours (combat cyan -> blue; cruise blue-violet, brightened since Rodina's are near-black additive).
+const FLAME_COLORS := {
+	PilotCommand.GEAR_COMBAT: [Color(0.0, 0.7, 1.0), Color(0.0, 0.3, 1.0)],
+	PilotCommand.GEAR_CRUISE: [Color(0.5, 0.55, 1.0), Color(0.25, 0.12, 1.0)],
+}
+## Flame length in metres at no thrust and the extra at full forward thrust; cruise burns longer than combat.
+const FLAME_LENGTH := {PilotCommand.GEAR_COMBAT: [2.0, 10.0], PilotCommand.GEAR_CRUISE: [3.0, 18.0]}
+## A soft glow billboard at each nozzle, so the flame reads from behind as well as from the side (metres across).
+const FLAME_GLOW_SIZE := {PilotCommand.GEAR_COMBAT: [1.5, 3.5], PilotCommand.GEAR_CRUISE: [2.0, 5.0]}
+const FLAME_RESPONSE := 8.0 # per second
+var _flames: Array[MeshInstance3D] = []
+var _flame_glows: Array[MeshInstance3D] = []
+var _flame_gear := -1
+var _flame_target := 0.0
+var _flame_strength := 0.0
 
 
 ## nacelles: the nozzle nodes (cylinder +y is the exhaust direction).
@@ -51,17 +68,19 @@ func setup(nacelles: Array[MeshInstance3D]) -> void:
 	_nacelles = nacelles
 
 
-func update_effects(ship: Ship, _delta: float) -> void:
+func update_effects(ship: Ship, delta: float) -> void:
 	var active := VisualStyle.is_rodina()
 	visible = active
 	for slot in _slots.values():
 		for emitter: RodinaEmitter in slot.values():
 			emitter.begin_frame()
+	_flame_target = 0.0
 	if active:
 		_drive_all(ship)
 	for slot in _slots.values():
 		for emitter: RodinaEmitter in slot.values():
 			emitter.end_frame()
+	_update_flames(delta)
 
 
 ## Live emitters (strength above zero this frame) by slot, for tests and the effect check tool.
@@ -105,12 +124,10 @@ func _drive_all(ship: Ship) -> void:
 			for index in _DOCK_B.size():
 				_attach("Engine DockB %d" % (index + 1), medium, forward_strength, RodinaEmitter.from_rodina(_DOCK_B[index]), RodinaEmitter.from_rodina(_BACKWARDS, false))
 		else:
-			var main := "CombatEngineMain" if state.gear == PilotCommand.GEAR_COMBAT else "CruiseEngineMain"
 			small = "CombatEngineSmall" if state.gear == PilotCommand.GEAR_COMBAT else "CruiseEngineSmall"
 			medium = small
-			for index in _nacelles.size():
-				var nozzle := _nacelles[index].transform
-				_attach("Engine Fire Effect %d" % (index + 1), main, forward_strength, nozzle * Vector3(0, 0.4, 0), nozzle.basis.y)
+			_flame_gear = state.gear
+			_flame_target = forward_strength
 		_jets("F", medium, back_strength)
 		_jets("D", small, up_strength)
 		_jets("U", small, down_strength * 0.75)
@@ -129,6 +146,85 @@ func _drive_all(ship: Ship) -> void:
 		var suffix := "Cockpit" if camera_inside else ""
 		_attach("Atmosphere Entry", "AtmosphereEntry" + suffix, flames, heading * 15.0 * RodinaEmitter.SHIP_SCALE, heading)
 		_attach("Atmosphere Entry2", "AtmosphereShockwave" + suffix, wind, heading * 30.0 * RodinaEmitter.SHIP_SCALE, heading)
+
+
+func _update_flames(delta: float) -> void:
+	_flame_strength = move_toward(_flame_strength, _flame_target, FLAME_RESPONSE * delta) if delta > 0.0 else _flame_target
+	if _flames.is_empty() and _flame_strength > 0.0:
+		for index in _nacelles.size():
+			_flames.append(_make_flame(index))
+			_flame_glows.append(_make_flame_glow(index))
+	if not FLAME_COLORS.has(_flame_gear):
+		_flame_strength = 0.0
+	for index in _flames.size():
+		var flame := _flames[index]
+		flame.visible = _flame_strength > 0.01
+		_flame_glows[index].visible = flame.visible
+		if not flame.visible:
+			continue
+		var lengths: Array = FLAME_LENGTH[_flame_gear]
+		var length: float = lengths[0] + lengths[1] * _flame_strength
+		var colors: Array = FLAME_COLORS[_flame_gear]
+		var material := flame.material_override as ShaderMaterial
+		material.set_shader_parameter("core_color", (colors[0] as Color).lerp(Color.WHITE, 0.35))
+		material.set_shader_parameter("edge_color", colors[1])
+		material.set_shader_parameter("intensity", 0.35 + 0.65 * _flame_strength)
+		var nozzle := _nacelles[index].transform
+		# Cone from the nozzle exit (cylinder +y = exhaust) outwards, centred half a length aft.
+		flame.transform = nozzle * Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, length, 1.0)), Vector3(0, 0.4 + length * 0.5, 0))
+		var glow := _flame_glows[index]
+		var sizes: Array = FLAME_GLOW_SIZE[_flame_gear]
+		var glow_size: float = sizes[0] + sizes[1] * _flame_strength
+		glow.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * glow_size), nozzle * Vector3(0, 0.6, 0))
+		var glow_color: Color = (colors[0] as Color).lerp(Color.WHITE, 0.2)
+		glow_color.a = 0.35 + 0.5 * _flame_strength
+		(glow.material_override as StandardMaterial3D).albedo_color = glow_color
+
+
+func _make_flame(index: int) -> MeshInstance3D:
+	var cone := CylinderMesh.new()
+	cone.bottom_radius = 0.6 # at the nozzle (mesh y = -0.5)
+	cone.top_radius = 0.05
+	cone.height = 1.0
+	cone.radial_segments = 20
+	cone.rings = 6
+	var flame := MeshInstance3D.new()
+	flame.name = "EngineFlame%d" % (index + 1)
+	flame.mesh = cone
+	var material := ShaderMaterial.new()
+	material.shader = load("res://data/shaders/engine_flame.gdshader")
+	material.set_shader_parameter("seed", float(index) * 3.7)
+	flame.material_override = material
+	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	flame.visible = false
+	add_child(flame)
+	return flame
+
+
+func _make_flame_glow(index: int) -> MeshInstance3D:
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_texture = soft_dot()
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	material.billboard_keep_scale = true
+	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	var glow := MeshInstance3D.new()
+	glow.name = "EngineGlow%d" % (index + 1)
+	glow.mesh = quad
+	glow.material_override = material
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glow.visible = false
+	add_child(glow)
+	return glow
+
+
+## Main engine flames now (for tests and the check tool): gear and 0..1 strength.
+func flame_state() -> Dictionary:
+	return {"gear": _flame_gear, "strength": _flame_strength, "visible": not _flames.is_empty() and _flames[0].visible}
 
 
 func _jets(group: String, material_name: String, strength: float) -> void:

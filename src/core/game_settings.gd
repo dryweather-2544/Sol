@@ -24,7 +24,7 @@ var terrain_detail := true
 var starfield := true
 var sample_audio := true
 ## "sol" (original) or "rodina" (VisualStyle). The SOL_VISUAL_STYLE environment variable overrides it for a run.
-var visual_style := "sol"
+var visual_style := "rodina"
 ## Strength of the in-atmosphere roll levelling (Rodina's "Ship Horizon Levelling" option, default 1.0; 0 = off).
 ## Roll only: it never touches pitch. See FlightModel._level_roll.
 var ship_horizon_levelling := 1.0
@@ -79,4 +79,4 @@ func load_from_file() -> void:
 	starfield = bool(config.get_value("assets", "starfield", starfield))
 	sample_audio = bool(config.get_value("assets", "sample_audio", sample_audio))
 	var style := str(config.get_value("video", "visual_style", visual_style))
-	visual_style = style if style in ["sol", "rodina"] else "sol"
+	visual_style = style if style in ["sol", "rodina"] else "rodina"

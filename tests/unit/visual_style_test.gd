@@ -91,7 +91,7 @@ func test_setting_survives_save_and_load_and_rejects_unknown_values() -> void:
 	config.set_value("video", "visual_style", "neon")
 	config.save(SETTINGS_PATH)
 	loaded.load_from_file()
-	assert_eq(loaded.visual_style, "sol", "unknown styles fall back to sol")
+	assert_eq(loaded.visual_style, "rodina", "unknown styles fall back to the default, rodina")
 	DirAccess.remove_absolute(SETTINGS_PATH)
 
 
@@ -110,7 +110,8 @@ func test_rodina_air_worlds_use_rodina_atmosphere_colours() -> void:
 	var system := StarSystem.default_system()
 	# Aurelia takes Jarilo's: ScatterColor1 = EGHueSaturateValue(20, .6, 1) = (1, .6, .4), FilterColor2 = (210, .5, 1) = (.5, .75, 1).
 	var look := VisualStyle.look_for(system.bodies[&"planet"])
-	var zenith := Color(1.0, 0.6, 0.4).srgb_to_linear()
+	# Laid over Rodina's space base (.025, 0, .05) at Jarilo's tint strength saturate(AtmosphereDensity .75).
+	var zenith := Color(0.025, 0.0, 0.05).srgb_to_linear().lerp(Color(1.0, 0.6, 0.4).srgb_to_linear(), 0.75)
 	assert_near(look.sky_zenith.r, zenith.r, 1e-5)
 	assert_near(look.sky_zenith.g, zenith.g, 1e-5)
 	assert_near(look.sky_zenith.b, zenith.b, 1e-5)

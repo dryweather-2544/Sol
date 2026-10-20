@@ -12,7 +12,7 @@ const LARGE := Vector2i(1280, 720)
 const SUN_ELEVATION_DEGREES := 35.0
 ## [name, altitude metres (orbit: in planet radii), camera pitch below the horizon in degrees, ship visible]
 const VIEWS := [["orbit", 1.4, 34.0, false], ["approach", 30000.0, 7.0, false], ["low", 900.0, 9.0, false], ["ground", 0.0, 2.0, true],
-	["effects", 185000.0, 0.0, true]]
+	["effects", 185000.0, 0.0, true], ["sun", 900.0, -25.0, false]]
 ## The effects view holds the ship at this speed under full thrust in the top of Aurelia's air (the entry band, where
 ## Rodina's entry resistance acts; ShipDamage.entry_resistance): plumes and entry heat.
 const EFFECTS_SPEED := 9000.0
@@ -102,7 +102,8 @@ func _start_job() -> void:
 	_hold_position = WorldPos.new(planet.frame_id, up.x * (ground + altitude + (2.0 if on_ground else 0.0)), up.y * (ground + altitude + (2.0 if on_ground else 0.0)), up.z * (ground + altitude + (2.0 if on_ground else 0.0)))
 	# Face 70 degrees round from the sun's direction along the ground: side light, the sun's glow at the edge of frame.
 	var sun_flat := (toward_sun - up * toward_sun.dot(up)).normalized()
-	var forward := sun_flat.rotated(up, deg_to_rad(70.0))
+	# The "sun" view looks straight at the sun instead (to compare the star and its halo with Rodina's).
+	var forward := sun_flat if view[0] == "sun" else sun_flat.rotated(up, deg_to_rad(70.0))
 	_hold_basis = Basis.looking_at(forward, up)
 	var ship: Ship = _main.ship
 	ship.state.position = _hold_position
