@@ -86,3 +86,5 @@ labelled as inference until such a sequence is found or captured from the runnin
 - After the N13 high-speed pass: `/tmp/n13_final_cruise.png` (Rodina style, 5,000 m/s tangent over
   Aurelia) — small dark ship, two dotted lime trails; `/tmp/n13_assets_cruise.png` repeats it with
   the Sol-Assets switches temporarily enabled.
+- After the N13 sky pass: `/tmp/n13_galaxy/rodina_planet_orbit.png` — soft fallback galaxy band
+  with the starfield asset switch off.

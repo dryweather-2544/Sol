@@ -42,6 +42,11 @@ func test_rodina_gives_each_world_its_own_family() -> void:
 			assert_near(fposmod(look.detail_tile_period, tile), 0.0, 1e-6, "%s: period %.1f is a multiple of tile %.1f" % [body_id, look.detail_tile_period, tile])
 	assert_eq(families.size(), 5)
 	assert_eq(VisualStyle.tonemap_mode(), Environment.TONE_MAPPER_LINEAR)
+	var params := VisualStyle.space_parameters()
+	assert_true(float(params["galaxy_amount"]) > 0.0, "Rodina has a galaxy/dust band")
+	assert_true((params["galaxy_normal"] as Vector3).is_normalized(), "galaxy band orientation is normalized")
+	VisualStyle.set_active(VisualStyle.SOL)
+	assert_near(float(VisualStyle.space_parameters()["galaxy_amount"]), 0.0, 1e-9, "Sol keeps its original star sky")
 	_after()
 
 

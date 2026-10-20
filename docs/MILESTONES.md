@@ -282,5 +282,6 @@ and the commit is pushed.
 - [x] Indexed actual local Rodina trailer/gameplay videos and screenshots; extracted COMBAT/CRUISE sequences frame-by-frame.
 - [x] Added visual-reference spec and dated fidelity review; documented the missing unambiguous WARP reference.
 - [x] Rodina style: wider 85 m chase framing, dark hull silhouette and state-driven twin dotted exhaust trails.
+- [x] Soft Rodina-only galaxy/dust fallback tested against the official orbit frame; block/noise and stripe variants rejected.
 - [x] 324 tests / 97,126 assertions / 0 failures.
 - [ ] Human visual comparison; COMBAT-SPEED streak field, galaxy band, entry fire and HUD remain.

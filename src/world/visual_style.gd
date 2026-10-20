@@ -74,8 +74,10 @@ static func space_parameters() -> Dictionary:
 	if is_rodina():
 		# Near-black violet base; stars over-bright and blue-shifted so they bloom; a contrast curve darkens the dim,
 		# dusty parts of the panorama (Rodina subtracts dust: rendering_notes §6.4). Values are Sol's own.
-		return {"space_color": _hex("#0c0418"), "star_gain": 1.8, "star_tint": Vector3(0.85, 0.9, 1.25), "star_gamma": 1.35}
-	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0}
+		return {"space_color": _hex("#0c0418"), "star_gain": 1.8, "star_tint": Vector3(0.85, 0.9, 1.25), "star_gamma": 1.35,
+			"galaxy_amount": 0.34, "galaxy_color": _hex("#51405c"), "galaxy_normal": Vector3(0.35, 0.82, 0.25).normalized()}
+	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0,
+		"galaxy_amount": 0.0, "galaxy_color": Color.BLACK, "galaxy_normal": Vector3(0.35, 0.82, 0.25).normalized()}
 
 
 ## Multiplier on the ship's painted hull materials (Sol: none). Rodina's player ship reads as a

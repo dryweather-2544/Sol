@@ -55,3 +55,23 @@ zero at low speed and when the style is `sol`.
 
 **Next iteration priority:** add the blue/white COMBAT-SPEED streak field or a galaxy/sky pass only
 after checking the corresponding reference sequence; do not add invented WARP visuals.
+
+
+### Second iteration — orbit sky (2026-10-21)
+
+Reference: `frames/selected/space/steam06_orbit_ochre.jpg` (official orbit screenshot) and the
+trailer orbit frames; both show a broad violet/brown dust band behind the crisp stars.
+
+Current Sol with the user's asset switches off had only hash stars and a flat violet background.
+Added a Rodina-only `galaxy_amount`/`galaxy_color`/`galaxy_normal` sky contribution. The first
+version used per-cell hash dust and showed obvious block stair-steps; the second used a high-frequency
+sine field and showed diagonal stripes. Both were rejected. The accepted version is a soft broad
+exp(-angle²) band with a constant diffuse dust level.
+
+Capture: `/tmp/n13_galaxy/rodina_planet_orbit.png`. It is closer in sky value and broad negative
+space than the previous flat star sky, but the reference's actual painted galaxy texture is stronger
+and more structured. The shipped `sky/tex_sky_starfield.png` is the intended texture; the user's
+current `starfield=false` setting hides it, so this procedural band is only a fallback under that
+setting. Sol style keeps `galaxy_amount=0` and is unchanged.
+
+Tests after both iterations: 324 tests / 97,126 assertions / 0 failures.

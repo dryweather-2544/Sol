@@ -49,8 +49,9 @@ Companion to `VISUAL_REFERENCE_INDEX.md` and `VISUAL_FIDELITY_REVIEWS.md`. Tags:
 - [OBS] Surface skies are flat, highly saturated two-colour gradients with a hard sun and visible
   stars; cloud layers are not visible in the inspected reference.
 - [C] Recovered shaders implement two-colour atmosphere blends, simple sun/halo and particle bloom.
-- Sol's `rodina` style already targets this; current orbit capture is close in palette, but lacks the
-  painted Milky Way/dust band and has a smaller planet framing than the official screenshot.
+- Sol's `rodina` style already targets this. Implemented a soft procedural fallback dust band for
+  the Rodina style (`galaxy_amount`), used only when the starfield switch is off; the intended
+  `tex_sky_starfield.png` remains available with the switch on. Sol's sky is unchanged.
 
 ## 6. HUD and interiors
 
