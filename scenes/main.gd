@@ -34,6 +34,8 @@ var audio: AudioService
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
 var _cockpit_view := false
+## Rodina's warp and speed camera (FOV, chase distance and angle, shake); drives the ship cameras in the rodina style.
+var warp_view := LimnalWarpView.new()
 var _welcomed := false
 var _nav_target_index := -1
 var save_manager := SaveManager.new()
@@ -175,6 +177,7 @@ func _physics_process(delta: float) -> void:
 	runtime.update_frame()
 	_update_mission()
 	session.tick(delta, command)
+	_update_warp_view(delta)
 	on_foot.sync_transform()
 	interior_view.sync_view()
 	if session.mode != mode_before:
@@ -345,6 +348,7 @@ func _load_from(slot: String) -> void:
 		return
 	_recentre_everything_on_ship()
 	_on_mode_changed()
+	warp_view.reset()
 	chase_camera.snap_to_target()
 	session.say("Loaded (%s)%s" % [slot, " from backup" if loaded["used_backup"] else ""])
 
@@ -525,8 +529,41 @@ func _on_menu_resume() -> void:
 
 func _apply_field_of_view() -> void:
 	var fov := GameSettings.instance().field_of_view
-	for camera in [chase_camera, cockpit_camera, interior_view.camera, on_foot.camera]:
+	for camera in [interior_view.camera, on_foot.camera]:
 		(camera as Camera3D).fov = fov
+	# Rodina sets the camera FOV from the warp blend (EGDataShipPlayer.lua:325-346); at rest it is the setting.
+	var ship_fov := warp_view.field_of_view(fov) if VisualStyle.is_rodina() else fov
+	chase_camera.fov = ship_fov
+	cockpit_camera.fov = ship_fov
+
+
+## Advances the Rodina warp/speed camera from the ship's real state and hands it to the ship cameras. In the sol style
+## it runs nothing and leaves both cameras at rest.
+func _update_warp_view(delta: float) -> void:
+	if not VisualStyle.is_rodina():
+		if warp_view.spacewarp != 0.0 or warp_view.limnal_timer != 0.0 or warp_view.shake != Vector2.ZERO:
+			warp_view.reset()
+	else:
+		var state := ship.state
+		var fired := session.mode == GameSession.Mode.SEATED and ship.last_command.fire and state.gear <= PilotCommand.GEAR_COMBAT
+		warp_view.update(state.gear == PilotCommand.GEAR_WARP, state.atmosphere_resistance, fired, delta)
+	var rodina := VisualStyle.is_rodina()
+	chase_camera.follow_distance = warp_view.follow_distance() * RodinaEmitter.SHIP_SCALE if rodina else 0.0
+	chase_camera.follow_angle = deg_to_rad(warp_view.follow_angle_degrees()) if rodina else 0.0
+	chase_camera.shake = warp_view.shake
+	cockpit_camera.rotation = Vector3(warp_view.shake.y, warp_view.shake.x, 0.0)
+	var effects := _ship_effects()
+	if effects != null:
+		effects.limnal_activation = warp_view.activation
+		var in_ship_view := session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
+		effects.camera_inside = session.mode == GameSession.Mode.INSIDE or (in_ship_view and _cockpit_view)
+
+
+func _ship_effects() -> ShipEffects:
+	for child in ship.get_children():
+		if child is ShipVisuals:
+			return (child as ShipVisuals).effects
+	return null
 
 
 func _on_player_lost(reason: String) -> void:

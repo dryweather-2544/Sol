@@ -102,3 +102,24 @@ func test_set_active_bumps_the_revision_the_scene_watches() -> void:
 	assert_true(VisualStyle.is_rodina())
 	_after()
 	assert_true(not VisualStyle.is_rodina())
+
+
+func test_rodina_air_worlds_use_rodina_atmosphere_colours() -> void:
+	var before := VisualStyle.active()
+	VisualStyle.set_active(VisualStyle.RODINA)
+	var system := StarSystem.default_system()
+	# Aurelia takes Jarilo's: ScatterColor1 = EGHueSaturateValue(20, .6, 1) = (1, .6, .4), FilterColor2 = (210, .5, 1) = (.5, .75, 1).
+	var look := VisualStyle.look_for(system.bodies[&"planet"])
+	var zenith := Color(1.0, 0.6, 0.4).srgb_to_linear()
+	assert_near(look.sky_zenith.r, zenith.r, 1e-5)
+	assert_near(look.sky_zenith.g, zenith.g, 1e-5)
+	assert_near(look.sky_zenith.b, zenith.b, 1e-5)
+	var sunset := Color(0.5, 0.75, 1.0).srgb_to_linear()
+	assert_near(look.sunset_color.g, sunset.g, 1e-5, "Jarilo's blue sunset")
+	# Verdant takes Zosia's teal: hue 167 -> green and blue above red.
+	var verdant := VisualStyle.look_for(system.bodies[&"verdant"])
+	assert_true(verdant.sky_zenith.g > verdant.sky_zenith.r and verdant.sky_zenith.b > verdant.sky_zenith.r)
+	# Cinder takes Veles's dark red.
+	var cinder := VisualStyle.look_for(system.bodies[&"cinder"])
+	assert_true(cinder.sky_zenith.r > cinder.sky_zenith.g * 2.0)
+	VisualStyle.set_active(before)

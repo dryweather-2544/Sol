@@ -4,8 +4,9 @@ extends RefCounted
 ## Chosen by the SOL_VISUAL_STYLE environment variable (sol|rodina; wins, for tools and tests), else GameSettings.visual_style.
 ## A style is presentation only: it never touches terrain height, physics, saves or gameplay state.
 ##
-## Colour values in the rodina profile are design inferences, not samples: no Rodina frame was available when they were
-## chosen (spec §0). Families follow docs/RODINA_PLANET_TYPES.md §2. Rodina constants quoted in the research are not reused.
+## Ground colours in the rodina profile are design inferences, not samples: no Rodina frame was available when they were
+## chosen (spec §0). Families follow docs/RODINA_PLANET_TYPES.md §2. Since N13 the air worlds' sky, sunset, limb and
+## haze colours are Rodina's own atmosphere colours (RODINA_ATMOSPHERES, from EGDataPlanets.lua).
 
 const SOL := &"sol"
 const RODINA := &"rodina"
@@ -98,11 +99,11 @@ static func _sol_look(body: BodyDef) -> PlanetLook:
 static func _rodina_look(body: BodyDef) -> PlanetLook:
 	match body.id:
 		&"planet":
-			return _ochre_steppe()
+			return _apply_rodina_atmosphere(_ochre_steppe(), body.id)
 		&"cinder":
-			return _ember_barren()
+			return _apply_rodina_atmosphere(_ember_barren(), body.id)
 		&"verdant":
-			return _teal_alien()
+			return _apply_rodina_atmosphere(_teal_alien(), body.id)
 		&"selene":
 			return _airless(&"airless_grey", "#6e6a65", "#4c4946", "#8a8580", "#3a3836", "#5e5a56", "#77736e")
 		&"pebble":
@@ -220,6 +221,39 @@ static func _teal_alien() -> PlanetLook:
 	look.ambient_day = _hex("#4a6a68")
 	look.rim_color = _hex("#86c9b4") # the vivid #7fffd0 read as neon in the orbit photo
 	look.impostor_color = _hex("#3f7a6c")
+	return look
+
+
+## Rodina atmosphere colours (EGDataPlanets.lua), as EGHueSaturateValue(hue, saturation, value) triples, for the
+## Rodina world whose sky each Sol air world takes: Aurelia (home, 1 AU) <- Jarilo (1 AU; Mars-like butterscotch sky,
+## blue sunset); Cinder (hot, red) <- Veles (hot, acidic, dark red); Verdant (teal) <- Zosia (teal). Paired by sky
+## colour now that the colours are known (docs/RODINA_PLANET_TYPES.md paired by orbit before they were); the ground
+## palettes are unchanged.
+const RODINA_ATMOSPHERES := {
+	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0]},
+	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7]},
+	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0]},
+}
+
+
+## Rodina's atmosphere colour as a Godot (linear) colour. Rodina has no gamma pass (rendering_notes §6.6), so its
+## values are what reaches the screen: they are treated as display (sRGB) values, like the hex colours here.
+static func rodina_atmosphere_color(body_id: StringName, key: String) -> Color:
+	var hsv: Array = RODINA_ATMOSPHERES[body_id][key]
+	return RodinaMath.hue_saturate_value(hsv[0], hsv[1], hsv[2]).srgb_to_linear()
+
+
+## Sky, sunset, limb and haze from the Rodina world's atmosphere colours. Rodina's horizon shader blends between
+## ScatterColor1 and 2 by its horizon factor and toward FilterColor 1/2 by its sunset/halo factor (rendering_notes
+## §4.2-4.3). Inferred, because _atmosphere.h is not in this session: which end each colour takes. Here the more
+## saturated ScatterColor1 is the zenith and the limb seen from orbit, the paler ScatterColor2 the horizon and the
+## haze, and FilterColor2 the sunset glow.
+static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> PlanetLook:
+	look.sky_zenith = rodina_atmosphere_color(body_id, "scatter1")
+	look.sky_horizon = rodina_atmosphere_color(body_id, "scatter2")
+	look.sunset_color = rodina_atmosphere_color(body_id, "filter2")
+	look.rim_color = rodina_atmosphere_color(body_id, "scatter1")
+	look.fog_color = rodina_atmosphere_color(body_id, "scatter2")
 	return look
 
 

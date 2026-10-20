@@ -10,6 +10,12 @@ extends Camera3D
 @export var orientation_stiffness := 5.0
 
 var target: Node3D
+## Rodina chase camera (LimnalWarpView): when follow_distance > 0 the camera sits that far from the ship at
+## follow_angle (radians above the ship's back) instead of offset_behind_up; shake is this frame's (yaw, pitch) in
+## radians. Rest values (0, 0, zero) leave the Sol camera unchanged.
+var follow_distance := 0.0
+var follow_angle := 0.0
+var shake := Vector2.ZERO
 var _smoothed_orientation := Quaternion.IDENTITY
 
 
@@ -46,6 +52,12 @@ func _physics_process(delta: float) -> void:
 
 func _apply(_delta: float) -> void:
 	var rig_basis := Basis(_smoothed_orientation)
-	var camera_position := target.global_position + rig_basis * offset_behind_up
+	var offset := offset_behind_up
+	if follow_distance > 0.0:
+		offset = Vector3(0.0, sin(follow_angle), cos(follow_angle)) * follow_distance
+	var camera_position := target.global_position + rig_basis * offset
 	var look_target := target.global_position + rig_basis * Vector3(0.0, 0.0, -look_ahead_distance)
-	global_transform = Transform3D(Basis.looking_at(look_target - camera_position, rig_basis.y), camera_position)
+	var view_basis := Basis.looking_at(look_target - camera_position, rig_basis.y)
+	if shake != Vector2.ZERO:
+		view_basis = view_basis * Basis.from_euler(Vector3(shake.y, shake.x, 0.0))
+	global_transform = Transform3D(view_basis, camera_position)

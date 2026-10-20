@@ -437,6 +437,9 @@ truncated file fails safely and falls back to `.bak`; v1 fixture loads in every 
 - **Visual style** *(ADR 0007)*: `VisualStyle` selects `sol` (original look) or `rodina` (Rodina-inspired) from
   `SOL_VISUAL_STYLE`, then `GameSettings.visual_style`; each world gets a `PlanetLook` (terrain colours, detail tiling,
   sky, fog, lights). Styles change colour and light only, never terrain shape, physics or saved state.
+  *(N13, ADR 0011: in the `rodina` style the ship cameras follow Rodina's warp/speed camera (`LimnalWarpView`: FOV,
+  chase distance and angle, named shake modules) and `ShipEffects` attaches Rodina's particle materials per slot
+  (`RodinaEmitter`, data in `RodinaParticleDefs`), both driven from `ShipState`; the `sol` style is unchanged.)*
 
 ---
 
