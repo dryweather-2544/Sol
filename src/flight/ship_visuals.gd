@@ -14,6 +14,8 @@ var _scorch_decals := {}  # room id -> Decal, hidden until the room has had a fi
 var exterior := ShipExterior.new()
 ## Doors slide sideways (+x) into the wall beside the opening; sliding up would push them out through the roof.
 const DOOR_SLIDE := 1.45
+## Photo tools only (tools/ship_shots.gd): show the flight pose (pods level) while parked.
+var force_pods_level := false
 
 var _hull_material := _material(Color(0.55, 0.6, 0.68), 0.55, 0.35)
 var _floor_material := _material(Color(0.25, 0.27, 0.3), 0.8, 0.1)
@@ -69,6 +71,8 @@ func _process(delta: float) -> void:
 		light.light_energy = 1.6 + 2.0 * intensity if intensity > 0.0 else 1.6
 	_update_screens()
 	var drop := layout.floor_y - layout.ramp_end_y
+	var low_and_slow := ship.planet != null and (ship.state.landed or (ship.state.altitude_above_ground < 80.0 and ship.state.speed() < 30.0))
+	exterior.update_pods(low_and_slow and not force_pods_level, 0.0 if force_pods_level else delta)
 	var command := ship.last_command
 	exterior.update_exhaust(1.0 if command.boost else minf(command.thrust.length(), 1.0), delta)
 	exterior.update_ramp(ship.systems.walkway.progress, asin(clampf(drop / layout.ramp_rect.size.y, -0.9, 0.9)))
@@ -86,15 +90,10 @@ func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
 
 
 ## Walls are the 0.2 m skin just outside each room rectangle, with gaps where a portal opening crosses it.
-## The cockpit's nose wall is glass.
+## The cockpit has no nose wall: it opens into the exterior's glass canopy.
 func _build_walls(layout: InteriorLayout) -> void:
 	var bottom := layout.floor_y
 	var top := layout.ceiling_y
-	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.5, 0.7, 0.9, 0.2)
-	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	glass.roughness = 0.1
-	var glass_material: Material = AssetLibrary.material_or("mat_ship_glass", glass)
 	var thickness := 0.2
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
@@ -107,8 +106,7 @@ func _build_walls(layout: InteriorLayout) -> void:
 			var wall: Rect2 = walls[side][0]
 			var runs_along_x: bool = walls[side][1]
 			if room_id == &"cockpit" and side == "nose":
-				_wall_box(wall.position.x, wall.end.x, wall.position.y, wall.end.y, bottom, top, glass_material)
-				continue
+				continue # the exterior's canopy nose closes the cockpit (ShipExterior._build_canopy_nose)
 			_wall_with_portal_gaps(layout, wall, runs_along_x, bottom, top)
 
 

@@ -4,51 +4,62 @@ extends RefCounted
 ## interior (InteriorLayout.player_ship). Ship-local metres, nose -z, right +x, up +y.
 ##
 ## Design (one vehicle, each part with a job):
-## - Pressure hull: one chamfered loft from the visor face to the rear loading face, wrapping the six rooms
-##   (rooms reach x +-3.2, ceiling slab top y 1.82, floor slab bottom y -1.02; the hull clears all of it).
-##   Light ceramic upper hull, blue-grey structural band below a chine step, graphite belly.
-## - Visor face: overhanging brow over a recessed, mullioned window in front of the cockpit glass wall, and a
-##   sensor chin below it with the landing lights.
-## - Propulsion: two tilt-engine pods on structural pylons at the rear flanks (intake forward, the nozzle aft),
-##   plus two ventral lift-fan grilles under the cabin for VTOL balance.
-## - Landing gear: four short oleo legs in gear sponsons; the foot pads sit exactly on ShipTuning.support_points.
+## - Pressure hull: one chamfered loft from the canopy to the rear loading face, wrapping the six rooms
+##   (rooms reach x +-3.2, ceiling slab top y 1.82, floor slab bottom y -1.02; the hull clears all of it). The roof
+##   rises into a dorsal hump over cabin and engineering and the tail narrows round the airlock, so the side and
+##   plan silhouettes are shaped, not a constant box. Light ceramic upper hull, blue-grey band, graphite belly.
+## - Cockpit: a faceted, raked glass canopy in a tapering nose, replacing the cockpit's flat glass wall; the
+##   walkable cockpit floor is unchanged (it ends at z -7.0) and a dash fills the nose in front of it.
+## - Propulsion: two tilt-engine pods on stub wings at the rear flanks. They stand upright (nozzles down) when
+##   landed or hovering low and slow, and swing level for flight; ventral lift-fan grilles balance the nose.
+## - Landing gear: four oleo legs on two chassis rails; the foot pads sit exactly on ShipTuning.support_points.
 ## - Access: a two-leaf folding ramp hinged at the rear door sill. Stowed, the first leaf closes the doorway and the
 ##   second folds down over it; deployed, both lie in one line along the walkway slope. Two rams drive it.
 ## - Dorsal: heat-exchanger spine over cabin/engineering and the turret barbette above the turret room.
-## All static parts are merged into one mesh (one draw call per material); only the ramp, rams and turret move.
+## All static parts are merged into one mesh (one draw call per material); the ramp, rams, turret and pods move.
 
-enum Slot { HULL, PANEL, STRUCTURE, GRAPHITE, RECESS, SAFETY, METAL, LIGHT, NAV_PORT, NAV_STARBOARD, GLASS, EXHAUST_IDLE }
+enum Slot { HULL, PANEL, STRUCTURE, GRAPHITE, RECESS, SAFETY, METAL, LIGHT, NAV_PORT, NAV_STARBOARD, GLASS, EXHAUST_IDLE,
+	HULL_2S, STRUCTURE_2S, GRAPHITE_2S }
+## Two-sided copies for the hull round the cockpit, whose inside is seen from the cockpit through the canopy.
+const TWO_SIDED := {Slot.HULL: Slot.HULL_2S, Slot.STRUCTURE: Slot.STRUCTURE_2S, Slot.GRAPHITE: Slot.GRAPHITE_2S}
 
 ## Hull stations: z, roof y, roof half width, shoulder x/y, chine x/y (the widest line), lower side x/y, belly
 ## half width, belly y. The sides lean in above the chine and below it, so no face is a vertical slab.
 const STATIONS := [
-	[-7.30, 2.00, 1.30, 2.35, 1.86, 2.60, -0.20, 2.35, -0.85, 1.90, -1.25],
-	[-5.60, 2.18, 1.85, 2.95, 1.84, 3.20, -0.20, 3.00, -0.85, 2.45, -1.32],
-	[-3.80, 2.25, 2.30, 3.40, 1.80, 3.75, -0.20, 3.40, -0.85, 2.85, -1.32],
-	[7.80, 2.25, 2.30, 3.40, 1.80, 3.75, -0.20, 3.40, -0.85, 2.85, -1.32],
-	[10.86, 2.08, 1.95, 3.00, 1.78, 3.15, -0.20, 2.90, -0.85, 2.40, -1.28]]
+	[-7.25, 1.98, 1.25, 2.35, 1.86, 2.60, -0.20, 2.35, -0.85, 1.90, -1.25],
+	[-5.60, 2.25, 1.75, 2.95, 1.84, 3.20, -0.20, 3.00, -0.85, 2.45, -1.32],
+	[-3.80, 2.42, 2.05, 3.40, 1.80, 3.75, -0.20, 3.40, -0.85, 2.85, -1.32],
+	[-1.60, 2.78, 1.75, 3.40, 1.86, 3.75, -0.20, 3.40, -0.85, 2.85, -1.32],
+	[1.40, 2.78, 1.75, 3.40, 1.86, 3.75, -0.20, 3.40, -0.85, 2.85, -1.32],
+	[3.60, 2.30, 2.15, 3.40, 1.80, 3.75, -0.20, 3.40, -0.85, 2.85, -1.32],
+	[8.30, 2.28, 2.10, 3.35, 1.80, 3.72, -0.20, 3.38, -0.85, 2.82, -1.32],
+	[10.86, 2.05, 1.45, 2.25, 1.74, 2.55, -0.20, 2.35, -0.85, 1.90, -1.28]]
+## Canopy nose stations (same layout), from the hull's front station forward to the tip. The roof and shoulder
+## strips of the first two segments are the canopy glass.
+const NOSE_STATIONS := [
+	[-8.00, 1.42, 1.05, 1.95, 1.22, 2.32, -0.22, 2.10, -0.85, 1.60, -1.22],
+	[-8.70, 0.25, 0.70, 1.45, 0.10, 1.85, -0.26, 1.66, -0.82, 1.18, -1.15],
+	[-9.25, -0.15, 0.42, 0.92, -0.22, 1.22, -0.36, 1.08, -0.74, 0.72, -1.00]]
 ## The chine steps in this far (and 0.1 m down) to the structural band: a shadow line along the whole hull.
 const CHINE_STEP := 0.13
-const NOSE_Z := -7.30
 const TAIL_Z := 10.86
-## Window band in the visor face (x, y), in front of the cockpit glass wall at z -7.2; the prow sits below it.
-const WINDOW := Rect2(-1.95, 0.15, 3.9, 1.35)
-const PROW_TIP_Z := -8.95
+const NOSE_TIP_Z := -9.25
 ## Rear doorway in the loading face, around the airlock outer door (x +-0.7, 2.1 m high from the floor).
 const DOORWAY := Rect2(-0.95, -0.95, 1.9, 2.25)
-const POD_X := 5.1
-const POD_Y := 1.0
-const POD_RADIUS := 1.05 # to the flats of the octagon
-const POD_FRONT_Z := 4.1
-const POD_REAR_Z := 10.0
-const NOZZLE_LENGTH := 0.8
+## Engine pod tilt pivot (port is -x). Pods are authored intake at local -z, nozzle at +z, and pitch about x:
+## 0 = level for flight, 90 degrees = upright (nozzle down) for landing and hover.
+const POD_PIVOT := Vector3(5.0, 1.15, 7.0)
+const POD_RADIUS := 0.95 # to the flats of the octagon
+const POD_HALF_LENGTH := 2.0
+const NOZZLE_LENGTH := 0.7
+const POD_TILT_RATE := 1.2 # radians per second
 const RAMP_THICKNESS := 0.12
 ## Leaf 2's hinge sits this far below leaf 1's underside so the folded leaves' stiffeners clear each other.
 const RAMP_FOLD_GAP := 0.08
 const RAMP_RAM_ANCHOR := Vector3(1.0, 0.9, 10.98) # x is mirrored
 const RAMP_RAM_LEAF_POINT := Vector3(1.0, -0.06, 0.9) # on leaf 1, leaf-local
-const TURRET_DECK_Y := 2.36
-const TURRET_PIVOT_Y := 2.64
+const TURRET_DECK_Y := 2.42
+const TURRET_PIVOT_Y := 2.7
 
 var materials := {} # Slot -> Material
 var turret_pivot := Node3D.new()
@@ -60,6 +71,9 @@ var _exhaust_discs: Array[MeshInstance3D] = []
 var _exhaust_level := 0.0
 var _hot_glow: Material
 var _layout: InteriorLayout
+var _pod_pivots: Array[Node3D] = []
+var _nacelles: Array[MeshInstance3D] = []
+var _pod_tilt := PI * 0.5
 
 
 ## Builds everything under `parent`. The two nacelles (nozzle material, one exhaust disc each) are added as
@@ -70,31 +84,37 @@ func build(parent: Node3D, layout: InteriorLayout, turret_muzzle: Vector3, nozzl
 	_make_materials()
 	var hull := HullMeshBuilder.new()
 	_build_pressure_hull(hull)
-	_build_visor_face(hull)
+	_build_canopy_nose(hull)
 	_build_loading_face(hull)
-	_build_engine_pods(hull)
+	_build_stub_wings(hull)
 	_build_landing_gear(hull)
 	_build_belly_and_sides(hull)
 	_build_dorsal(hull, turret_muzzle)
 	parent.add_child(_instance(hull, "HullStatic"))
-	_build_window_glass(parent)
 	for side in [-1.0, 1.0]:
+		var pivot := Node3D.new()
+		pivot.name = "PodPivot_%s" % ("port" if side < 0.0 else "starboard")
+		pivot.position = Vector3(side * POD_PIVOT.x, POD_PIVOT.y, POD_PIVOT.z)
+		parent.add_child(pivot)
+		pivot.add_child(_instance(_engine_pod(side), "Pod"))
+		_pod_pivots.append(pivot)
 		var nozzle := CylinderMesh.new()
-		nozzle.top_radius = 0.66
-		nozzle.bottom_radius = 0.8
+		nozzle.top_radius = 0.6
+		nozzle.bottom_radius = 0.74
 		nozzle.height = NOZZLE_LENGTH
 		nozzle.radial_segments = 24
 		var nacelle := MeshInstance3D.new()
 		nacelle.name = "Nozzle_%s" % ("port" if side < 0.0 else "starboard")
 		nacelle.mesh = nozzle
 		nacelle.material_override = nozzle_material
-		var disc: MeshInstance3D = make_exhaust_disc.call(NOZZLE_LENGTH * 0.5 + 0.012, 0.52) # proud of the cap: flush, it z-fought
+		var disc: MeshInstance3D = make_exhaust_disc.call(NOZZLE_LENGTH * 0.5 + 0.012, 0.48) # proud of the cap: flush, it z-fought
 		if disc != null:
 			nacelle.add_child(disc)
 			_exhaust_discs.append(disc)
-		nacelle.rotation_degrees = Vector3(90, 0, 0) # cylinder +y -> ship +z (aft)
-		nacelle.position = Vector3(side * POD_X, POD_Y, POD_REAR_Z + NOZZLE_LENGTH * 0.5)
+		# The nacelle stays a direct child of `parent` (ShipVisuals finds it there) and follows its pod in update_pods.
 		parent.add_child(nacelle)
+		_nacelles.append(nacelle)
+	update_pods(true, 0.0)
 	_build_turret(parent, turret_muzzle)
 	_build_ramp(parent)
 
@@ -127,6 +147,17 @@ func update_exhaust(demand: float, delta: float) -> void:
 		disc.transparency = 1.0 - clampf(0.35 + 0.65 * _exhaust_level, 0.0, 1.0) if hot else 0.0
 
 
+## Tilts both pods toward upright (`upright`) or level, and carries the nozzles with them. delta 0 snaps.
+func update_pods(upright: bool, delta: float) -> void:
+	var target := PI * 0.5 if upright else 0.0
+	_pod_tilt = target if delta <= 0.0 else move_toward(_pod_tilt, target, POD_TILT_RATE * delta)
+	for index in _pod_pivots.size():
+		_pod_pivots[index].rotation.x = _pod_tilt
+		# Cylinder +y (its top cap, where the exhaust disc sits) -> pod +z (aft, the nozzle exit).
+		var nozzle_local := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0, POD_HALF_LENGTH + NOZZLE_LENGTH * 0.5))
+		_nacelles[index].transform = _pod_pivots[index].transform * nozzle_local
+
+
 # --- materials -------------------------------------------------------------------------------------------------
 
 func _make_materials() -> void:
@@ -144,11 +175,16 @@ func _make_materials() -> void:
 	idle.emission = Color(0.25, 0.6, 0.85)
 	materials[Slot.EXHAUST_IDLE] = idle
 	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.09, 0.13, 0.17, 0.84) # a tinted visor from outside; the pilot looks through its culled back face
+	glass.albedo_color = Color(0.08, 0.12, 0.16, 0.82) # tinted, reflective canopy glass from outside
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.metallic = 0.85
 	glass.roughness = 0.06
+	glass.cull_mode = BaseMaterial3D.CULL_BACK # from inside the canopy the pilot looks through the culled back faces
 	materials[Slot.GLASS] = glass
+	for slot in TWO_SIDED:
+		var two_sided := (materials[slot] as Material).duplicate() as BaseMaterial3D
+		two_sided.cull_mode = BaseMaterial3D.CULL_DISABLED
+		materials[TWO_SIDED[slot]] = two_sided
 
 
 ## The hull plating texture (panel seams, fasteners) tinted to a secondary colour, so every painted part shares
@@ -214,7 +250,17 @@ func _build_pressure_hull(hull: HullMeshBuilder) -> void:
 	var rings := []
 	for station in STATIONS:
 		rings.append(HullMeshBuilder.mirror_ring(_half_profile(station)))
-	hull.add_loft(rings, HullMeshBuilder.mirror_slots(PackedInt32Array(PROFILE_SLOTS)))
+	var slots := HullMeshBuilder.mirror_slots(PackedInt32Array(PROFILE_SLOTS))
+	# The cockpit's glass wall is gone, so the first segment (round the cockpit's front) is seen from inside too.
+	hull.add_loft([rings[0], rings[1]], _two_sided(slots))
+	hull.add_loft(rings.slice(1), slots)
+
+
+static func _two_sided(slots: PackedInt32Array) -> PackedInt32Array:
+	var result := PackedInt32Array()
+	for slot in slots:
+		result.append(TWO_SIDED.get(slot, slot))
+	return result
 
 
 static func _outline_2d(station: Array) -> PackedVector2Array:
@@ -224,61 +270,41 @@ static func _outline_2d(station: Array) -> PackedVector2Array:
 	return outline
 
 
-## The visor face: a window band between the prow below and an overhanging brow above. The front cap minus the
-## window gives the window pillars; a liner seen from the cockpit through its glass wall hides the hull's back faces.
-func _build_visor_face(hull: HullMeshBuilder) -> void:
-	var w := WINDOW
-	hull.add_cap_with_opening(_outline_2d(STATIONS[0]), w, NOSE_Z, -1.0, Slot.STRUCTURE)
-	# Liner just in front of the cockpit glass wall (z -7.2), facing aft, covering the glass outside the window.
-	var glass_rect := PackedVector2Array([Vector2(-2.25, -0.95), Vector2(2.25, -0.95), Vector2(2.25, 1.86), Vector2(-2.25, 1.86)])
-	hull.add_cap_with_opening(glass_rect, w, -7.215, 1.0, Slot.STRUCTURE)
-	# Window reveal: the four sides of the opening between the face and the liner.
-	hull.add_loft([
-		PackedVector3Array([Vector3(w.position.x, w.end.y, NOSE_Z), Vector3(w.end.x, w.end.y, NOSE_Z), Vector3(w.end.x, w.position.y, NOSE_Z), Vector3(w.position.x, w.position.y, NOSE_Z)]),
-		PackedVector3Array([Vector3(w.position.x, w.end.y, -7.215), Vector3(w.end.x, w.end.y, -7.215), Vector3(w.end.x, w.position.y, -7.215), Vector3(w.position.x, w.position.y, -7.215)])],
-		PackedInt32Array([Slot.GRAPHITE]), Transform3D.IDENTITY, true)
-	# Brow: the roof carried forward over the window as a thick visor, its underside rising toward the front edge.
-	var brow_back := PackedVector3Array([Vector3(0, 2.0, NOSE_Z), Vector3(1.3, 2.0, NOSE_Z), Vector3(2.35, 1.86, NOSE_Z), Vector3(_upper_side_x(0, w.end.y), w.end.y, NOSE_Z), Vector3(0, w.end.y, NOSE_Z)])
-	var brow_front := PackedVector3Array([Vector3(0, 1.96, -7.62), Vector3(1.2, 1.96, -7.62), Vector3(2.15, 1.84, -7.62), Vector3(2.17, 1.62, -7.62), Vector3(0, 1.62, -7.62)])
-	var brow_slots := PackedInt32Array([Slot.HULL, Slot.HULL, Slot.STRUCTURE, Slot.STRUCTURE])
-	hull.add_loft([HullMeshBuilder.mirror_ring(brow_back), HullMeshBuilder.mirror_ring(brow_front)], HullMeshBuilder.mirror_slots(brow_slots), Transform3D.IDENTITY, false, -1, Slot.STRUCTURE)
-	# Prow: the lower hull carried forward and down under the window to a sensor face at the tip.
-	var prow := [
-		PackedVector3Array([Vector3(0, w.position.y, NOSE_Z), Vector3(_upper_side_x(0, w.position.y), w.position.y, NOSE_Z), Vector3(2.6, -0.2, NOSE_Z), Vector3(2.6 - CHINE_STEP, -0.3, NOSE_Z),
-			Vector3(2.35, -0.85, NOSE_Z), Vector3(1.9, -1.25, NOSE_Z), Vector3(0, -1.25, NOSE_Z)]),
-		PackedVector3Array([Vector3(0, 0.02, -8.25), Vector3(1.95, -0.1, -8.25), Vector3(2.0, -0.3, -8.25), Vector3(1.9, -0.4, -8.25),
-			Vector3(1.8, -0.82, -8.25), Vector3(1.45, -1.12, -8.25), Vector3(0, -1.12, -8.25)]),
-		PackedVector3Array([Vector3(0, -0.26, PROW_TIP_Z), Vector3(1.15, -0.36, PROW_TIP_Z), Vector3(1.2, -0.45, PROW_TIP_Z), Vector3(1.12, -0.52, PROW_TIP_Z),
-			Vector3(1.05, -0.78, PROW_TIP_Z), Vector3(0.8, -0.95, PROW_TIP_Z), Vector3(0, -0.95, PROW_TIP_Z)])]
-	var mirrored := []
-	for ring in prow:
-		mirrored.append(HullMeshBuilder.mirror_ring(ring))
-	var prow_slots := PackedInt32Array([Slot.HULL, Slot.HULL, Slot.STRUCTURE, Slot.STRUCTURE, Slot.STRUCTURE, Slot.GRAPHITE])
-	hull.add_loft(mirrored, HullMeshBuilder.mirror_slots(prow_slots), Transform3D.IDENTITY, false, -1, Slot.STRUCTURE)
-	# Sensor aperture and the two landing lights in the prow face.
-	hull.add_chamfer_box(Vector3(0.9, 0.2, 0.05), 0.04, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, -0.62, PROW_TIP_Z - 0.01)))
+## The canopy nose: the hull lofted forward to the tip through NOSE_STATIONS. The roof and shoulder strips of the
+## first two segments are glass (a raked, faceted canopy) with a structural frame along every glass edge; the rest
+## is two-sided so it reads from the cockpit. A dash fills the nose ahead of the cockpit floor (which ends at z -7.0).
+func _build_canopy_nose(hull: HullMeshBuilder) -> void:
+	var half_rings: Array[PackedVector3Array] = [_half_profile(STATIONS[0])]
+	for station in NOSE_STATIONS:
+		half_rings.append(_half_profile(station))
+	var opaque := _two_sided(HullMeshBuilder.mirror_slots(PackedInt32Array(PROFILE_SLOTS)))
+	var canopy := opaque.duplicate()
+	for strip in [0, 1, canopy.size() - 1, canopy.size() - 2]: # roof and shoulder strips, both sides
+		canopy[strip] = Slot.GLASS
+	for segment in 3:
+		var rings := [HullMeshBuilder.mirror_ring(half_rings[segment]), HullMeshBuilder.mirror_ring(half_rings[segment + 1])]
+		hull.add_loft(rings, canopy if segment < 2 else opaque, Transform3D.IDENTITY, false, -1, Slot.STRUCTURE_2S if segment == 2 else -1)
+	# Canopy frame: the three cross-frames and the two longitudinal frames per side along the glass edges.
+	for ring_index in 3:
+		var ring := half_rings[ring_index]
+		for side in [-1.0, 1.0]:
+			var mirror := Vector3(side, 1, 1)
+			hull.add_bar(ring[0] * mirror, ring[1] * mirror, 0.08, Slot.STRUCTURE)
+			hull.add_bar(ring[1] * mirror, ring[2] * mirror, 0.08, Slot.STRUCTURE)
 	for side in [-1.0, 1.0]:
-		hull.add_cylinder(10, 0.08, 0.08, -0.04, 0.0, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(side * 0.82, -0.62, PROW_TIP_Z)))
-		# Flood lights under the brow, aimed at the ground ahead.
-		hull.add_chamfer_box(Vector3(0.5, 0.04, 0.1), 0.015, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(side * 1.2, 1.55, -7.45)))
-	# Mullions: three posts splitting the window into four panes.
-	for x in [-0.98, 0.0, 0.98]:
-		hull.add_chamfer_box(Vector3(0.08, w.size.y, 0.07), 0.015, Slot.STRUCTURE, Transform3D(Basis.IDENTITY, Vector3(x, w.get_center().y, -7.255)))
-	# Sill: a ledge where the window meets the prow.
-	hull.add_chamfer_box(Vector3(w.size.x + 0.1, 0.06, 0.16), 0.02, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, w.position.y + 0.03, -7.32)))
-
-
-func _build_window_glass(parent: Node3D) -> void:
-	var pane := MeshInstance3D.new()
-	pane.name = "VisorGlass"
-	var quad := QuadMesh.new()
-	quad.size = WINDOW.size
-	pane.mesh = quad
-	pane.material_override = materials[Slot.GLASS]
-	pane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	pane.position = Vector3(WINDOW.get_center().x, WINDOW.get_center().y, -7.235)
-	pane.rotation_degrees = Vector3(0, 180, 0) # a QuadMesh faces +z; the window looks forward (-z)
-	parent.add_child(pane)
+		var mirror := Vector3(side, 1, 1)
+		for point in [1, 2]:
+			hull.add_bar(half_rings[0][point] * mirror, half_rings[1][point] * mirror, 0.07, Slot.STRUCTURE)
+			hull.add_bar(half_rings[1][point] * mirror, half_rings[2][point] * mirror, 0.07, Slot.STRUCTURE)
+	hull.add_bar(half_rings[0][0], half_rings[1][0], 0.06, Slot.STRUCTURE)
+	hull.add_bar(half_rings[1][0], half_rings[2][0], 0.06, Slot.STRUCTURE)
+	# Dash: fills the nose floor ahead of the cockpit, below the pilot's sight line.
+	hull.add_chamfer_box(Vector3(3.0, 0.8, 1.3), 0.08, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, -0.55, -7.65)))
+	# Nose tip: sensor aperture and the two landing lights.
+	var tip_y: float = (NOSE_STATIONS[2][6] + NOSE_STATIONS[2][8]) * 0.5
+	hull.add_chamfer_box(Vector3(0.9, 0.18, 0.05), 0.04, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, tip_y, NOSE_TIP_Z - 0.01)))
+	for side in [-1.0, 1.0]:
+		hull.add_cylinder(10, 0.08, 0.08, -0.04, 0.0, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(side * 0.78, tip_y, NOSE_TIP_Z)))
 
 
 ## The rear loading face: the tail cap minus the doorway, a structural door frame with safety-orange edges, the
@@ -302,63 +328,67 @@ func _build_loading_face(hull: HullMeshBuilder) -> void:
 
 # --- propulsion ------------------------------------------------------------------------------------------------
 
-func _build_engine_pods(hull: HullMeshBuilder) -> void:
-	# Octagon with flats at top and bottom: corner radius from the flat radius.
+## One engine pod in its pivot's frame (intake at -z, nozzle mount at +z, outboard is +x * side).
+func _engine_pod(side: float) -> HullMeshBuilder:
+	var pod := HullMeshBuilder.new()
 	var corner := POD_RADIUS / cos(PI / 8.0)
+	var start := PI / 8.0
+	var front := -POD_HALF_LENGTH
+	var rear := POD_HALF_LENGTH
+	# Octagon strips, top first, clockwise seen from the intake (outboard for starboard first).
 	var pod_slots := PackedInt32Array([Slot.HULL, Slot.HULL, Slot.PANEL, Slot.STRUCTURE, Slot.GRAPHITE, Slot.STRUCTURE, Slot.PANEL, Slot.HULL])
+	var rings := [
+		HullMeshBuilder.polygon_ring(8, corner * 0.8, front, start),
+		HullMeshBuilder.polygon_ring(8, corner, front + 0.35, start),
+		HullMeshBuilder.polygon_ring(8, corner, rear - 0.7, start),
+		HullMeshBuilder.polygon_ring(8, corner * 0.84, rear, start)]
+	pod.add_loft([rings[0], rings[1]], PackedInt32Array([Slot.STRUCTURE]))
+	pod.add_loft([rings[1], rings[2], rings[3]], pod_slots, Transform3D.IDENTITY, false, -1, Slot.GRAPHITE)
+	# Intake: a short throat inside the lip, a dark face, the fan hub and four stator vanes.
+	var throat := [HullMeshBuilder.polygon_ring(8, corner * 0.8, front, start), HullMeshBuilder.polygon_ring(8, corner * 0.72, front + 0.3, start)]
+	pod.add_loft(throat, PackedInt32Array([Slot.GRAPHITE]), Transform3D.IDENTITY, true)
+	pod.add_cap(throat[1], Slot.RECESS, Vector3(0, 0, -1))
+	pod.add_cylinder(12, 0.08, 0.22, front + 0.06, front + 0.29, Slot.METAL, Transform3D.IDENTITY, Slot.METAL)
+	for vane in 4:
+		var angle := PI * 0.25 + PI * 0.5 * vane
+		var tip := Vector3(sin(angle), cos(angle), 0) * corner * 0.7
+		pod.add_bar(Vector3(0, 0, front + 0.25) + tip * 0.3, Vector3(0, 0, front + 0.25) + tip, 0.05, Slot.STRUCTURE)
+	# Structural collar round the tilt axis, the bearing the stub wing's hub enters, and the outboard actuator.
+	pod.add_cylinder(8, corner * 1.05, corner * 1.05, -0.4, 0.4, Slot.STRUCTURE)
+	var axis := Basis(Vector3.UP, PI * 0.5) # local z -> pod x
+	pod.add_cylinder(10, 0.4, 0.34, 0.0, side * 0.16, Slot.STRUCTURE, Transform3D(axis, Vector3(side * (POD_RADIUS + 0.03), 0, 0)))
+	pod.add_cylinder(10, 0.14, 0.14, 0.0, side * 0.2, Slot.SAFETY, Transform3D(axis, Vector3(side * (POD_RADIUS + 0.03), 0, 0)))
+	# Nav light on the outboard side near the intake (red port, green starboard).
+	pod.add_chamfer_box(Vector3(0.05, 0.12, 0.24), 0.015, Slot.NAV_PORT if side < 0.0 else Slot.NAV_STARBOARD, Transform3D(Basis.IDENTITY, Vector3(side * (POD_RADIUS + 0.02), 0.25, front + 0.7)))
+	# Nozzle mount ring between the pod tail and the nozzle.
+	pod.add_cylinder(16, 0.82, 0.8, rear - 0.02, rear + 0.08, Slot.GRAPHITE)
+	return pod
+
+
+## Stub wings: a thick tapered wing from each hull side to the pod's tilt bearing, with the bearing hub at its tip.
+func _build_stub_wings(hull: HullMeshBuilder) -> void:
+	var root_x := 3.3 # inside the hull side (x 3.5..3.6 at these heights)
+	var tip_x := POD_PIVOT.x - POD_RADIUS + 0.05
+	var root := [Vector2(5.9, 1.15), Vector2(6.3, 1.45), Vector2(7.7, 1.45), Vector2(8.1, 1.2), Vector2(8.0, 0.85), Vector2(6.2, 0.85)]
+	var tip := [Vector2(6.35, 1.15), Vector2(6.6, 1.38), Vector2(7.4, 1.38), Vector2(7.65, 1.18), Vector2(7.55, 0.92), Vector2(6.55, 0.92)]
 	for side in [-1.0, 1.0]:
-		var pod := Transform3D(Basis.IDENTITY, Vector3(side * POD_X, POD_Y, 0))
-		var start := PI / 8.0
-		var rings := [
-			HullMeshBuilder.polygon_ring(8, corner * 0.8, POD_FRONT_Z, start),
-			HullMeshBuilder.polygon_ring(8, corner, POD_FRONT_Z + 0.4, start),
-			HullMeshBuilder.polygon_ring(8, corner, POD_REAR_Z - 0.9, start),
-			HullMeshBuilder.polygon_ring(8, corner * 0.84, POD_REAR_Z, start)]
-		var lip_slots := PackedInt32Array([Slot.STRUCTURE])
-		hull.add_loft([rings[0], rings[1]], lip_slots, pod)
-		hull.add_loft([rings[1], rings[2], rings[3]], pod_slots, pod, false, -1, Slot.GRAPHITE)
-		# Intake: a short throat inside the lip, a dark face, the fan hub and four stator vanes.
-		var throat := [HullMeshBuilder.polygon_ring(8, corner * 0.8, POD_FRONT_Z, start), HullMeshBuilder.polygon_ring(8, corner * 0.72, POD_FRONT_Z + 0.32, start)]
-		hull.add_loft(throat, PackedInt32Array([Slot.GRAPHITE]), pod, true)
-		hull.add_cap(throat[1], Slot.RECESS, Vector3(0, 0, -1), pod)
-		hull.add_cylinder(12, 0.08, 0.24, POD_FRONT_Z + 0.06, POD_FRONT_Z + 0.31, Slot.METAL, pod, Slot.METAL)
-		for vane in 4:
-			var angle := PI * 0.25 + PI * 0.5 * vane
-			var tip := Vector3(sin(angle), cos(angle), 0) * corner * 0.7
-			hull.add_bar(Vector3(0, 0, POD_FRONT_Z + 0.27) + tip * 0.3, Vector3(0, 0, POD_FRONT_Z + 0.27) + tip, 0.05, Slot.STRUCTURE, pod)
-		# Structural collar where the pylon carries the pod (the tilt axis) and the tilt actuator housing outboard.
-		hull.add_cylinder(8, corner * 1.04, corner * 1.04, 6.6, 7.3, Slot.STRUCTURE, pod)
-		var actuator := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(side * (POD_X + POD_RADIUS + 0.02), POD_Y, 6.95))
-		hull.add_cylinder(10, 0.36, 0.3, 0.0, side * 0.14, Slot.STRUCTURE, actuator)
-		hull.add_cylinder(10, 0.13, 0.13, 0.0, side * 0.18, Slot.SAFETY, actuator)
-		# Pylon: a thick swept stub from the hull side into the pod collar.
-		_add_pylon(hull, side)
-		# Nav light on the outboard front of each pod (red port, green starboard).
-		hull.add_chamfer_box(Vector3(0.05, 0.12, 0.24), 0.015, Slot.NAV_PORT if side < 0.0 else Slot.NAV_STARBOARD, Transform3D(Basis.IDENTITY, Vector3(side * (POD_X + POD_RADIUS + 0.02), POD_Y + 0.25, POD_FRONT_Z + 0.75)))
-		# Nozzle mount ring between the pod tail and the nozzle.
-		hull.add_cylinder(16, 0.88, 0.86, POD_REAR_Z - 0.02, POD_REAR_Z + 0.08, Slot.GRAPHITE, pod)
-
-
-func _add_pylon(hull: HullMeshBuilder, side: float) -> void:
-	# Section in (z, y) at the root (hull side) and at the pod; extruded along x.
-	var root_x := 3.25 # inside the hull side, which leans in to x 3.31 at the trailing edge top
-	var tip_x := POD_X - POD_RADIUS + 0.1
-	var root := [Vector2(5.0, 1.0), Vector2(5.6, 1.45), Vector2(8.4, 1.45), Vector2(8.9, 1.15), Vector2(8.8, 0.6), Vector2(5.5, 0.6)]
-	var tip := [Vector2(5.7, 1.0), Vector2(6.1, 1.35), Vector2(8.0, 1.35), Vector2(8.4, 1.1), Vector2(8.3, 0.67), Vector2(6.0, 0.67)]
-	var ring_root := PackedVector3Array()
-	var ring_tip := PackedVector3Array()
-	for point in root:
-		ring_root.append(Vector3(side * root_x, point.y, point.x))
-	for point in tip:
-		ring_tip.append(Vector3(side * tip_x, point.y, point.x))
-	# Strips: leading-edge top, top, trailing top, trailing bottom, bottom, leading bottom.
-	hull.add_loft([ring_root, ring_tip], PackedInt32Array([Slot.STRUCTURE, Slot.HULL, Slot.STRUCTURE, Slot.STRUCTURE, Slot.GRAPHITE, Slot.STRUCTURE]))
+		var ring_root := PackedVector3Array()
+		var ring_tip := PackedVector3Array()
+		for point in root:
+			ring_root.append(Vector3(side * root_x, point.y, point.x))
+		for point in tip:
+			ring_tip.append(Vector3(side * tip_x, point.y, point.x))
+		# Strips: leading-edge top, top, trailing top, trailing bottom, bottom, leading bottom.
+		hull.add_loft([ring_root, ring_tip], PackedInt32Array([Slot.STRUCTURE, Slot.HULL, Slot.STRUCTURE, Slot.STRUCTURE, Slot.GRAPHITE, Slot.STRUCTURE]))
+		# Bearing hub on the tilt axis.
+		var hub := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(side * (tip_x - 0.25), POD_PIVOT.y, POD_PIVOT.z))
+		hull.add_cylinder(12, 0.42, 0.42, 0.0, side * 0.32, Slot.STRUCTURE, hub)
 
 
 # --- landing gear ----------------------------------------------------------------------------------------------
 
 ## Rail sections: z, centre x, width, top y, bottom y. The ends taper and tuck into the hull.
-const RAIL_STATIONS := [[-6.5, 2.55, 0.5, -0.92, -1.28], [-5.6, 2.85, 0.9, -0.9, -1.5], [9.0, 2.85, 0.9, -0.9, -1.5], [9.8, 2.7, 0.55, -0.92, -1.3]]
+const RAIL_STATIONS := [[-6.5, 2.55, 0.5, -0.92, -1.28], [-5.6, 2.85, 0.9, -0.9, -1.5], [9.0, 2.85, 0.9, -0.9, -1.5], [9.8, 2.45, 0.5, -0.88, -1.3]]
 
 
 ## Two chassis rails along the lower hull carry the four legs; the foot pads' undersides are the ground-contact
@@ -422,8 +452,8 @@ func _build_belly_and_sides(hull: HullMeshBuilder) -> void:
 	# Keel strip along the belly centre line.
 	hull.add_chamfer_box(Vector3(0.36, 0.05, 13.5), 0.02, Slot.STRUCTURE, Transform3D(Basis.IDENTITY, Vector3(0, -1.335, 1.25)))
 	for side in [-1.0, 1.0]:
-		# Rub strake: a protective bumper along the chine, between the cockpit and the pylon root.
-		hull.add_chamfer_box(Vector3(0.1, 0.12, 9.6), 0.035, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(side * 3.77, -0.22, 0.5)))
+		# Rub strake: a protective bumper along the chine where it is full width (z -3.8 .. 8.3), ahead of the pods.
+		hull.add_chamfer_box(Vector3(0.1, 0.12, 9.2), 0.035, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(side * 3.77, -0.22, 1.0)))
 		# Engineering service hatch on the upper side band: a hull-colour door in a structural frame, following the
 		# side's lean (local x along the hull, y up the side, z out of it).
 		var lean := atan2(STATIONS[2][5] - STATIONS[2][3], STATIONS[2][4] - STATIONS[2][6])
@@ -443,30 +473,27 @@ func _build_belly_and_sides(hull: HullMeshBuilder) -> void:
 
 
 func _build_dorsal(hull: HullMeshBuilder, turret_muzzle: Vector3) -> void:
-	var roof_y: float = STATIONS[2][2]
-	# Heat-exchanger spine over cabin and engineering: a raised fairing with two louvred grilles.
-	hull.add_chamfer_box(Vector3(2.1, 0.34, 6.2), 0.14, Slot.PANEL, Transform3D(Basis.IDENTITY, Vector3(0, roof_y + 0.15, -0.5)))
-	for grille_z in [-2.0, 0.9]:
-		var grille := Transform3D(Basis.IDENTITY, Vector3(0, roof_y + 0.32, grille_z))
-		hull.add_chamfer_box(Vector3(1.4, 0.02, 1.9), 0.005, Slot.RECESS, grille)
-		for fin in 8:
-			hull.add_chamfer_box(Vector3(1.3, 0.05, 0.04), 0.01, Slot.STRUCTURE, grille * Transform3D(Basis.IDENTITY, Vector3(0, 0.025, -0.78 + fin * 0.223)))
-	# Spine tail: a short ramp from the fairing down to the roof.
-	var tail_back := PackedVector3Array([Vector3(0, roof_y + 0.32, 2.6), Vector3(0.9, roof_y + 0.32, 2.6), Vector3(1.05, roof_y + 0.17, 2.6), Vector3(1.05, roof_y - 0.02, 2.6), Vector3(0, roof_y - 0.02, 2.6)])
-	var tail_end := PackedVector3Array([Vector3(0, roof_y + 0.0, 3.35), Vector3(0.75, roof_y + 0.0, 3.35), Vector3(0.85, roof_y - 0.01, 3.35), Vector3(0.85, roof_y - 0.02, 3.35), Vector3(0, roof_y - 0.02, 3.35)])
-	hull.add_loft([HullMeshBuilder.mirror_ring(tail_back), HullMeshBuilder.mirror_ring(tail_end)], HullMeshBuilder.mirror_slots(PackedInt32Array([Slot.PANEL, Slot.PANEL, Slot.PANEL, Slot.PANEL])))
+	var hump_y: float = STATIONS[3][1]
+	var roof_y: float = STATIONS[5][1] # the flat roof aft of the hump, where the turret and hatch sit
+	# Heat exchangers on the flat top of the dorsal hump: two recessed louvred grilles side by side.
+	for side in [-1.0, 1.0]:
+		var grille := Transform3D(Basis.IDENTITY, Vector3(side * 0.8, hump_y + 0.008, -0.1))
+		hull.add_chamfer_box(Vector3(1.25, 0.02, 2.5), 0.005, Slot.RECESS, grille)
+		for fin in 10:
+			hull.add_chamfer_box(Vector3(1.15, 0.05, 0.04), 0.01, Slot.STRUCTURE, grille * Transform3D(Basis.IDENTITY, Vector3(0, 0.025, -1.08 + fin * 0.24)))
+		hull.add_chamfer_box(Vector3(1.33, 0.06, 2.6), 0.02, Slot.GRAPHITE, grille * Transform3D(Basis.IDENTITY, Vector3(0, -0.02, 0)))
 	# Turret barbette: an armoured ring on the roof around the gun's mount point.
-	var barbette := Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(turret_muzzle.x, roof_y - 0.02, turret_muzzle.z))
+	var barbette := Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(turret_muzzle.x, roof_y - 0.04, turret_muzzle.z))
 	hull.add_cylinder(12, 0.95, 0.85, 0.0, TURRET_DECK_Y - roof_y + 0.02, Slot.STRUCTURE, barbette, -1)
 	hull.add_cylinder(12, 0.84, 0.84, TURRET_DECK_Y - roof_y + 0.02, TURRET_DECK_Y - roof_y + 0.03, Slot.GRAPHITE, barbette)
 	# Cargo roof hatch aft of the turret, with orange lift points at its corners.
-	var hatch := Transform3D(Basis.IDENTITY, Vector3(0, roof_y + 0.02, 6.8))
+	var hatch := Transform3D(Basis.IDENTITY, Vector3(0, roof_y, 6.8)) # half sunk: the roof falls 2 cm over its length
 	hull.add_chamfer_box(Vector3(2.4, 0.05, 1.7), 0.025, Slot.PANEL, hatch)
 	for corner_x in [-1.05, 1.05]:
 		for corner_z in [-0.7, 0.7]:
 			hull.add_chamfer_box(Vector3(0.14, 0.05, 0.14), 0.02, Slot.SAFETY, hatch * Transform3D(Basis.IDENTITY, Vector3(corner_x, 0.03, corner_z)))
 	# Tail light at the roof's rear edge.
-	hull.add_chamfer_box(Vector3(0.3, 0.05, 0.08), 0.015, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(0, 2.03, TAIL_Z - 0.05)))
+	hull.add_chamfer_box(Vector3(0.3, 0.05, 0.08), 0.015, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(0, STATIONS[STATIONS.size() - 1][1] - 0.02, TAIL_Z - 0.05)))
 
 
 # --- moving parts ----------------------------------------------------------------------------------------------

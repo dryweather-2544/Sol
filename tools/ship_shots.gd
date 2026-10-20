@@ -23,6 +23,9 @@ const VIEWS := {
 	"12_gameplay_chase": [Vector3(0.0, 3.4, 17.0), Vector3(0.0, 0.0, -40.0), -1.0, false],
 	# CockpitCamera position (pilot's eyes) looking straight ahead through the window band.
 	"13_pilot_view": [Vector3(0.0, 0.6, -5.3), Vector3(0.0, 0.3, -40.0), -2.0, false],
+	# Flight pose: pods level, ramp stowed (forced while parked; in play the pods level out above 80 m or 30 m/s).
+	"14_flight_pose": [Vector3(-14.0, 4.5, -16.0), Vector3(0.0, 0.2, 1.0), 50.0, false],
+	"15_flight_pose_side": [Vector3(-34.0, 0.0, 1.0), Vector3(0.0, 0.0, 1.0), 36.0, false],
 }
 
 var _main: Node
@@ -134,6 +137,9 @@ func _set_ramp(deployed: bool) -> void:
 func _set_view(view_name: String) -> void:
 	var view: Array = VIEWS[view_name]
 	_set_ramp(view[3])
+	for child in _main.ship.get_children():
+		if child is ShipVisuals:
+			(child as ShipVisuals).force_pods_level = view_name.contains("flight_pose")
 	var ship: Ship = _main.ship
 	var eye: Vector3 = view[0]
 	var target: Vector3 = view[1]
