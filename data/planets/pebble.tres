@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="PlanetDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/world/planet_definition.gd" id="1_d5ekq"]
+[ext_resource type="Script" path="res://src/planet/terrain_profile.gd" id="2_rmd2p"]
+
+[sub_resource type="Resource" id="Resource_wrsnt"]
+script = ExtResource("2_rmd2p")
+radius = 15000.0
+terrain_seed = 31337
+macro_amplitude = 1500.0
+macro_scale = 3.0
+mountain_amplitude = 0.0
+hill_amplitude = 2.0
+rough_amplitude = 0.5
+mid_wavelength = 1500.0
+mid_amplitude = 60.0
+large_wavelength = 6000.0
+large_amplitude = 150.0
+palette_low = Color(0.35, 0.3, 0.26, 1)
+palette_mid = Color(0.5, 0.45, 0.4, 1)
+palette_high = Color(0.6, 0.55, 0.5, 1)
+snow_height = 1000000000.0
+
+[resource]
+script = ExtResource("1_d5ekq")
+id = &"pebble"
+display_name = "Pebble"
+radius = 15000.0
+surface_gravity = 0.6
+atmosphere_height = 0.0
+breathable = false
+orbit_radius = 3300000000.0
+orbit_period = 6000000.0
+orbit_phase = 0.5
+spin_period = 1200.0
+terrain_profile = SubResource("Resource_wrsnt")
+color = Color(0.5, 0.45, 0.4, 1)

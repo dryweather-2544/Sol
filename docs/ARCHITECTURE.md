@@ -507,3 +507,8 @@ date, files) **before** committing it; no Rodina assets, code, or data files eve
 | Rodina-behaviour guessing | wrong design built on unknowns | treat `?` rows as Sol decisions, record in ADRs |
 | Asset licence mistakes | legal | `ATTRIBUTION.md` gate on every commit |
 | Save format churn | broken saves | versions + migrations + fixtures from M4 |
+
+## Planet content
+
+Authored bodies live in `data/planets/*.tres` as `PlanetDefinition` resources; `StarSystem` converts
+them to runtime `BodyDef`s and keeps the old in-code construction only as a fallback. See ADR 0009.

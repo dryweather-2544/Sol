@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlanetDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/world/planet_definition.gd" id="1_ph8kl"]
+[ext_resource type="Script" path="res://src/planet/terrain_profile.gd" id="2_etvyy"]
+
+[sub_resource type="Resource" id="Resource_2j8by"]
+script = ExtResource("2_etvyy")
+radius = 1700000.0
+terrain_seed = 7777
+macro_amplitude = 500.0
+mountain_amplitude = 1100.0
+hill_amplitude = 4.0
+rough_amplitude = 1.0
+mid_amplitude = 100.0
+large_amplitude = 300.0
+palette_low = Color(0.45, 0.45, 0.47, 1)
+palette_mid = Color(0.6, 0.6, 0.62, 1)
+palette_high = Color(0.78, 0.78, 0.8, 1)
+palette_rock = Color(0.3, 0.3, 0.32, 1)
+snow_height = 1000000000.0
+
+[resource]
+script = ExtResource("1_ph8kl")
+id = &"selene"
+display_name = "Selene"
+parent_id = &"planet"
+radius = 1700000.0
+surface_gravity = 3.5
+atmosphere_height = 0.0
+breathable = false
+orbit_radius = 100000000.0
+orbit_phase = 1.0
+spin_period = 9000.0
+terrain_profile = SubResource("Resource_2j8by")
+color = Color(0.7, 0.7, 0.72, 1)

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlanetDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/world/planet_definition.gd" id="1_8dyy7"]
+[ext_resource type="Script" path="res://src/planet/terrain_profile.gd" id="2_m3lx5"]
+
+[sub_resource type="Resource" id="Resource_kko67"]
+script = ExtResource("2_m3lx5")
+radius = 4200000.0
+terrain_seed = 4242
+macro_amplitude = 1800.0
+mountain_amplitude = 4800.0
+hill_amplitude = 10.0
+rough_amplitude = 2.0
+palette_low = Color(0.55, 0.25, 0.15, 1)
+palette_mid = Color(0.7, 0.4, 0.2, 1)
+palette_high = Color(0.35, 0.25, 0.22, 1)
+snow_height = 1000000000.0
+
+[resource]
+script = ExtResource("1_8dyy7")
+id = &"cinder"
+display_name = "Cinder"
+radius = 4200000.0
+surface_gravity = 7.0
+atmosphere_height = 60000.0
+breathable = false
+orbit_radius = 700000000.0
+orbit_period = 900000.0
+orbit_phase = 2.2
+spin_period = 7500.0
+terrain_profile = SubResource("Resource_kko67")
+color = Color(0.75, 0.35, 0.2, 1)

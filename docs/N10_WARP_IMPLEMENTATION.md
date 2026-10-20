@@ -39,10 +39,21 @@ The earlier local `n9-flight-recovery` branch was intentionally not used: it was
   stripes, repeated scorch variants) were auto-renamed by Godot to `@Decal@…`, which made the
   catalogue test fail even though the source entry was correct.
 
+### C. Data-driven planet content
+
+- Added `PlanetDefinition extends Resource` (identity, physical/orbital values, atmosphere, colour
+  and terrain profile) with validation and BodyDef conversion.
+- Generated `data/planets/{sol,aurelia,selene,cinder,verdant,pebble}.tres` from the existing
+  runtime values, preserving every body id used by saves.
+- `StarSystem.default_system()` now overlays those definitions on the original in-code bodies and
+  falls back to the in-code body if a resource is missing or invalid. Runtime `BodyDef` remains
+  unchanged.
+- Added ADR 0009 and an architecture note.
+
 ## Tests
 
 ```text
-Godot 4.7.2 | files 59 | tests 315 | assertions 96,572 | failures 0
+Godot 4.7.2 | files 60 | tests 318 | assertions 96,602 | failures 0
 ```
 
 Run with `tools/run_tests.sh`. Real-scene headless check `tools/gear_check.gd` also ran
@@ -57,5 +68,6 @@ system frame, so WARP is covered by unit tests rather than that tool.
 - No graphical warp effect, sound, camera FOV shift or human playtest of WARP.
 - The existing flight model still has open engine-side questions (collision restitution and
   control authority) documented in `docs/RODINA_PHYSICS_AUDIT.md`.
-- Planet content remains in `BodyDef`/visual-style tables; a typed `.tres` planet-definition layer
-  is still future work.
+- Planet content now has a typed `.tres` layer for all six bodies; visual-style families and
+  terrain-shader parameters remain in code. A future pass can move those presentation parameters
+  into per-body resources too.

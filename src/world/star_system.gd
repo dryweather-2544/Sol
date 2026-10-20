@@ -9,6 +9,16 @@ const SOI_EXIT_FACTOR := 1.2 ## leave a body's frame at 1.2x its sphere of influ
 var bodies := {} # id -> BodyDef
 var star_id: StringName = &"sol"
 var home_id: StringName = &"planet"
+## Authored body content. Runtime BodyDef is built from these; the in-code blocks below are the
+## fallback for a missing/invalid file, so old projects and tests never lose the system.
+const BODY_DEFINITIONS := {
+	&"sol": "res://data/planets/sol.tres",
+	&"planet": "res://data/planets/aurelia.tres",
+	&"selene": "res://data/planets/selene.tres",
+	&"cinder": "res://data/planets/cinder.tres",
+	&"verdant": "res://data/planets/verdant.tres",
+	&"pebble": "res://data/planets/pebble.tres",
+}
 
 
 ## The shipped system: a star, an inner hot world, the home planet with a moon, a big outer
@@ -24,17 +34,20 @@ static func default_system() -> StarSystem:
 	star.color = Color(1.0, 0.9, 0.6)
 	system.bodies[star.id] = star
 
-	var home := BodyDef.new()
-	home.id = &"planet"
-	home.display_name = "Aurelia"
-	home.radius = 6.0e6
-	home.surface_gravity = 12.0
-	home.atmosphere_height = 200000.0
-	home.orbit_radius = 1.5e9
-	home.orbit_period = 2.0e6
-	home.spin_period = 6000.0
-	home.terrain_profile = TerrainProfile.new()
-	home.color = Color(0.4, 0.55, 0.35)
+	var home := _definition_body("res://data/planets/aurelia.tres")
+	if home == null:
+		# Fallback keeps old projects and tests working if a content file is missing.
+		home = BodyDef.new()
+		home.id = &"planet"
+		home.display_name = "Aurelia"
+		home.radius = 6.0e6
+		home.surface_gravity = 12.0
+		home.atmosphere_height = 200000.0
+		home.orbit_radius = 1.5e9
+		home.orbit_period = 2.0e6
+		home.spin_period = 6000.0
+		home.terrain_profile = TerrainProfile.new()
+		home.color = Color(0.4, 0.55, 0.35)
 	system.bodies[home.id] = home
 
 	var moon := BodyDef.new()
@@ -120,7 +133,20 @@ static func default_system() -> StarSystem:
 	asteroid.terrain_profile.palette_high = Color(0.6, 0.55, 0.5)
 	asteroid.terrain_profile.snow_height = 1.0e9
 	system.bodies[asteroid.id] = asteroid
+	for body_id in BODY_DEFINITIONS:
+		var configured := _definition_body(BODY_DEFINITIONS[body_id])
+		if configured != null:
+			system.bodies[body_id] = configured
 	return system
+
+
+static func _definition_body(path: String) -> BodyDef:
+	if not ResourceLoader.exists(path):
+		return null
+	var definition := load(path) as PlanetDefinition
+	if definition == null or definition.validation_error() != "":
+		return null
+	return definition.to_body_def()
 
 
 static func _profile(terrain_seed: int, radius: float, macro: float, mountains: float, hills: float, rough: float) -> TerrainProfile:

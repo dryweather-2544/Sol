@@ -253,6 +253,7 @@ and the commit is pushed.
 - [x] Fourth WARP/Limnal gear above CRUISE; drive-gated, open-space-only, faster fuel burn.
 - [x] Player input can select it; HUD shows it; save round-trip covered.
 - [x] Repaired the pre-existing compressed-WAV length, missing audio warning reset and duplicate-decal identity failures.
-- [x] Full headless suite 315 tests / 96,572 assertions / 0 failures.
+- [x] Full headless suite 318 tests / 96,602 assertions / 0 failures.
+- [x] Typed planet definitions for all six bodies (ADR 0009), with in-code fallback and identity/round-trip tests.
 - [ ] Human/graphical WARP verification and warp VFX/audio.
 - [ ] Replace distance-scaled WARP with a bounded local velocity + RelativeTime model if travel feel needs it.

@@ -26,7 +26,7 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 
 ## N10 — WARP gear (branch `n10-warp`, latest remote base `143ca6e`)
 - Fourth WARP/Limnal gear above CRUISE, gated by the installed drive and open-space environment; 6.7x distance-scaled cap, faster fuel burn, HUD/input/save coverage.
-- Fixed the pre-existing audio/decal test failures. Full suite: 315 tests / 96,572 assertions / 0 failures.
+- Fixed the pre-existing audio/decal test failures. Full suite: 318 tests / 96,602 assertions / 0 failures. All six bodies now load from `data/planets/*.tres` (ADR 0009).
 - Tests are headless; `tools/gear_check.gd` covers real-scene PRECISION→COMBAT→CRUISE, not WARP or graphical feel. Details: `docs/N10_WARP_IMPLEMENTATION.md`.
 
 ## Ship exterior overhaul (branch `claude/sol-vtol-ship-overhaul-9eglhk`, on top of `n9-art-audio`)

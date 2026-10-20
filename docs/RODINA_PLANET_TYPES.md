@@ -29,7 +29,7 @@ could not be checked against any frame.
 
 ## 2. Sol's worlds and the family each is given
 
-Sol has five bodies (`src/world/star_system.gd`). Mapping by the evidence that does exist (orbit order,
+Sol has five bodies (`src/world/star_system.gd`), now defined by `data/planets/*.tres` (ADR 0009). Mapping by the evidence that does exist (orbit order,
 atmosphere thickness, airlessness) `[INF]`:
 
 | Sol body | Sol facts | Closest Rodina analogue | Family in the Rodina profile `[INF]` |

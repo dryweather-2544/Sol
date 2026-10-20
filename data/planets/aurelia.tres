@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="PlanetDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/world/planet_definition.gd" id="1_mpjnh"]
+[ext_resource type="Script" path="res://src/planet/terrain_profile.gd" id="2_ppnkv"]
+
+[sub_resource type="Resource" id="Resource_ncqj7"]
+script = ExtResource("2_ppnkv")
+
+[resource]
+script = ExtResource("1_mpjnh")
+id = &"planet"
+display_name = "Aurelia"
+orbit_radius = 1500000000.0
+orbit_period = 2000000.0
+terrain_profile = SubResource("Resource_ncqj7")
+color = Color(0.4, 0.55, 0.35, 1)

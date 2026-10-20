@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlanetDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/world/planet_definition.gd" id="1_cj740"]
+[ext_resource type="Script" path="res://src/planet/terrain_profile.gd" id="2_awyq4"]
+
+[sub_resource type="Resource" id="Resource_5yvqe"]
+script = ExtResource("2_awyq4")
+radius = 8500000.0
+terrain_seed = 9090
+macro_amplitude = 2000.0
+mountain_amplitude = 3000.0
+hill_amplitude = 9.0
+rough_amplitude = 1.8
+palette_low = Color(0.15, 0.4, 0.3, 1)
+palette_mid = Color(0.3, 0.55, 0.35, 1)
+palette_high = Color(0.5, 0.5, 0.45, 1)
+
+[resource]
+script = ExtResource("1_cj740")
+id = &"verdant"
+display_name = "Verdant"
+radius = 8500000.0
+surface_gravity = 15.0
+atmosphere_height = 300000.0
+atmosphere_friction = 1.5
+orbit_radius = 2600000000.0
+orbit_period = 4500000.0
+orbit_phase = 4.0
+spin_period = 5400.0
+terrain_profile = SubResource("Resource_5yvqe")
+color = Color(0.3, 0.5, 0.65, 1)
