@@ -4,8 +4,11 @@ extends "res://tests/test_case.gd"
 ## Coordinates are ship-local (x right, y up, -z forward); the ramp runs aft from the outer door (z 10.8 to 15).
 
 const DELTA := 1.0 / 60.0
-## Largest change of ship-local position allowed in one tick: run speed is 8 m/s, so 0.14 m per tick at most.
+## Largest sideways change of ship-local position allowed in one tick: run speed is 8 m/s, so 0.14 m per tick at most.
 const MAX_STEP_PER_TICK := 0.2
+## A foot steps up onto the ramp (GameSession.RAMP_STEP_UP) or down onto lower ground (OnFootBody.STEP_DOWN_DISTANCE)
+## in one tick, as on any terrain; anything larger is a jump.
+const MAX_STEP_HEIGHT := OnFootBody.STEP_DOWN_DISTANCE + 0.05
 
 
 class HoldPilot extends PilotSource:
@@ -36,7 +39,10 @@ func _landed_session() -> void:
 	assert_true(ship.state.landed, "ship landed for the ramp test")
 	_session.interact() # stand up
 	assert_eq(_session.mode, GameSession.Mode.INSIDE, "standing inside")
-	assert_eq(_session.systems.toggle_outer_door(ship.state), "", "outer door opens")
+	# Open the outer door from its panel, as a player does (that also fits the ramp's end to the ground).
+	_session.interior_body.place(Vector3(1.2, _session.systems.layout.floor_y, 10.0), PI)
+	_session.interact()
+	assert_true(_session.systems.airlock.outer.target_open, "outer door opening (%s)" % _session.message)
 	for tick in 60 * 4:
 		_session.tick(DELTA, OnFootCommand.new())
 	assert_true(_session.systems.walkway.is_deployed(), "walkway deployed")
@@ -62,10 +68,20 @@ func _tick(move: Vector2) -> void:
 	command.move = move
 	_session.tick(DELTA, command)
 	var now := _local_feet()
-	if OS.get_environment("RAMP_DEBUG") != "" and now.distance_to(_previous) > MAX_STEP_PER_TICK:
-		print("RAMP_DEBUG jump %.3f from %s to %s mode %d" % [now.distance_to(_previous), _previous, now, _session.mode])
-	_worst_step = maxf(_worst_step, now.distance_to(_previous))
+	var horizontal := Vector2(now.x - _previous.x, now.z - _previous.z).length()
+	var vertical := absf(now.y - _previous.y)
+	if OS.get_environment("RAMP_DEBUG") != "" and (horizontal > MAX_STEP_PER_TICK or vertical > MAX_STEP_HEIGHT):
+		print("RAMP_DEBUG jump %.3f / %.3f from %s to %s mode %d" % [horizontal, vertical, _previous, now, _session.mode])
+	# Sideways jumps count fully; a vertical step only counts beyond what a foot steps up or down in one go.
+	_worst_step = maxf(_worst_step, horizontal if vertical <= MAX_STEP_HEIGHT else vertical)
 	_previous = now
+
+
+## The walker's own "right" (planet-level, as the input means it), as a ship-local (x, z) direction.
+func _local_right() -> Vector2:
+	var up := _session.planet.up_at(_session.exterior_body.position)
+	var right := _session.ship.state.basis.transposed() * _session.exterior_body.heading.cross(up)
+	return Vector2(right.x, right.z).normalized()
 
 
 ## Puts the player inside at ship-local (0, z) facing aft (a test setup move, not counted as a step).
@@ -107,33 +123,68 @@ func test_walking_down_and_back_up_the_ramp_along_its_length() -> void:
 	assert_true(_worst_step < MAX_STEP_PER_TICK, "no jumps: worst step %.3f m" % _worst_step)
 
 
-func test_walking_across_the_ramp_sideways_goes_straight_across() -> void:
-	_landed_session()
-	# Beside the ramp, half way along it, facing the ship (-z, so "right" is +x): strafe right across it.
-	_stand_outside(-2.5, 13.0, Vector3(0, 0, -1))
-	var heading_before := _local_heading()
+## Walks from the airlock down onto the ramp and stops with the feet at ship-local z (on the ramp, outside).
+func _walk_onto_ramp_to(z: float) -> void:
+	_place_inside(10.0)
 	for tick in 60 * 3:
+		if _local_feet().z >= z:
+			break
+		_tick(Vector2(0, 1))
+	for tick in 30:
+		_tick(Vector2.ZERO) # come to a stop
+	assert_eq(_session.mode, GameSession.Mode.OUTSIDE, "on the ramp, outside the hull")
+	var layout := _session.systems.layout
+	assert_near(_local_feet().y, layout.floor_height_at(_local_feet().x, _local_feet().z), 0.05, "standing on the ramp surface")
+
+
+func test_strafing_across_the_ramp_goes_straight_and_steps_off_its_edge() -> void:
+	_landed_session()
+	_walk_onto_ramp_to(12.6)
+	var start := _local_feet()
+	var heading_before := _local_heading()
+	var right := _local_right()
+	# Facing aft (+z), "right" is about -x.
+	for tick in 60 * 2:
 		_tick(Vector2(1, 0))
 	var feet := _local_feet()
-	assert_eq(_session.mode, GameSession.Mode.OUTSIDE, "crossing the ramp does not pull the player into the ship")
-	assert_true(feet.x > 2.0, "crossed to the other side: x %.2f" % feet.x)
-	assert_near(feet.z, 13.0, 0.05, "no drift along the ramp")
+	assert_eq(_session.mode, GameSession.Mode.OUTSIDE, "still outside")
+	assert_true(feet.x < -2.5, "strafed across and off the ramp's edge: x %.2f" % feet.x)
+	var travelled := Vector2(feet.x - start.x, feet.z - start.z)
+	assert_true(travelled.normalized().dot(right) > 0.9995, "straight to the walker's right, no drift along the ramp: %s vs %s" % [travelled.normalized(), right])
+	assert_true(feet.y < start.y - 0.3, "dropped from the ramp to the ground: %.2f -> %.2f" % [start.y, feet.y])
 	assert_true(_local_heading().dot(heading_before) > 0.9999, "heading unchanged")
 	assert_true(_worst_step < MAX_STEP_PER_TICK, "no jumps: worst step %.3f m" % _worst_step)
 
 
-func test_walking_diagonally_over_the_ramp_keeps_its_direction() -> void:
+func test_walking_diagonally_on_the_ramp_keeps_its_direction() -> void:
 	_landed_session()
-	# Facing aft (+z), "right" is -x, so forward-right runs (-x, +z): start on the +x side and cross over.
-	_stand_outside(2.0, 12.5, Vector3(0, 0, 1))
+	_walk_onto_ramp_to(12.0)
 	var start := _local_feet()
-	for tick in 60 * 2:
-		_tick(Vector2(0.7071, 0.7071)) # forward-right relative to facing aft
+	for tick in 45:
+		_tick(Vector2(0.7071, 0.7071)) # forward-right while facing aft: toward (-x, +z)
 	var travelled := Vector2(_local_feet().x - start.x, _local_feet().z - start.z)
-	assert_true(travelled.length() > 4.0, "moved: %.2f m" % travelled.length())
-	var expected := Vector2(-1, 1).normalized()
-	assert_true(travelled.normalized().dot(expected) > 0.995, "went where pushed: %s" % travelled.normalized())
-	assert_true(_local_feet().x < -1.0, "ended on the far side: x %.2f" % _local_feet().x)
+	assert_true(travelled.length() > 2.0, "moved: %.2f m" % travelled.length())
+	assert_true(travelled.normalized().dot(Vector2(-1, 1).normalized()) > 0.995, "went where pushed: %s" % travelled.normalized())
+	assert_true(_worst_step < MAX_STEP_PER_TICK, "no jumps: worst step %.3f m" % _worst_step)
+
+
+func test_crossing_the_low_end_of_the_ramp_from_the_ground() -> void:
+	_landed_session()
+	var layout := _session.systems.layout
+	# Near the foot the ramp is within a step of the ground: walk straight over it, side to side.
+	_stand_outside(-2.5, layout.ramp_rect.end.y - 0.3, Vector3(0, 0, -1)) # facing the ship, so "right" is +x
+	var start := _local_feet()
+	var heading_before := _local_heading()
+	var right := _local_right()
+	for tick in 60 * 2:
+		_tick(Vector2(1, 0))
+	var feet := _local_feet()
+	assert_eq(_session.mode, GameSession.Mode.OUTSIDE, "crossing does not pull the player into the ship")
+	assert_true(feet.x > 2.0, "crossed to the other side: x %.2f" % feet.x)
+	var travelled := Vector2(feet.x - start.x, feet.z - start.z)
+	assert_true(travelled.normalized().dot(right) > 0.9995, "straight to the walker's right, no drift along the ramp: %s vs %s" % [travelled.normalized(), right])
+	assert_true(_local_heading().dot(heading_before) > 0.9999, "heading unchanged")
+	assert_true(_worst_step < MAX_STEP_PER_TICK, "no jumps: worst step %.3f m" % _worst_step)
 	assert_true(_worst_step < MAX_STEP_PER_TICK, "no jumps: worst step %.3f m" % _worst_step)
 
 

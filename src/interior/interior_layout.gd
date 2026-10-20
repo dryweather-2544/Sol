@@ -126,8 +126,13 @@ func _is_point_walkable(x: float, z: float) -> bool:
 ## Floor height (ship-local y) under (x, z): flat deck, sloping down along the ramp.
 func floor_height_at(x: float, z: float) -> float:
 	if ramp_rect.has_point(Vector2(x, z)):
-		return lerpf(floor_y, ramp_end_y, clampf((z - ramp_rect.position.y) / ramp_rect.size.y, 0.0, 1.0))
+		return ramp_height_at(z)
 	return floor_y
+
+
+## Height (ship-local y) of the ramp surface at distance z along it, whether or not (x, z) is on the ramp itself.
+func ramp_height_at(z: float) -> float:
+	return lerpf(floor_y, ramp_end_y, clampf((z - ramp_rect.position.y) / ramp_rect.size.y, 0.0, 1.0))
 
 
 func room_at(x: float, z: float) -> StringName:

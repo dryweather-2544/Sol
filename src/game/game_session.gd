@@ -101,6 +101,8 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 ## Advance one physics tick. foot_command drives whichever body is walking.
 func tick(delta: float, foot_command: OnFootCommand) -> void:
 	message_seconds_left = maxf(0.0, message_seconds_left - delta)
+	if not systems.walkway.is_stowed() and planet != null:
+		_fit_ramp_to_ground() # follows the ship if it settles or shifts while the ramp is out
 	systems.walkway.occupied = _is_anyone_on_ramp()
 	for portal_id in systems.layout.portals:
 		systems.occupied_portals[portal_id] = _is_in_doorway(systems.layout.portals[portal_id])
@@ -407,11 +409,18 @@ func _keep_out_of_ramp_sides(local: Vector3) -> void:
 	var half_width := ramp.size.x * 0.5
 	if absf(local.x) >= half_width + OUTSIDE_RADIUS or local.z <= ramp.position.y or local.z >= ramp.end.y:
 		return
-	if local.y >= layout.floor_height_at(clampf(local.x, -half_width, half_width), local.z) - RAMP_STEP_UP:
+	if local.y >= layout.ramp_height_at(local.z) - RAMP_STEP_UP:
 		return # standing on the ramp (or able to step onto it)
-	var side := 1.0 if local.x >= 0.0 else -1.0
-	var outward := ship.state.basis.x * side
-	var corrected_world := ShipFrame.world_from_local(ship.state, Vector3(side * (half_width + OUTSIDE_RADIUS), local.y, local.z))
+	# Out through the nearest face: either side, or the far end if the ramp's end stands above the ground there.
+	var corrected_local := Vector3(half_width + OUTSIDE_RADIUS, local.y, local.z)
+	var outward := ship.state.basis.x
+	if local.x < 0.0:
+		corrected_local.x = -corrected_local.x
+		outward = -outward
+	if ramp.end.y + OUTSIDE_RADIUS - local.z < half_width + OUTSIDE_RADIUS - absf(local.x):
+		corrected_local = Vector3(local.x, local.y, ramp.end.y + OUTSIDE_RADIUS)
+		outward = ship.state.basis.z
+	var corrected_world := ShipFrame.world_from_local(ship.state, corrected_local)
 	var velocity := exterior_body.velocity
 	velocity -= outward * minf(0.0, velocity.dot(outward))
 	if exterior_body.grounded:
@@ -430,7 +439,7 @@ func _ramp_floor_distance(point_x: float, point_y: float, point_z: float) -> flo
 	var local := ShipFrame.local_from_world(ship.state, WorldPos.new(ship.state.position.frame_id, point_x, point_y, point_z))
 	if not layout.ramp_rect.has_point(Vector2(local.x, local.z)):
 		return -1.0
-	var surface_y := layout.floor_height_at(local.x, local.z)
+	var surface_y := layout.ramp_height_at(local.z)
 	if local.y < surface_y - RAMP_STEP_UP:
 		return -1.0
 	var surface := ShipFrame.world_from_local(ship.state, Vector3(local.x, surface_y, local.z))
