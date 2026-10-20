@@ -20,6 +20,8 @@ class LoopPilot extends PilotSource:
 
 	func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		var command := PilotCommand.new()
+		command.move_lock = 1.0 # a scripted pilot holds the velocity it asks for, as Rodina's AI mover does
+		command.stop_rotation = true # and holds its attitude (Rodina AI sets its turn rate directly)
 		var altitude := ship_state.altitude_above_ground
 		match phase:
 			Phase.DESCEND:

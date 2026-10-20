@@ -17,6 +17,8 @@ class TravelPilot extends PilotSource:
 
 	func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		var command := PilotCommand.new()
+		command.move_lock = 1.0 # scripted pilot: holds the velocity it asks for (Rodina AI mover MoveLock)
+		command.stop_rotation = true # and holds its attitude (Rodina AI sets its turn rate directly)
 		var system := runtime.system
 		var target_center := system.convert_position(WorldPos.new(target_body, 0.0, 0.0, 0.0), runtime.active_frame, runtime.time_seconds)
 		var to_target := Vector3(target_center.x - ship_state.position.x, target_center.y - ship_state.position.y, target_center.z - ship_state.position.z)

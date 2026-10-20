@@ -5,8 +5,8 @@ extends Node3D
 ## particle's life with a per-effect blend style (research 07 §8.5.4); entry effects run during atmospheric entry
 ## (research 02 §5). Colours, sizes and rates here are Sol's own inferences: no Rodina frame was available.
 ## - Engine plumes: additive sprites from each nozzle, white-hot to cyan to nothing, rate following thrust demand.
-## - Entry heating: an additive sheath round the nose and hot streaks blown aft, driven by ShipDamage.heating_rate
-##   (with a faint onset just before damage starts, so the build-up reads).
+## - Entry heating: an additive sheath round the nose and hot streaks blown aft, driven by the atmospheric resistance
+##   of the entry (ShipState.atmosphere_resistance): it builds as resistance rises and is full where the hull burns.
 
 var _plumes: Array[CPUParticles3D] = []
 var _nacelles: Array[MeshInstance3D] = []
@@ -39,11 +39,7 @@ func update_effects(ship: Ship, delta: float) -> void:
 		plume.emitting = active and demand > 0.1
 		plume.speed_scale = 0.6 + 0.6 * demand
 	var state := ship.state
-	var ratio := state.atmosphere_ratio
-	var target := 0.0
-	if active and ratio < 1.0:
-		var onset := smoothstep(ShipDamage.HEAT_START_SPEED * 0.75, ShipDamage.HEAT_START_SPEED, state.speed()) * 0.25
-		target = maxf(onset, ShipDamage.heating_rate(state.speed(), ratio) / ShipDamage.HEAT_RATE_AT_FULL) * (1.0 - smoothstep(0.8, 1.0, ratio))
+	var target := clampf(state.atmosphere_resistance / ShipDamage.ENTRY_DAMAGE_START, 0.0, 1.0) if active else 0.0
 	_heat = move_toward(_heat, target, delta * 1.5)
 	_sheath.visible = _heat > 0.01
 	_sheath_material.set_shader_parameter("heat", _heat)

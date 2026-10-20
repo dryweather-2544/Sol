@@ -1,0 +1,94 @@
+== thrust_release_space
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.25 speed=   37.50 v_local=(   0.00    0.00  -37.50) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.50 speed=   75.00 v_local=(   0.00    0.00  -75.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.00 speed=  150.00 v_local=(   0.00    0.00 -150.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=  300.00 v_local=(   0.00    0.00 -300.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=  450.00 v_local=(   0.00    0.00 -450.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.50 speed=  350.00 v_local=(   0.00    0.00 -350.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 4.00 speed=  250.00 v_local=(   0.00    0.00 -250.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 5.00 speed=   50.00 v_local=(   0.00    0.00  -50.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 8.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== yaw_release_space
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.10 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00  45.84   0.00) gear=1 landed=false
+t= 0.25 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00  85.94   0.00) gear=1 landed=false
+t= 0.50 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00  85.94   0.00) gear=1 landed=false
+t= 1.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00  85.94   0.00) gear=1 landed=false
+t= 1.10 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00  28.65   0.00) gear=1 landed=false
+t= 1.25 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.50 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 5.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== yaw_release_atmosphere
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      inf pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.10 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=   4999.9 pitch=  0.00 roll=  -0.00 rate=(  0.00  45.84   0.00) gear=1 landed=false
+t= 0.25 speed=    0.20 v_local=(  -0.00   -0.20   -0.00) alt=   4999.9 pitch= -0.00 roll=   0.00 rate=(  0.00  85.94   0.00) gear=1 landed=false
+t= 0.50 speed=    0.20 v_local=(  -0.00   -0.20   -0.00) alt=   4999.8 pitch= -0.00 roll=   0.00 rate=(  0.00  85.94   0.00) gear=1 landed=false
+t= 1.00 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4999.7 pitch= -0.00 roll=  -0.00 rate=(  0.00  85.94   0.00) gear=1 landed=false
+t= 1.10 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4999.7 pitch= -0.00 roll=  -0.00 rate=(  0.00  28.65   0.00) gear=1 landed=false
+t= 1.25 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4999.7 pitch= -0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.50 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4999.6 pitch= -0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4999.5 pitch= -0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4999.3 pitch= -0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 5.00 speed=    0.20 v_local=(   0.00   -0.20   -0.00) alt=   4998.9 pitch= -0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== pitched_descent_through_400m
+t= 0.00 speed=   40.00 v_local=(  -0.00  -34.64   20.00) alt=      inf pitch= 30.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    796.9 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    796.7 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 4.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    796.3 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 6.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    795.9 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 8.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    795.5 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t=10.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    795.1 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t=12.00 speed=    0.20 v_local=(   0.00   -0.17    0.10) alt=    794.7 pitch= 30.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== pitched_up_hands_off_300m
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00   -0.00) alt=      inf pitch= 30.00 roll=  20.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.25 speed=    0.20 v_local=(  -0.04   -0.17    0.09) alt=    299.9 pitch= 26.06 roll=  13.14 rate=(-17.21   0.00 -24.11) gear=1 landed=false
+t= 0.50 speed=    0.20 v_local=(  -0.03   -0.18    0.07) alt=    299.8 pitch= 21.83 roll=   8.02 rate=(-17.22   0.00 -15.30) gear=1 landed=false
+t= 1.00 speed=    0.20 v_local=(  -0.01   -0.19    0.05) alt=    299.7 pitch= 13.26 roll=   2.91 rate=(-17.23   0.00  -5.85) gear=1 landed=false
+t= 1.50 speed=    0.20 v_local=(  -0.00   -0.20    0.02) alt=    299.6 pitch=  5.40 roll=   1.04 rate=(-11.15   0.00  -2.15) gear=1 landed=false
+t= 2.00 speed=    0.20 v_local=(  -0.00   -0.20    0.01) alt=    299.5 pitch=  1.95 roll=   0.38 rate=( -4.04   0.00  -0.78) gear=1 landed=false
+t= 3.00 speed=    0.20 v_local=(  -0.00   -0.20    0.00) alt=    299.3 pitch=  0.26 roll=   0.05 rate=( -0.53   0.00  -0.10) gear=1 landed=false
+t= 4.00 speed=    0.20 v_local=(  -0.00   -0.20    0.00) alt=    299.1 pitch=  0.03 roll=   0.01 rate=( -0.07   0.00  -0.01) gear=1 landed=false
+== rolled_no_input_atmosphere
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      inf pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.50 speed=    0.20 v_local=(  -0.14   -0.14   -0.00) alt=  19999.8 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.00 speed=    0.20 v_local=(  -0.14   -0.14    0.00) alt=  19999.7 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=    0.20 v_local=(  -0.14   -0.14    0.00) alt=  19999.5 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=    0.20 v_local=(  -0.14   -0.14    0.00) alt=  19999.3 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 4.00 speed=    0.20 v_local=(  -0.14   -0.14    0.00) alt=  19999.1 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 6.00 speed=    0.20 v_local=(  -0.14   -0.14    0.00) alt=  19998.7 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 8.00 speed=    0.20 v_local=(  -0.14   -0.14    0.00) alt=  19998.3 pitch=  0.00 roll=  45.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== hands_off_hover_1000m
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      inf pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.50 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=    999.8 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+t= 1.00 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=    999.7 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+t= 2.00 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=    999.5 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+t= 3.00 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=    999.3 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+t= 4.00 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=    999.1 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+t= 6.00 speed=    0.20 v_local=(   0.00   -0.20    0.00) alt=    998.7 pitch=  0.00 roll=  -0.00 rate=(  0.00   0.00   0.00) gear=0 landed=false
+== brake_from_combat_speed
+t= 0.00 speed=  500.00 v_local=(  -0.00   -0.00 -500.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.25 speed=  400.00 v_local=(   0.00    0.00 -400.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.50 speed=  300.00 v_local=(   0.00    0.00 -300.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.00 speed=  100.00 v_local=(   0.00    0.00 -100.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 4.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== gear_down_from_cruise
+t= 0.00 speed= 5000.00 v_local=(  -0.00   -0.00 -5000.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.50 speed= 1453.58 v_local=(   0.00    0.00 -1453.58) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.00 speed=  662.26 v_local=(   0.00    0.00 -662.26) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=  383.44 v_local=(   0.00    0.00 -383.44) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=  183.44 v_local=(   0.00    0.00 -183.44) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 4.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 6.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+== strafe_space
+t= 0.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 0.50 speed=   75.00 v_local=(  75.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 1.00 speed=  150.00 v_local=( 150.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 2.00 speed=  250.00 v_local=( 250.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 3.00 speed=  250.00 v_local=( 250.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 4.00 speed=   50.00 v_local=(  50.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false
+t= 6.00 speed=    0.00 v_local=(   0.00    0.00    0.00) alt=      0.0 pitch=  0.00 roll=   0.00 rate=(  0.00   0.00   0.00) gear=1 landed=false

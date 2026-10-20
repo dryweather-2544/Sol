@@ -85,6 +85,7 @@ static func default_system() -> StarSystem:
 	outer.radius = 8.5e6
 	outer.surface_gravity = 15.0
 	outer.atmosphere_height = 300000.0
+	outer.atmosphere_friction = 1.5 # Veles-like (Rodina EGDataPlanets.lua: Veles AtmosphereFriction 1.5)
 	outer.orbit_radius = 2.6e9
 	outer.orbit_period = 4.5e6
 	outer.orbit_phase = 4.0
@@ -230,6 +231,7 @@ func build_planet_body(body_id: StringName) -> PlanetBody:
 	planet.frame_id = body.id
 	planet.surface_gravity = body.surface_gravity
 	planet.atmosphere_height = body.atmosphere_height
+	planet.atmosphere_friction = body.atmosphere_friction
 	planet.breathable = body.breathable
 	# Colours only: the original Sol rule runs when look is null, so the sol style leaves the mesh colours untouched.
 	planet.look = VisualStyle.look_for(body) if VisualStyle.is_rodina() else null

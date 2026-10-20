@@ -16,6 +16,8 @@ class Bot extends PilotSource:
 
 	func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		var command := PilotCommand.new()
+		command.move_lock = 1.0 # scripted pilot: holds the velocity it asks for (Rodina AI mover MoveLock)
+		command.stop_rotation = true # and holds its attitude (Rodina AI sets its turn rate directly)
 		var altitude := ship_state.altitude_above_ground
 		var up := Vector3(ship_state.position.x, ship_state.position.y, ship_state.position.z).normalized()
 		if takeoff:

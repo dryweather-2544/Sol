@@ -61,6 +61,8 @@ func simulate_tick(delta: float) -> void:
 		planet.fill_environment(state, environment)
 	elif free_space != null:
 		free_space.fill_environment(state, environment)
+	# The player's ship (the one with interior systems) uses the player's levelling setting; others Rodina's default.
+	environment.horizon_levelling = GameSettings.instance().ship_horizon_levelling if systems != null else 1.0
 	var command := controller.poll_command(state, delta)
 	var tank_empty := state.fuel <= 0.0
 	if tank_empty:
@@ -102,7 +104,7 @@ func _take_damage(delta: float) -> void:
 	if state.hull <= 0.0:
 		return
 	var impact_loss := ShipDamage.impact_damage(state.last_impact_speed) * upgrades.damage_taken_multiplier()
-	var heating_loss := ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) * delta * upgrades.damage_taken_multiplier()
+	var heating_loss := ShipDamage.entry_damage_rate(state.atmosphere_resistance) * delta * upgrades.damage_taken_multiplier()
 	var loss := impact_loss + heating_loss
 	if loss <= 0.0:
 		return

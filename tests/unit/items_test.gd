@@ -133,5 +133,10 @@ func test_empty_tank_blocks_cruise_and_boost_and_cruise_burns_fuel() -> void:
 	for tick in 300:
 		ship.simulate_tick(DELTA)
 	assert_eq(ship.state.gear, PilotCommand.GEAR_COMBAT, "no fuel: combat gear only")
-	assert_true(ship.state.speed() <= 505.0, "and no boost: %f" % ship.state.speed())
+	# Momentum is kept (drag only acts above the gear's DragSpeed), so check the drive itself: from a standstill,
+	# full thrust with boost held gets combat speed (500 m/s) and no more, never boosted (750).
+	ship.state.velocity = Vector3.ZERO
+	for tick in 120:
+		ship.simulate_tick(DELTA)
+	assert_near(ship.state.speed(), 500.0, 0.5, "and no boost: %f" % ship.state.speed())
 	ship.free()

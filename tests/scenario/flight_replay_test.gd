@@ -5,9 +5,10 @@ extends "res://tests/test_case.gd"
 ## If you change flight tuning on purpose, re-record them; otherwise a failure here is a bug.
 
 const DELTA := 1.0 / 60.0
-const EXPECTED_X := -859.804995
-const EXPECTED_Y := -344.108371
-const EXPECTED_Z := 186.427108
+## Re-recorded for the Rodina flight model (inertial rotation, momentum kept, per-gear axis strengths).
+const EXPECTED_X := -494.601353
+const EXPECTED_Y := -589.974328
+const EXPECTED_Z := -118.900775
 const EXPECTED_VELOCITY := Vector3.ZERO
 
 

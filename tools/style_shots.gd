@@ -12,8 +12,9 @@ const LARGE := Vector2i(1280, 720)
 const SUN_ELEVATION_DEGREES := 35.0
 ## [name, altitude metres (orbit: in planet radii), camera pitch below the horizon in degrees, ship visible]
 const VIEWS := [["orbit", 1.4, 34.0, false], ["approach", 30000.0, 7.0, false], ["low", 900.0, 9.0, false], ["ground", 0.0, 2.0, true],
-	["effects", 40000.0, 0.0, true]]
-## The effects view holds the ship at this speed (above ShipDamage.HEAT_START_SPEED) under full thrust: plumes and entry heat.
+	["effects", 185000.0, 0.0, true]]
+## The effects view holds the ship at this speed under full thrust in the top of Aurelia's air (the entry band, where
+## Rodina's entry resistance acts; ShipDamage.entry_resistance): plumes and entry heat.
 const EFFECTS_SPEED := 9000.0
 
 ## Frames to wait for terrain at each view before shooting anyway (software rendering is slow).

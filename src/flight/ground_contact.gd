@@ -14,6 +14,10 @@ const MAX_LANDING_TILT_DEGREES := 40.0
 const ALIGN_RATE := 6.0
 ## Deceleration of sliding along the ground while landed (stops a parked ship drifting downhill).
 const LANDED_FRICTION := 25.0
+## Hull friction while touching but not landed (Rodina EGShipPlayer.VehiclePhysics Friction 0.4; the terrain's own
+## friction is engine-side, taken as 1): sliding slows by this times how hard the hull is pressed into the ground,
+## by the impact and by gravity. On slopes steeper than atan(0.4) = 21.8 degrees gravity wins and the ship slides.
+const HULL_FRICTION := 0.4
 
 
 static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTuning, delta: float) -> void:
@@ -60,6 +64,11 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 	elif touching and ship_state.speed() < LANDED_MAX_SPEED and slope_degrees <= MAX_LANDING_SLOPE_DEGREES and tilt_degrees <= MAX_LANDING_TILT_DEGREES:
 		ship_state.landed = true
 
+	if touching and not ship_state.landed:
+		var pressing := ship_state.last_impact_speed + maxf(0.0, -planet.ship_gravity_at(position).dot(ground_normal)) * delta
+		var sliding_velocity := ship_state.velocity - ground_normal * ship_state.velocity.dot(ground_normal)
+		ship_state.velocity -= sliding_velocity.limit_length(HULL_FRICTION * pressing)
+
 	ship_state.status_message = ""
 	if touching and not ship_state.landed and slope_degrees > MAX_LANDING_SLOPE_DEGREES:
 		ship_state.status_message = "Too steep to land (%d deg)" % int(slope_degrees)
@@ -67,6 +76,9 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 		var normal_speed := maxf(0.0, ship_state.velocity.dot(ground_normal))
 		var sliding := ship_state.velocity - ground_normal * ship_state.velocity.dot(ground_normal)
 		ship_state.velocity = sliding.move_toward(Vector3.ZERO, LANDED_FRICTION * delta) + ground_normal * normal_speed
+		# Resting on its gear the ship cannot pitch or roll (the ground holds it); it can still turn on the spot.
+		ship_state.angular_velocity.x = 0.0
+		ship_state.angular_velocity.z = 0.0
 		_align_to(ship_state, ground_normal, delta)
 
 

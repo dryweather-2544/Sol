@@ -5,9 +5,12 @@ extends RefCounted
 
 const CRUISE_MIN_ALTITUDE_ABOVE_GROUND := 2000.0
 const CRUISE_SPEED_LIMIT_IN_ATMOSPHERE := 8000.0
-## Below LEVEL_ASSIST_START_ALTITUDE metres the ship eases itself upright; full strength at LEVEL_ASSIST_FULL_ALTITUDE.
-const LEVEL_ASSIST_START_ALTITUDE := 400.0
-const LEVEL_ASSIST_FULL_ALTITUDE := 150.0
+## Ships feel planet gravity 3.5 times as strongly as people on foot (Rodina kGravityMovementMult = 9.8 * 3.5 per g of
+## SurfaceGravity, EGVehicle.lua:8, applied at 1548-1554), and at least 0.33 g of surface gravity on any world
+## (kGravityMinPlanetGravity, :9, via EGPlanet:GetGravity's minimum). Walkers use gravity_at unscaled.
+const SHIP_GRAVITY_MULTIPLIER := 3.5
+const SHIP_MIN_SURFACE_GRAVITY_G := 0.33
+const STANDARD_GRAVITY := 9.8
 
 var frame_id: StringName = &"planet"
 var radius: float
@@ -15,6 +18,8 @@ var radius: float
 var surface_gravity := 12.0
 ## Atmosphere thickness above radius, metres (research: 200 km).
 var atmosphere_height := 200000.0
+## Rodina AtmosphereFriction: how strongly the air damps a coasting ship's spin (1 on most worlds, 1.5 on Veles).
+var atmosphere_friction := 1.0
 ## Can a person breathe at the surface without a suit tank?
 var breathable := true
 var height_function: HeightFunction
@@ -72,6 +77,14 @@ func gravity_at(position: WorldPos) -> Vector3:
 	return -Vector3(position.x, position.y, position.z).normalized() * strength
 
 
+## Gravity a ship feels here: planet gravity with at least SHIP_MIN_SURFACE_GRAVITY_G at the surface, times
+## SHIP_GRAVITY_MULTIPLIER, falling off as 1/(r/R)^2 like gravity_at.
+func ship_gravity_at(position: WorldPos) -> Vector3:
+	var distance := maxf(distance_from_center(position), radius * 0.25)
+	var surface := maxf(surface_gravity, SHIP_MIN_SURFACE_GRAVITY_G * STANDARD_GRAVITY) * SHIP_GRAVITY_MULTIPLIER
+	return -Vector3(position.x, position.y, position.z).normalized() * surface * (radius / distance) * (radius / distance)
+
+
 ## Local "up" (away from the planet centre) at a position.
 func up_at(position: WorldPos) -> Vector3:
 	var distance := distance_from_center(position)
@@ -82,18 +95,15 @@ func up_at(position: WorldPos) -> Vector3:
 func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> void:
 	var ratio := atmosphere_ratio(ship_state.position)
 	ship_state.altitude_above_ground = altitude_above_ground(ship_state.position)
-	environment.gravity = Vector3.ZERO if ship_state.landed else gravity_at(ship_state.position)
-	if atmosphere_height <= 0.0:
-		# No air to slow the ship, but still keep speed sane close to the ground.
-		environment.max_speed_factor = lerpf(0.25, 1.0, smoothstep(100.0, 3000.0, ship_state.altitude_above_ground))
-	else:
-		environment.max_speed_factor = 1.0 if ratio >= 1.0 else lerpf(0.25, 1.0, smoothstep(0.1, 1.0, ratio))
+	environment.gravity = Vector3.ZERO if ship_state.landed else ship_gravity_at(ship_state.position)
 	var cruise_allowed := ship_state.altitude_above_ground > CRUISE_MIN_ALTITUDE_ABOVE_GROUND
 	environment.max_gear = PilotCommand.GEAR_CRUISE if cruise_allowed else PilotCommand.GEAR_COMBAT
 	environment.cruise_speed_limit = maxf(500.0, ship_state.altitude_above_ground * 0.3)
 	if ratio < 1.0:
 		environment.cruise_speed_limit = minf(environment.cruise_speed_limit, CRUISE_SPEED_LIMIT_IN_ATMOSPHERE)
 	environment.level_up = up_at(ship_state.position)
-	environment.level_assist = 0.0 if ship_state.landed or atmosphere_height <= 0.0 else clampf((LEVEL_ASSIST_START_ALTITUDE - ship_state.altitude_above_ground) / (LEVEL_ASSIST_START_ALTITUDE - LEVEL_ASSIST_FULL_ALTITUDE), 0.0, 1.0)
+	environment.atmosphere_ratio = ratio
+	environment.atmosphere_friction = atmosphere_friction if atmosphere_height > 0.0 else 0.0
+	environment.surface_gravity_g = surface_gravity / STANDARD_GRAVITY
 	ship_state.atmosphere_ratio = ratio
 	ship_state.regime = FlightRegime.classify(ratio, ship_state.altitude_above_ground, ship_state.landed)

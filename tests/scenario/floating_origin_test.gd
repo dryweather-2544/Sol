@@ -13,6 +13,8 @@ func test_fifty_km_flight_rebases_often_and_never_jumps() -> void:
 	var commands: Array[PilotCommand] = []
 	for tick in 4500:
 		var command := PilotCommand.new()
+		command.move_lock = 1.0 # scripted pilot: holds the velocity it asks for (Rodina AI mover MoveLock)
+		command.stop_rotation = true # and holds its attitude (Rodina AI sets its turn rate directly)
 		command.thrust = Vector3(0, 0, -1)
 		command.gear = PilotCommand.GEAR_COMBAT
 		command.boost = true

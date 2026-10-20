@@ -86,7 +86,7 @@ func _process(_delta: float) -> void:
 		Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 		state.speed(), vertical_speed, altitude_text, FlightRegime.label(state.regime),
 		gear_names[state.gear], source_text, state.status_message]
-	_label.text += "\nfuel %d%%   hull %d%%%s   Tab inventory" % [state.fuel * 100.0, state.hull * 100.0, "   REENTRY HEAT" if ShipDamage.heating_rate(state.speed(), state.atmosphere_ratio) > 0.0 else ""]
+	_label.text += "\nfuel %d%%   hull %d%%%s   Tab inventory" % [state.fuel * 100.0, state.hull * 100.0, "   STEEP REENTRY" if ShipDamage.entry_damage_rate(state.atmosphere_resistance) > 0.0 else ""]
 	_label.text += _power_text()
 
 

@@ -20,6 +20,8 @@ class AimPilot extends PilotSource:
 			to_target = (to_target + up * 1.5).normalized() # climb away from the planet first
 		ship_state.basis = Basis.looking_at(to_target, Vector3.UP if absf(to_target.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT)
 		var command := PilotCommand.new()
+		command.move_lock = 1.0 # scripted pilot: holds the velocity it asks for (Rodina AI mover MoveLock)
+		command.stop_rotation = true # and holds its attitude (Rodina AI sets its turn rate directly)
 		command.gear = PilotCommand.GEAR_CRUISE
 		command.thrust = Vector3(0, 0, -1)
 		return command

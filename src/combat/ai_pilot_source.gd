@@ -30,6 +30,9 @@ func poll(ship_state: ShipState, delta: float) -> PilotCommand:
 	_clock += delta
 	var command := PilotCommand.new()
 	command.gear = PilotCommand.GEAR_COMBAT
+	# Rodina's AI hands the flight model a velocity to match (the engine mover's MoveLock, EGBehavior.lua:68-82)
+	# rather than stick input; the lock value Rodina's mover uses is engine-side, 1 is Sol's choice.
+	command.move_lock = 1.0
 	var target = target_provider.call() if target_provider.is_valid() else null
 	if mode == Mode.IDLE or target == null:
 		command.brake = true

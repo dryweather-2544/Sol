@@ -20,16 +20,22 @@ var fire := false
 var gear := GEAR_DOCK
 var boost := false
 var brake := false
-## Coast: no thrust and no assist damping, velocity is held.
+## Coast with the drive disconnected (Rodina Clutch): thrust and drag do nothing, momentum and gravity carry the ship.
 var lock_linear := false
+## 0..1 (Rodina MoveLock): how far to override the acceleration limit and match the thrust's target velocity exactly
+## this tick. AI and scripted pilots use it to hold a velocity (Rodina's AI mover does); players leave it 0.
+var move_lock := 0.0
+## Hold the attitude still (Sol's parked ship). Rodina sets no rotation for an unpiloted ship; Sol stops it instead.
+var stop_rotation := false
 var source_id: StringName = &""
 
 
-## What an unpiloted ship does: hold velocity, stop rotating.
+## What an unpiloted ship does: coast (hold velocity, gravity still acts) and stop rotating.
 static func parked(current_gear: int) -> PilotCommand:
 	var command := PilotCommand.new()
 	command.gear = current_gear
 	command.lock_linear = true
+	command.stop_rotation = true
 	command.source_id = &"parked"
 	return command
 
@@ -44,6 +50,8 @@ func without_thrust() -> PilotCommand:
 	copy.boost = boost
 	copy.brake = brake
 	copy.lock_linear = lock_linear
+	copy.move_lock = move_lock
+	copy.stop_rotation = stop_rotation
 	copy.source_id = source_id
 	return copy
 
@@ -65,5 +73,7 @@ func without_boost() -> PilotCommand:
 	copy.gear = gear
 	copy.brake = brake
 	copy.lock_linear = lock_linear
+	copy.move_lock = move_lock
+	copy.stop_rotation = stop_rotation
 	copy.source_id = source_id
 	return copy

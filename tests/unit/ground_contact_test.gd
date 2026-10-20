@@ -41,10 +41,24 @@ func test_ship_never_ends_up_below_flat_ground_and_lands() -> void:
 	ship.free()
 
 
+## Sinks at 2 m/s in dock gear, holding that velocity (a pilot feathering the vertical thrust for a soft touchdown).
+class GentleDescent extends PilotSource:
+	func _init() -> void:
+		source_id = &"gentle_descent"
+
+	func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
+		var command := PilotCommand.new()
+		if not ship_state.landed: # hands off once down
+			command.thrust = Vector3(0, -0.02, 0)
+			command.move_lock = 1.0
+		return command
+
+
 func test_gentle_slopes_land_and_ship_tilts_to_match() -> void:
 	for slope_degrees in [15.0, 25.0]:
 		var planet := _sloped_planet(slope_degrees)
 		var ship := _ship_above_pole(planet, 5.0)
+		ship.controller.request_control(GentleDescent.new(), &"pilot_seat")
 		_settle(ship, 360)
 		assert_true(ship.state.landed, "%d degree slope should land" % int(slope_degrees))
 		var tilt_from_planet_up := rad_to_deg(acos(clampf(ship.state.basis.y.dot(Vector3(0, 0, 1)), -1.0, 1.0)))

@@ -26,6 +26,20 @@ var fuel := 1.0
 ## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
 var last_impact_speed := 0.0
 
+## Atmosphere entry state (Rodina EGVehicle:UpdateInAtmosphereState): entering below ratio 1, "in" below 0.5 (which
+## starts the 4 s entry timer), both cleared above 1. Derived from position, so not saved; the first update after a
+## load (atmosphere_state_known false) adopts the current state without replaying an entry.
+var entering_atmosphere := false
+var in_atmosphere := false
+var entry_complete_timer := 0.0
+var atmosphere_state_known := false
+## Atmospheric resistance on this tick (ShipDamage.entry_resistance): drives entry damage, the nose push and the heat effect.
+var atmosphere_resistance := 0.0
+## Roll input smoothing (Rodina BarrelRollFactor, 0..1) and the hold-off on roll levelling after the pilot rolls
+## (Rodina AutoLevelBlock, 0..1). Transient.
+var barrel_roll_factor := 0.0
+var auto_level_block := 0.0
+
 
 func speed() -> float:
 	return velocity.length()

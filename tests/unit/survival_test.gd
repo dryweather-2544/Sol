@@ -29,9 +29,18 @@ func test_damage_curves() -> void:
 	assert_eq(ShipDamage.impact_damage(10.0), 0.0, "gentle touchdown is free")
 	assert_true(ShipDamage.impact_damage(50.0) > 0.1 and ShipDamage.impact_damage(50.0) < 0.9)
 	assert_eq(ShipDamage.impact_damage(120.0), 1.0, "fast impact is fatal")
-	assert_eq(ShipDamage.heating_rate(20000.0, 2.0), 0.0, "no heat in space")
-	assert_eq(ShipDamage.heating_rate(1000.0, 0.5), 0.0, "slow in air is fine")
-	assert_true(ShipDamage.heating_rate(12000.0, 0.5) > 0.0)
+	# Entry resistance (Rodina UpdateInAtmosphereMovement): into-planet factor x band strength x speed / 5000 (max 2).
+	var down := Vector3(0, -1, 0)
+	assert_eq(ShipDamage.entry_resistance(down * 20000.0, down, 2.0, false, 0.0, 4.0), 0.0, "no resistance in space")
+	assert_near(ShipDamage.entry_resistance(down * 8000.0, down, 0.85, false, 0.0, 4.0), 1.6, 1e-6, "straight down at 8 km/s: 1 x 1 x 1.6")
+	assert_near(ShipDamage.entry_damage_rate(1.6), 0.15, 1e-6, "above 1: the full 15% of the hull per second")
+	assert_near(ShipDamage.entry_resistance(down * 1000.0, down, 0.85, false, 0.0, 4.0), 0.2, 1e-6, "slow")
+	assert_eq(ShipDamage.entry_damage_rate(0.2), 0.0, "slow entry does not burn")
+	assert_near(ShipDamage.entry_resistance(Vector3(8000.0, 0, 0), down, 0.85, false, 0.0, 4.0), 0.4 * 1.6, 1e-6, "skimming flat: into factor 0.4")
+	assert_near(ShipDamage.entry_resistance(down * 8000.0, down, 0.95, false, 0.0, 4.0), 0.5 * 1.6, 1e-6, "half way into the top tenth of the air")
+	assert_near(ShipDamage.entry_resistance(down * 8000.0, down, 0.4, true, 2.0, 4.0), 0.5 * 1.6, 1e-6, "entry timer half run out")
+	assert_eq(ShipDamage.entry_resistance(down * 20000.0, down, 0.4, true, 0.0, 4.0), 0.0, "fully in the air: no resistance at any speed")
+	assert_near(ShipDamage.entry_damage_rate(0.925), 0.075, 1e-6, "half way between the burn threshold and 1")
 
 
 func test_hard_landing_hurts_the_hull_and_destruction_is_signalled_once() -> void:
