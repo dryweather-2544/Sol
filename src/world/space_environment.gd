@@ -86,6 +86,15 @@ func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float
 	_environment.ambient_light_color = _look.ambient_space.lerp(_look.ambient_day, daylight)
 
 
+## sun_elevation: cosine of the sun's angle from the local up (dot(up, toward the sun)); 1 in open space. Rodina fades
+## the star light through the terminator (rendering_notes §6.2, GetPlanetDayLightIntensity); the Sol look ignores it.
+func set_sun_elevation(sun_elevation: float) -> void:
+	var factor := 1.0
+	if _look.terminator_enabled:
+		factor = smoothstep(_look.terminator_end, _look.terminator_begin, sun_elevation)
+	_sun.light_energy = _look.sun_energy * factor
+
+
 func set_sun_direction(light_direction: Vector3) -> void:
 	sun_direction = light_direction.normalized()
 	var up_hint := Vector3.UP if absf(sun_direction.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT

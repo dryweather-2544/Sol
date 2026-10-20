@@ -161,3 +161,15 @@ cyan on Perun, red on Morena). Changed to match (rodina style only):
   request). Combat: Rodina's cyan to blue, 2-12 m long with thrust; cruise: blue-violet, 3-21 m.
 Shots: `docs/n13_shots/v2/`. Still different: Rodina's landforms (tall snowy peaks, ice canyons) are terrain
 generation, not a style, and are not changed here.
+
+## 8. Lighting pass (rodina style)
+
+From Rodina's planet data and lighting model (rendering_notes §6.1-6.3) and the owner's screenshots:
+- Sunlight tinted toward the atmosphere's FilterColor2 (GetPlanetStarLight). The blend factor is not in the research;
+  the full tint made whole scenes one colour (`docs/n13_shots/v3/`), so it is 0.3 × saturate(AtmosphereDensity),
+  judged against the Jarilo screenshot (warm ground, bluish snow) (`docs/n13_shots/v4/`).
+- Shade: Jarilo's own SurfaceAmbientColor HSV(32, .2, .25) for Aurelia; other worlds a quarter of their horizon
+  colour (inferred).
+- No back light: Jarilo's StarBacksideColor is black, and only Morena sets one.
+- Sunlight fades through TerminatorBegin..End (Jarilo .2/-.2, Veles and Zosia .2/-.5) by the sun's height.
+- Engine nozzle glow follows forward thrust only; reverse and strafe fire the thruster jets, as in Rodina.

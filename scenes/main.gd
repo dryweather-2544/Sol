@@ -237,6 +237,7 @@ func _process(_delta: float) -> void:
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
 		var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-sun_direction))
 		impostors.hide_star = VisualStyle.is_rodina() and daylight > 0.02
+		space_environment.set_sun_elevation(planet.up_at(actor_position).dot(-sun_direction))
 		var viewer_altitude := 2.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground
 		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position), 0.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground)
 		if terrain != null:
@@ -244,6 +245,7 @@ func _process(_delta: float) -> void:
 	else:
 		impostors.hide_star = false
 		space_environment.set_daylight(0.0, Vector3.UP)
+		space_environment.set_sun_elevation(1.0)
 	overlay.frame_text = _frame_and_nav_text()
 
 

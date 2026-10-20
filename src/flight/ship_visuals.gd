@@ -78,7 +78,11 @@ func _process(delta: float) -> void:
 	var low_and_slow := ship.planet != null and (ship.state.landed or (ship.state.altitude_above_ground < 80.0 and ship.state.speed() < 30.0))
 	exterior.update_pods(low_and_slow and not force_pods_level, 0.0 if force_pods_level else delta)
 	var command := ship.last_command
-	exterior.update_exhaust(1.0 if command.boost else minf(command.thrust.length(), 1.0), delta)
+	var demand := 1.0 if command.boost else minf(command.thrust.length(), 1.0)
+	if VisualStyle.is_rodina():
+		# Rodina's main engine burns for forward thrust only; reverse and strafing fire the thruster jets (ShipEffects).
+		demand = clampf(-command.thrust.z, 0.0, 1.0)
+	exterior.update_exhaust(demand, delta)
 	effects.update_effects(ship, delta)
 	exterior.update_ramp(ship.systems.walkway.progress, asin(clampf(drop / layout.ramp_rect.size.y, -0.9, 0.9)))
 

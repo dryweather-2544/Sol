@@ -67,6 +67,11 @@ var fog_aerial_perspective := 0.0
 ## Lights. back_* is a shadowless fill from the side away from the sun (Rodina's "backside" term, rendering_notes §6.1).
 var sun_color := Color.WHITE
 var sun_energy := 1.25
+## Rodina's day/night terminator (TerminatorBegin/End, EGDataPlanets.lua): sunlight is full while the sun's elevation
+## cosine is above terminator_begin and gone below terminator_end. Off (the Sol look) unless terminator_enabled.
+var terminator_enabled := false
+var terminator_begin := 0.2
+var terminator_end := -0.5
 var back_color := Color(0.0, 0.0, 0.0)
 var back_energy := 0.0
 var ambient_space := Color(0.12, 0.14, 0.2)

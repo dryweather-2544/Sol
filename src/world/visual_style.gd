@@ -230,9 +230,9 @@ static func _teal_alien() -> PlanetLook:
 ## colour now that the colours are known (docs/RODINA_PLANET_TYPES.md paired by orbit before they were); the ground
 ## palettes are unchanged.
 const RODINA_ATMOSPHERES := {
-	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0]},
-	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7]},
-	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0]},
+	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0], "terminator": [0.2, -0.2], "surface_ambient": [32.0, 0.2, 0.25]},
+	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7], "terminator": [0.2, -0.5]},
+	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0], "terminator": [0.2, -0.5]},
 }
 
 
@@ -272,6 +272,26 @@ static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> P
 	look.fog_aerial_perspective = 0.85
 	# From orbit Rodina's limb is a soft pale glow (the owner's orbit screenshot), so the paler ScatterColor2 is used there.
 	look.rim_color = rodina_atmosphere_color(body_id, "scatter2")
+	# Lighting (N13 lighting pass), from Rodina's planet data and lighting model (rendering_notes §6.1-6.3):
+	# - the star light is tinted toward FilterColor2 by the atmosphere's tint strength (GetPlanetStarLight): Jarilo's
+	#   blue light is why its snow looks lavender and its ochre ground a muted tan in the owner's screenshot;
+	# - shade gets the planet's SurfaceAmbientColor (Jarilo's is set: HSV(32, .2, .25), a dim warm grey); a world
+	#   without one gets its horizon colour at a quarter (inferred: shaded slopes in the screenshots take the sky tint);
+	# - StarBacksideColor is black on Jarilo (and unset elsewhere except Morena), so no back light;
+	# - sunlight fades through TerminatorBegin..End by the sun's height; no shadows (Rodina ships none).
+	var data: Dictionary = RODINA_ATMOSPHERES[body_id]
+	# How far toward FilterColor2 is not in the research (the _lighting.h blend factor); the full tint turned whole
+	# scenes one colour, while the Jarilo screenshot keeps warm ground with only bluish snow: 0.3 of the tint strength.
+	look.sun_color = Color.WHITE.lerp(rodina_atmosphere_color(body_id, "filter2"), 0.3 * tint)
+	if data.has("surface_ambient"):
+		look.ambient_day = rodina_atmosphere_color(body_id, "surface_ambient")
+	else:
+		look.ambient_day = look.sky_horizon * 0.25
+	look.ambient_energy_day = 1.0
+	look.back_energy = 0.0
+	look.terminator_enabled = true
+	look.terminator_begin = data["terminator"][0]
+	look.terminator_end = data["terminator"][1]
 	look.rim_power = 2.5
 	look.rim_haze = 0.15
 	look.orbit_color = look.orbit_color.lerp(look.rim_color, 0.25) # the terrain's far colour leans to the air's tint
