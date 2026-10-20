@@ -10,6 +10,8 @@ var _box := VBoxContainer.new()
 var _status := Label.new()
 
 
+var audio: AudioService
+
 func _init() -> void:
 	name = "WorkbenchMenu"
 	layer = 40
@@ -26,12 +28,16 @@ func _process(_delta: float) -> void:
 
 
 func open() -> void:
+	if audio != null:
+		audio.play_sample("rod_menu_open")
 	visible = true
 	get_tree().paused = true
 	_rebuild()
 
 
 func close() -> void:
+	if audio != null:
+		audio.play_sample("rod_menu_unhighlight")
 	visible = false
 	get_tree().paused = false
 	closed.emit()

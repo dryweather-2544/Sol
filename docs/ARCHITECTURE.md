@@ -508,6 +508,12 @@ date, files) **before** committing it; no Rodina assets, code, or data files eve
 | Asset licence mistakes | legal | `ATTRIBUTION.md` gate on every commit |
 | Save format churn | broken saves | versions + migrations + fixtures from M4 |
 
+## Audio content
+
+Sol's audio is event-oriented (`AudioLibrary`/`AudioService`) with a recorded-sample path and a synth
+fallback. Reference Rodina SFX live in `assets/sol/audio/rodina/` and are registered under
+`rod_*` IDs; see ADR 0010 and `docs/N11_RODINA_AUDIO_MAPPING.md`.
+
 ## Planet content
 
 Authored bodies live in `data/planets/*.tres` as `PlanetDefinition` resources; `StarSystem` converts

@@ -15,6 +15,17 @@ const TURRET_SOUND_SECONDS_BETWEEN_SHOTS := 0.2
 const HULL_ALARM_BELOW := 0.25
 const SUBSYSTEM_FAIL_BELOW := 0.25
 const SUBSYSTEM_RESTORED_ABOVE := 0.75
+## Reference audio is selected by the gear in effect. One player per loop is created lazily and
+## faded, so changing gear does not create a new player every frame.
+const RODINA_ENGINE_LOOPS := {
+	PilotCommand.GEAR_DOCK: "rod_engine_dock_loop",
+	PilotCommand.GEAR_COMBAT: "rod_engine_combat_loop",
+	PilotCommand.GEAR_CRUISE: "rod_engine_cruise_loop",
+	PilotCommand.GEAR_WARP: "rod_engine_warp_loop",
+}
+const ENGINE_FADE_PER_SECOND := 4.0
+const WORLD_VOICES := 8
+const WORLD_MAX_DISTANCE := 120.0
 
 ## Tests (and the Mac audio check) listen to this: every sound that actually starts, recorded sample or synthesised fallback.
 signal cue_started(cue_id: String, bus: StringName)
@@ -54,6 +65,9 @@ var _previous_turret_firing := false
 var _turret_clock := 0.0
 var _previous_walkway_moving := false
 var _previous_outer_open_factor := 0.0
+var _engine_layer_gains := {}
+var _previous_selected_gear := -1
+var _world_players: Array[AudioStreamPlayer3D] = []
 
 
 func _ready() -> void:
@@ -76,6 +90,14 @@ func _ready() -> void:
 		add_child(sfx)
 		_sfx_players.append(sfx)
 		_one_shot_priorities.append(0)
+	for world_index in WORLD_VOICES:
+		var world_player := AudioStreamPlayer3D.new()
+		world_player.bus = &"SFX"
+		world_player.max_distance = WORLD_MAX_DISTANCE
+		world_player.unit_size = 8.0
+		world_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		add_child(world_player)
+		_world_players.append(world_player)
 	for generator_player in [_engine_player, _wind_player]:
 		var generator := AudioStreamGenerator.new()
 		generator.mix_rate = SoundSynth.SAMPLE_RATE
@@ -93,6 +115,7 @@ func _ready() -> void:
 		_previous_gear = ship.state.gear
 		_previous_pickup_total = _inventory_total()
 		session.inventory.changed.connect(_on_inventory_changed)
+		session.projectiles.hit.connect(_on_projectile_hit)
 		# Start from the loaded state so a save made in a damaged/depressurised ship does not announce it on the first frame.
 		_previous_power_down = session.systems.power.is_shut_down()
 		_previous_airlock_pressure = session.systems.airlock_pressure
@@ -114,7 +137,7 @@ func _process(delta: float) -> void:
 		throttle = 0.0
 	_smoothed_throttle = move_toward(_smoothed_throttle, clampf(throttle, 0.0, 1.0), delta * 2.0)
 	var engine_running := not (ship.controller.is_parked() or ship.state.landed)
-	var use_samples := _update_engine_loops(engine_bus, engine_running)
+	var use_samples := _update_engine_loops(engine_bus, engine_running, delta)
 	_engine_player.volume_db = -80.0 if use_samples else 0.0
 	if not use_samples:
 		_feed(_engine_player, func(count): return _engine_voice.fill(count, _smoothed_throttle, 0.8))
@@ -128,12 +151,16 @@ func _process(delta: float) -> void:
 	# Outside (and in the atmosphere) the same strength drives the recorded wind: light fades into strong. Never on an airless world.
 	var wind_mix := AudioLibrary.crossfade(wind_strength / 0.6)
 	var wind_gain := clampf(wind_strength * 3.0, 0.0, 1.0)
-	var light_ok := _set_loop_gain("amb_ext_wind_light_loop", wind_mix.x * wind_gain if not inside else 0.0, &"Ambience")
-	var strong_ok := _set_loop_gain("amb_ext_wind_strong_loop", wind_mix.y * wind_gain if not inside else 0.0, &"Ambience")
+	var light_ok := _fade_loop("rod_wind_light_loop", wind_mix.x * wind_gain if not inside else 0.0, &"Ambience", delta)
+	var strong_ok := _fade_loop("rod_wind_strong_loop", wind_mix.y * wind_gain if not inside else 0.0, &"Ambience", delta)
 	var wind_in_use := rumble_in_use or (not inside and light_ok and strong_ok)
 	_wind_player.volume_db = -80.0 if wind_in_use else 0.0
 	if not wind_in_use:
 		_feed(_wind_player, func(count): return _wind_voice.fill(count, wind_strength, 0.7))
+	# Re-entry fire is the authored Rodina atmosphere-entry loop, driven by the flight model's
+	# resistance rather than by a timer of its own. It is never heard in vacuum.
+	var entry_strength := clampf(ship.state.atmosphere_resistance / 0.35, 0.0, 1.0) if in_air else 0.0
+	_fade_loop("rod_atmos_entry_loop", entry_strength, &"Interior" if inside else &"Ambience", delta)
 	_update_cabin_and_suit_loops(inside)
 	_play_event_cues(delta)
 	_play_state_cues()
@@ -206,14 +233,46 @@ func _set_loop_gain(sound_id: String, gain: float, bus: StringName) -> bool:
 	var player: AudioStreamPlayer = _sample_loops[sound_id]
 	player.bus = bus
 	player.volume_db = AudioLibrary.gain_to_db(gain) + AudioLibrary.volume_db_for(sound_id) if gain > 0.0001 else -80.0
+	if gain > 0.0001 and not player.playing:
+		player.play()
 	return true
 
 
-func _update_engine_loops(engine_bus: StringName, engine_running: bool) -> bool:
-	var mix := AudioLibrary.engine_mix(_smoothed_throttle, engine_running)
-	var idle_ok := _set_loop_gain("amb_ship_engine_idle_loop", mix.x, engine_bus)
-	var thrust_ok := _set_loop_gain("amb_ship_engine_thrust_loop", mix.y, engine_bus)
-	return idle_ok and thrust_ok
+## Stable mapping used by tests and the service: the actual reference loop for a gear.
+static func engine_loop_for_gear(gear: int) -> String:
+	return RODINA_ENGINE_LOOPS.get(gear, "rod_engine_combat_loop")
+
+
+func _update_engine_loops(engine_bus: StringName, engine_running: bool, delta: float) -> bool:
+	var selected := engine_loop_for_gear(ship.state.gear)
+	var max_speed := maxf(ship.tuning.gear_max_speed[ship.state.gear], 1.0)
+	var speed_load := clampf(ship.state.speed() / max_speed, 0.0, 1.0)
+	var load := maxf(_smoothed_throttle, speed_load * 0.7)
+	var engine_factor := 1.0
+	if session.systems != null:
+		engine_factor = clampf(session.systems.engine_factor(), 0.15, 1.0)
+	var selected_ok := true
+	for gear in RODINA_ENGINE_LOOPS:
+		var sound_id: String = RODINA_ENGINE_LOOPS[gear]
+		var target := (0.18 + 0.82 * load) * engine_factor if engine_running and sound_id == selected else 0.0
+		if not _fade_loop(sound_id, target, engine_bus, delta):
+			if sound_id == selected:
+				selected_ok = false
+	return selected_ok
+
+
+## Moves one loop's gain toward `target` without ever creating a silent player. False means the
+## loop's file is unavailable, so the caller can use the synthesised fallback.
+func _fade_loop(sound_id: String, target: float, bus: StringName, delta: float) -> bool:
+	var current := float(_engine_layer_gains.get(sound_id, 0.0))
+	var next := move_toward(current, target, ENGINE_FADE_PER_SECOND * delta)
+	_engine_layer_gains[sound_id] = next
+	if next <= 0.0001 and not _sample_loops.has(sound_id):
+		return true
+	if next > 0.0001 or _sample_loops.has(sound_id):
+		if not _set_loop_gain(sound_id, next, bus):
+			return false
+	return true
 
 
 ## Cabin and suit loops. Ship-placed sounds are scaled by how far the player is from their source (AudioLibrary.proximity_gain).
@@ -227,8 +286,8 @@ func _update_cabin_and_suit_loops(inside: bool) -> void:
 	var strained := session.suit.oxygen <= 0.3
 	_set_loop_gain("amb_suit_breath_calm_loop", 1.0 if outside and not strained else 0.0, &"Suit")
 	_set_loop_gain("amb_suit_breath_strained_loop", 1.0 if outside and strained else 0.0, &"Suit")
-	_set_loop_gain("sfx_suit_jetpack_loop", 1.0 if outside and session.exterior_body.jetpack_burning else 0.0, &"Suit")
-	_set_loop_gain("sfx_repair_loop", 1.0 if inside and session.repairing else 0.0, &"Ship")
+	_set_loop_gain("rod_air_blow_loop", 1.0 if outside and session.exterior_body.jetpack_burning else 0.0, &"Suit")
+	_set_loop_gain("rod_air_blow_repair_loop", 1.0 if inside and session.repairing else 0.0, &"Ship")
 	var reactor_gain := 0.0 if systems.power.is_shut_down() else lerpf(0.5, 1.0, clampf(systems.power.temperature, 0.0, 1.0))
 	_set_loop_gain("amb_int_reactor_loop", reactor_gain * _proximity(&"reactor_panel", player_position, 0.3) if inside else 0.0, &"Ship")
 	var hum_gain := 0.0 if systems.power.is_shut_down() else maxf(_proximity(&"pilot_seat", player_position, 0.15), maxf(_proximity(&"engine_station", player_position, 0.15), _proximity(&"reactor_panel", player_position, 0.15)))
@@ -240,7 +299,7 @@ func _update_cabin_and_suit_loops(inside: bool) -> void:
 		var room_center: Vector2 = systems.layout.rooms[room_id].get_center()
 		var room_distance := Vector2(player_position.x, player_position.z).distance_to(room_center)
 		strongest_fire = maxf(strongest_fire, systems.hazards.fire_in(room_id) * AudioLibrary.proximity_gain(room_distance, 12.0, 0.25))
-	_set_loop_gain("amb_int_fire_loop", strongest_fire if inside else 0.0, &"Ship")
+	_set_loop_gain("rod_fire_loop", strongest_fire if inside else 0.0, &"Ship")
 
 
 ## Proximity gain from the player to a named interaction point of the ship layout (1.0 if the layout has no such point).
@@ -256,19 +315,18 @@ func _play_alarm(delta: float) -> void:
 	var wanted := AlarmSchedule.pick(session.systems.hazards.any_fire(), session.systems.power.is_shut_down(), ship.state.hull < HULL_ALARM_BELOW)
 	if not _alarm_schedule.step(wanted, delta):
 		return
-	var alarm_sound := "sfx_int_alarm_hull"
-	if wanted == AlarmSchedule.Kind.FIRE:
-		alarm_sound = "sfx_int_alarm_fire"
-	elif wanted == AlarmSchedule.Kind.REACTOR:
-		alarm_sound = "sfx_int_alarm_reactor"
-	play_cue("alarm", alarm_sound)
+	# The reference alarm loop is looped audio; play its authored one-shot variant here so the
+	# shared one-shot voice cannot keep looping after the alarm schedule moves on.
+	play_cue("alarm", "rod_alarm_once")
 
 
 func _play_event_cues(delta: float) -> void:
 	for portal_id in session.systems.layout.portals:
 		var target: bool = (session.systems.layout.portals[portal_id] as Portal).target_open
 		if _previous_door_targets.has(portal_id) and _previous_door_targets[portal_id] != target:
-			play_cue("door", "sfx_int_door_open" if target else "sfx_int_door_close")
+			var is_airlock := String(portal_id).contains("airlock")
+			var door_sound := ("rod_airlock_open" if target else "rod_airlock_close") if is_airlock else ("rod_door_open" if target else "rod_door_close")
+			play_cue("door", door_sound)
 		_previous_door_targets[portal_id] = target
 	var walkway_state := session.systems.walkway.state
 	var walkway_moving := walkway_state == WalkwayController.State.DEPLOYING or walkway_state == WalkwayController.State.RETRACTING
@@ -280,7 +338,7 @@ func _play_event_cues(delta: float) -> void:
 	_previous_walkway_moving = walkway_moving
 	_previous_walkway_state = walkway_state
 	if ship.state.landed and not _previous_landed:
-		play_cue("thud", "sfx_ship_touchdown_hard" if _previous_speed_in_flight >= HARD_TOUCHDOWN_SPEED else "sfx_ship_touchdown_soft")
+		play_cue("thud", "rod_impact_rock" if ship.planet != null else "rod_impact_metal")
 	_previous_landed = ship.state.landed
 	if not ship.state.landed:
 		_previous_speed_in_flight = ship.state.speed()
@@ -328,11 +386,11 @@ func _play_state_cues() -> void:
 	_previous_mode = session.mode
 	var outer_open_factor := session.systems.airlock.outer.open_factor
 	if _previous_outer_open_factor > 0.0 and outer_open_factor <= 0.0:
-		play_sample("sfx_int_airlock_seal")
+		play_sample("rod_airlock_close")
 	_previous_outer_open_factor = outer_open_factor
 	var power_down := session.systems.power.is_shut_down()
 	if power_down != _previous_power_down:
-		play_sample("sfx_int_power_down" if power_down else "sfx_int_power_up")
+		play_sample("rod_gear_grind" if power_down else "rod_gui_click")
 	_previous_power_down = power_down
 	var pressure := session.systems.airlock_pressure
 	var trend := 0
@@ -374,20 +432,28 @@ func _play_ship_control_cues(delta: float) -> void:
 	_previous_boost = command.boost
 	if ship.state.gear != _previous_gear:
 		if _previous_gear != -1:
-			_play_gear_shift(ship.state.gear)
+			if ship.state.gear > _previous_gear:
+				play_sample("rod_gear_up")
+			else:
+				play_sample("rod_gear_down")
+			if ship.state.selected_gear != ship.state.gear:
+				play_sample("rod_gear_grind", 1)
 		_previous_gear = ship.state.gear
-	var turn_active := command.turn.length() > RCS_TURN_THRESHOLD and not ship.state.landed
+	var turn_active := (command.turn.length() > RCS_TURN_THRESHOLD or command.brake) and not ship.state.landed
+	# The authored RCS loop runs only while the thrusters are actually held; the one-shot spurt
+	# above marks the onset so a short tap is audible without leaving a loop playing.
+	_set_loop_gain("rod_rcs_loop", 1.0 if turn_active else 0.0, &"Ship")
 	if turn_active and not _previous_turn_active and _rcs_clock <= 0.0:
-		play_sample("sfx_ship_rcs_pulse")
+		play_sample("rod_rcs_spurt_2" if int(Time.get_ticks_msec() / 400) % 2 == 0 else "rod_rcs_spurt_4")
 		_rcs_clock = RCS_MIN_SECONDS_BETWEEN_PULSES
 	_previous_turn_active = turn_active
 	var shots_fired := ship.weapon.shots_fired
 	if shots_fired > _previous_shots_fired:
-		play_sample("sfx_wpn_ship_gun_fire")
+		play_sample("rod_gun_fire")
 	_previous_shots_fired = shots_fired
 	var turret_firing := session.systems.turret_firing
 	if turret_firing and (not _previous_turret_firing or _turret_clock <= 0.0):
-		play_sample("sfx_wpn_turret_fire")
+		play_sample("rod_gun_fire")
 		_turret_clock = TURRET_SOUND_SECONDS_BETWEEN_SHOTS
 	_previous_turret_firing = turret_firing
 
@@ -407,6 +473,34 @@ func _play_gear_shift(gear: int) -> void:
 	cue_started.emit("sfx_ship_gear_shift_%02d" % (gear + 1), player.bus)
 
 
+## Positional one-shot for world events. The service is a plain Node under the main scene, so
+## convert the WorldPos into the ship's current render frame before handing it to a 3D player.
+func play_world_sample(sound_id: String, world_position: WorldPos) -> bool:
+	var stream := AudioLibrary.stream(sound_id)
+	if stream == null or ship == null:
+		return false
+	var player: AudioStreamPlayer3D = null
+	for candidate in _world_players:
+		if not candidate.playing:
+			player = candidate
+			break
+	if player == null:
+		return false
+	player.stream = stream
+	player.bus = &"SFX"
+	player.volume_db = AudioLibrary.volume_db_for(sound_id)
+	player.position = world_position.to_local_vector3(ship.render_origin)
+	player.play()
+	cue_started.emit(sound_id, player.bus)
+	return true
+
+
+func _on_projectile_hit(projectile: ProjectileSim.Projectile, _target: ProjectileSim.Target) -> void:
+	# Projectile hits happen away from the listener; use a fixed pool of 3D players positioned in
+	# the current render frame rather than a non-positional cue.
+	play_world_sample("rod_gun_hit", projectile.position)
+
+
 func _on_interaction_refused(point_id: StringName, _reason: String) -> void:
 	if point_id in [&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door", &"airlock_inner", &"airlock_outer"]:
 		play_sample("sfx_int_door_deny")
@@ -422,8 +516,20 @@ func _inventory_total() -> int:
 func _on_inventory_changed() -> void:
 	var total := _inventory_total()
 	if _previous_pickup_total != -1 and total > _previous_pickup_total:
-		play_sample("sfx_item_pickup")
+		play_sample("rod_item_pickup")
 	_previous_pickup_total = total
+
+
+func _exit_tree() -> void:
+	for player in _sfx_players:
+		player.stop()
+	for loop_player in _sample_loops.values():
+		(loop_player as AudioStreamPlayer).stop()
+	_sample_loops.clear()
+	_engine_player.stop()
+	_wind_player.stop()
+	for world_player in _world_players:
+		world_player.stop()
 
 
 func _feed(player: AudioStreamPlayer, producer: Callable) -> void:

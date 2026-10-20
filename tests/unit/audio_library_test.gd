@@ -180,3 +180,37 @@ func test_weapon_counts_shots_for_the_audio_service() -> void:
 	assert_eq(weapon.shots_fired, 1, "counted")
 	assert_true(not weapon.try_fire(sim, WorldPos.new(&"space"), Vector3.FORWARD, Vector3.ZERO, 0, null), "cooldown blocks the second")
 	assert_eq(weapon.shots_fired, 1, "a blocked shot is not counted")
+
+
+func test_reference_samples_play_through_the_service_and_loop_players_restart() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var service := AudioService.new()
+	tree.root.add_child(service)
+	service._ready()
+	GameSettings.instance().sample_audio = true
+	assert_true(service.play_sample("rod_gun_fire"), "the reference gun sample is available")
+	assert_true(service._set_loop_gain("rod_engine_dock_loop", 1.0, &"Interior"), "the reference dock engine loop is available")
+	var loop_player: AudioStreamPlayer = service._sample_loops.get("rod_engine_dock_loop")
+	assert_true(loop_player != null, "the loop has one reusable player")
+	if loop_player != null:
+		loop_player.stop()
+		assert_true(service._set_loop_gain("rod_engine_dock_loop", 1.0, &"Interior"), "restarting an existing loop succeeds")
+		assert_eq(service._sample_loops.get("rod_engine_dock_loop"), loop_player, "the existing player is reused")
+	assert_true(AudioLibrary.stream("rod_engine_warp_loop") != null, "the actual warp loop loads")
+	tree.root.remove_child(service)
+	service.free()
+
+
+func test_reference_engine_loops_follow_the_gear_table() -> void:
+	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_DOCK), "rod_engine_dock_loop")
+	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_COMBAT), "rod_engine_combat_loop")
+	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_CRUISE), "rod_engine_cruise_loop")
+	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_WARP), "rod_engine_warp_loop")
+	for gear in [PilotCommand.GEAR_DOCK, PilotCommand.GEAR_COMBAT, PilotCommand.GEAR_CRUISE, PilotCommand.GEAR_WARP]:
+		var stream := AudioLibrary.stream(AudioService.engine_loop_for_gear(gear)) as AudioStreamWAV
+		assert_true(stream != null, "gear %d reference loop loads" % gear)
+		if stream != null:
+			assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_FORWARD, "gear %d loop is forward" % gear)
+	assert_true(AudioLibrary.stream("rod_atmos_entry_loop") is AudioStreamWAV, "atmosphere entry loop loads")
+	assert_true(AudioLibrary.stream("rod_gun_hit") != null, "reference impact loads")
+	assert_true(AudioLibrary.stream("rod_menu_highlight") != null, "reference UI highlight loads")

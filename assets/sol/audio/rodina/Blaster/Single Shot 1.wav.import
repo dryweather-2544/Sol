@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://ciettp0llcdt0"
+path="res://.godot/imported/Single Shot 1.wav-fcb6043acdb24364c713ef6046496565.sample"
+
+[deps]
+
+source_file="res://assets/sol/audio/rodina/Blaster/Single Shot 1.wav"
+dest_files=["res://.godot/imported/Single Shot 1.wav-fcb6043acdb24364c713ef6046496565.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

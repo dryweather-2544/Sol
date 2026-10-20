@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dtvtn8ubrplvu"
+path="res://.godot/imported/RODINA - Hand Weapon - Charge Shot - HOT Loop.wav-0a340ce505b8644988b6aae92e8aa886.sample"
+
+[deps]
+
+source_file="res://assets/sol/audio/rodina/Blaster/RODINA - Hand Weapon - Charge Shot - HOT Loop.wav"
+dest_files=["res://.godot/imported/RODINA - Hand Weapon - Charge Shot - HOT Loop.wav-0a340ce505b8644988b6aae92e8aa886.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

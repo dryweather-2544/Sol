@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://c3x4n6645jvlj"
+path="res://.godot/imported/XENO - Charge - Loop.wav-4c2cad9e9503d272f25cad05ae9e8008.sample"
+
+[deps]
+
+source_file="res://assets/sol/audio/rodina/Xeno Blaster/XENO - Charge - Loop.wav"
+dest_files=["res://.godot/imported/XENO - Charge - Loop.wav-4c2cad9e9503d272f25cad05ae9e8008.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

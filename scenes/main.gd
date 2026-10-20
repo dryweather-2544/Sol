@@ -124,10 +124,12 @@ func _ready() -> void:
 	session.player_lost.connect(_on_player_lost)
 	inventory_menu = InventoryMenu.new()
 	inventory_menu.session = session
+	inventory_menu.audio = audio
 	inventory_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	add_child(inventory_menu)
 	workbench_menu = WorkbenchMenu.new()
 	workbench_menu.session = session
+	workbench_menu.audio = audio
 	workbench_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	session.workbench_requested.connect(func():
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -135,12 +137,14 @@ func _ready() -> void:
 	add_child(workbench_menu)
 	reactor_menu = ReactorMenu.new()
 	reactor_menu.session = session
+	reactor_menu.audio = audio
 	reactor_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	session.reactor_requested.connect(func():
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		reactor_menu.open())
 	add_child(reactor_menu)
 	menu = PauseMenu.new()
+	menu.audio = audio
 	menu.resume_requested.connect(_on_menu_resume)
 	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
 	menu.continue_requested.connect(func(): _load_from("autosave"); _on_menu_resume())

@@ -17,6 +17,8 @@ var world_ready := false
 ## Evaluated every frame by the menu itself (it keeps running while the game is paused, the scene does not).
 var world_ready_check := Callable()
 var autosave_exists := false
+## Optional reference-audio service; null in headless tests that build the menu directly.
+var audio: AudioService
 
 var _panel := PanelContainer.new()
 var _box := VBoxContainer.new()
@@ -59,6 +61,7 @@ func dismiss() -> void:
 
 func open_pause() -> void:
 	show_page(Page.PAUSE)
+	_play_ui("rod_menu_open")
 
 
 func show_page(new_page: int) -> void:
@@ -89,9 +92,15 @@ func show_page(new_page: int) -> void:
 
 
 func _close(signal_to_emit: Signal) -> void:
+	_play_ui("rod_menu_unhighlight")
 	visible = false
 	get_tree().paused = false
 	signal_to_emit.emit()
+
+
+func _play_ui(sound_id: String) -> void:
+	if audio != null:
+		audio.play_sample(sound_id)
 
 
 func _open_settings(from_page: int) -> void:
@@ -143,7 +152,11 @@ func _add_button(text: String, on_pressed: Callable) -> void:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(320, 40)
-	button.pressed.connect(on_pressed)
+	button.pressed.connect(func():
+		_play_ui("rod_gui_click")
+		on_pressed.call())
+	button.mouse_entered.connect(func(): _play_ui("rod_menu_highlight"))
+	button.focus_entered.connect(func(): _play_ui("rod_menu_highlight"))
 	_box.add_child(button)
 
 

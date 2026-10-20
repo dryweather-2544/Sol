@@ -65,6 +65,46 @@ const SOUNDS := {
 	"sfx_wpn_ship_gun_fire": {"folder": "sfx/wpn", "bus": &"Interior", "db": 0.0},
 	"sfx_wpn_turret_fire": {"folder": "sfx/wpn", "bus": &"Ship", "db": 0.0},
 	"mus_discovery_sting": {"folder": "mus", "bus": &"UI", "db": 0.0},
+	# Rodina 1.6.2 reference SFX. Files are kept under assets/sol/audio/rodina with their
+	# original names; see docs/N11_RODINA_AUDIO_INVENTORY.csv and ATTRIBUTION.md.
+	"rod_engine_dock_loop": {"folder": "rodina", "file": "DockEngine.wav", "bus": &"Interior", "db": 0.0},
+	"rod_engine_combat_loop": {"folder": "rodina", "file": "rodina_engine_combat.wav", "bus": &"Interior", "db": 0.0},
+	"rod_engine_cruise_loop": {"folder": "rodina", "file": "rod_cruise1_v2.wav", "bus": &"Interior", "db": -3.0},
+	"rod_engine_warp_loop": {"folder": "rodina", "file": "rod_warp1_v1.wav", "bus": &"Interior", "db": -2.0},
+	"rod_atmos_entry_loop": {"folder": "rodina", "file": "rod_atmosentry.wav", "bus": &"Interior", "db": -3.0},
+	"rod_fire_loop": {"folder": "rodina", "file": "rod_atmosentry.wav", "bus": &"Ship", "db": -4.0},
+	"rod_wind_light_loop": {"folder": "rodina", "file": "rod_wind_light.wav", "bus": &"Ambience", "db": -4.0},
+	"rod_wind_strong_loop": {"folder": "rodina", "file": "rod_wind_super.wav", "bus": &"Ambience", "db": -5.0},
+	"rod_wind_sharp_loop": {"folder": "rodina", "file": "rod_wind_sharp.wav", "bus": &"Ambience", "db": -5.0},
+	"rod_air_blow_loop": {"folder": "rodina", "file": "AirBlow.wav", "bus": &"Suit", "db": -2.0},
+	"rod_air_blow_repair_loop": {"folder": "rodina", "file": "AirBlow.wav", "bus": &"Ship", "db": -3.0},
+	"rod_rcs_loop": {"folder": "rodina", "file": "rod_rcs_loop.wav", "bus": &"Ship", "db": -3.0},
+	"rod_rcs_spurt_2": {"folder": "rodina", "file": "rod_rcs_spurt_2.wav", "bus": &"Ship", "db": -2.0},
+	"rod_rcs_spurt_4": {"folder": "rodina", "file": "rod_rcs_spurt_4.wav", "bus": &"Ship", "db": -2.0},
+	"rod_gear_up": {"folder": "rodina", "file": "rod_gear_up.wav", "bus": &"UI", "db": 0.0},
+	"rod_gear_down": {"folder": "rodina", "file": "rod_gear_down.wav", "bus": &"UI", "db": 0.0},
+	"rod_gear_grind": {"folder": "rodina", "file": "rod_gear_grind.wav", "bus": &"UI", "db": 0.0},
+	"rod_gun_fire": {"folder": "rodina", "file": "Blaster/Single Shot 1.wav", "bus": &"Interior", "db": -1.0},
+	"rod_gun_hit": {"folder": "rodina", "file": "Blaster/Player Weapon Hit 2.wav", "bus": &"SFX", "db": 0.0},
+	"rod_gun_miss": {"folder": "rodina", "file": "Blaster/Player - Weapon Miss 3.wav", "bus": &"SFX", "db": 0.0},
+	"rod_missile_fire": {"folder": "rodina", "file": "Missile/rod_missile_fire_5.wav", "bus": &"Interior", "db": -1.0},
+	"rod_missile_impact": {"folder": "rodina", "file": "Missile/explosion_large_01.wav", "bus": &"SFX", "db": 0.0},
+	"rod_impact_rock": {"folder": "rodina", "file": "rod_impact_rock.wav", "bus": &"Interior", "db": 0.0},
+	"rod_impact_metal": {"folder": "rodina", "file": "rod_impact_metal.wav", "bus": &"Interior", "db": 0.0},
+	"rod_door_open": {"folder": "rodina", "file": "rod_rcs_spurt_2.wav", "bus": &"Ship", "db": -2.0},
+	"rod_door_close": {"folder": "rodina", "file": "rod_rcs_spurt_4.wav", "bus": &"Ship", "db": -3.0},
+	"rod_airlock_open": {"folder": "rodina", "file": "rodina_door_large_1.wav", "bus": &"Ship", "db": 0.0},
+	"rod_airlock_close": {"folder": "rodina", "file": "rodina_door_large_3.wav", "bus": &"Ship", "db": 0.0},
+	"rod_menu_open": {"folder": "rodina", "file": "rod_menu_open.wav", "bus": &"UI", "db": 0.0},
+	"rod_menu_highlight": {"folder": "rodina", "file": "rod_menu_highlight.wav", "bus": &"UI", "db": 0.0},
+	"rod_menu_unhighlight": {"folder": "rodina", "file": "rod_menu_unhighlight.wav", "bus": &"UI", "db": 0.0},
+	"rod_gui_click": {"folder": "rodina", "file": "rodina_gui_click_6.wav", "bus": &"UI", "db": 0.0},
+	"rod_item_pickup": {"folder": "rodina", "file": "Inventory/ItemPickup.wav", "bus": &"UI", "db": -2.0},
+	"rod_inventory_open": {"folder": "rodina", "file": "Inventory/InventoryOpen.wav", "bus": &"UI", "db": -3.0},
+	"rod_inventory_close": {"folder": "rodina", "file": "Inventory/InventoryOpen.wav", "bus": &"UI", "db": -3.0},
+	"rod_alarm_loop": {"folder": "rodina", "file": "rod_alarm_missile_loop.wav", "bus": &"Ship", "db": -3.0},
+	"rod_alarm_once": {"folder": "rodina", "file": "rod_alarm_missile_once.wav", "bus": &"Ship", "db": -2.0},
+	"rod_radio_active": {"folder": "rodina", "file": "rodina_radio_active.wav", "bus": &"Radio", "db": -3.0},
 }
 
 static var _streams := {}
@@ -93,7 +133,13 @@ static func file_paths(sound_id: String) -> Array[String]:
 	var found: Array[String] = []
 	if not SOUNDS.has(sound_id):
 		return found
-	var base := "%s%s/%s" % [ROOT, SOUNDS[sound_id]["folder"], sound_id]
+	var entry: Dictionary = SOUNDS[sound_id]
+	if entry.has("file"):
+		var explicit := "%s%s/%s" % [ROOT, entry["folder"], entry["file"]]
+		if ResourceLoader.exists(explicit):
+			found.append(explicit)
+		return found
+	var base := "%s%s/%s" % [ROOT, entry["folder"], sound_id]
 	for variant in range(1, MAX_VARIANTS + 1):
 		var numbered := "%s_%02d.wav" % [base, variant]
 		if ResourceLoader.exists(numbered):

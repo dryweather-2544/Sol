@@ -5,6 +5,7 @@ extends CanvasLayer
 signal closed
 
 var session: GameSession
+var audio: AudioService
 var _panel := PanelContainer.new()
 var _box := VBoxContainer.new()
 var _status := Label.new()
@@ -26,12 +27,16 @@ func _process(_delta: float) -> void:
 
 
 func open() -> void:
+	if audio != null:
+		audio.play_sample("rod_inventory_open")
 	visible = true
 	get_tree().paused = true
 	_rebuild()
 
 
 func close() -> void:
+	if audio != null:
+		audio.play_sample("rod_inventory_close")
 	visible = false
 	get_tree().paused = false
 	closed.emit()
@@ -63,6 +68,8 @@ func _rebuild() -> void:
 			var button := Button.new()
 			button.text = "Use"
 			button.pressed.connect(func():
+				if audio != null:
+					audio.play_sample("rod_gui_click")
 				_status.text = session.use_item(item_id)
 				_rebuild())
 			row.add_child(button)

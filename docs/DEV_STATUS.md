@@ -24,6 +24,12 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - No 4 s atmosphere-entry timer, no reentry damage, no ship damage at all.
 - `docs/ARCHITECTURE.md` text predates ADRs 0002-0004; the ADRs win.
 
+## N11 — Rodina reference audio (branch `n11-rodina-audio`)
+- 62 actual Rodina 1.6.2 WAV SFX copied byte-identically under `assets/sol/audio/rodina/`; engine/gear/warp/atmosphere/wind/RCS/weapons/impacts/doors/UI/pickup integrated through the existing library/service.
+- Responsive engine crossfades, power-scaled gain, WARP loop transitions, 3D projectile impacts and service lifecycle cleanup.
+- Headless suite 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 21/21 events with real main scene.
+- Music `.egu` unsupported and not integrated. Human listening/levels still unjudged. Details: `docs/N11_REPORT.md`.
+
 ## N10 — WARP gear (branch `n10-warp`, latest remote base `143ca6e`)
 - Fourth WARP/Limnal gear above CRUISE, gated by the installed drive and open-space environment; 6.7x distance-scaled cap, faster fuel burn, HUD/input/save coverage.
 - Fixed the pre-existing audio/decal test failures. Full suite: 318 tests / 96,602 assertions / 0 failures. All six bodies now load from `data/planets/*.tres` (ADR 0009).

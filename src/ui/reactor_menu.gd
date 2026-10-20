@@ -15,6 +15,8 @@ var _limit_sliders := {}
 var _limit_labels := {}
 
 
+var audio: AudioService
+
 func _init() -> void:
 	name = "ReactorMenu"
 	layer = 40
@@ -31,6 +33,8 @@ func _process(_delta: float) -> void:
 
 
 func open() -> void:
+	if audio != null:
+		audio.play_sample("rod_menu_open")
 	visible = true
 	get_tree().paused = true
 	_build()
@@ -38,6 +42,8 @@ func open() -> void:
 
 
 func close() -> void:
+	if audio != null:
+		audio.play_sample("rod_menu_unhighlight")
 	visible = false
 	get_tree().paused = false
 	closed.emit()
