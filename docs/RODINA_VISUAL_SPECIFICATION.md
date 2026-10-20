@@ -38,7 +38,8 @@ Companion to `VISUAL_REFERENCE_INDEX.md` and `VISUAL_FIDELITY_REVIEWS.md`. Tags:
 - [OBS] Ordinary engine output is a small blue/purple plume; the long green trails are the dominant
   motion effect at cruise.
 - [OBS] Entry fire is large, blocky, additive purple/orange and screen-filling around the silhouette;
-  Sol's current entry is a smooth orange sheath.
+  Sol's entry now uses large hard-edged orange/purple squares, a purple exposure wash and suppresses
+  cruise/speed effects during entry. It remains less screen-filling than the reference.
 - [INF] Entry should remain gameplay-state driven (`atmosphere_resistance`), but the visual style is a
   separate effect-quality pass; do not tune entry from a single still.
 

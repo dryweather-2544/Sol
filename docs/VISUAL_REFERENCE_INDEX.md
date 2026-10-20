@@ -88,3 +88,6 @@ labelled as inference until such a sequence is found or captured from the runnin
   the Sol-Assets switches temporarily enabled.
 - After the N13 sky pass: `/tmp/n13_galaxy/rodina_planet_orbit.png` — soft fallback galaxy band
   with the starfield asset switch off.
+- After the N13 COMBAT-SPEED pass: `/tmp/n13_streak_cruise2.png` — long left-weighted speed field.
+- After the N13 entry pass: `/tmp/n13_entry_probe/entry3.png` — blocky orange/purple entry fire and
+  purple exposure wash.

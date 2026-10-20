@@ -75,3 +75,29 @@ current `starfield=false` setting hides it, so this procedural band is only a fa
 setting. Sol style keeps `galaxy_amount=0` and is unchanged.
 
 Tests after both iterations: 324 tests / 97,129 assertions / 0 failures.
+
+
+### Third iteration — COMBAT-SPEED streak field (2026-10-21)
+
+Reference: trailer 78–92 s COMBAT SPEED sequence. Added a Rodina-only additive screen layer with
+long left-weighted blue/white streaks, gated by combat/cruise/warp speed and hidden in precision,
+Sol style and menus. The first version read as short white rain; the accepted version uses longer
+smears and lower intensity.
+
+Capture: `/tmp/n13_streak_cruise2.png`.
+
+### Fourth iteration — blocky entry fire (2026-10-21)
+
+Reference: `trailer004_purple_entry_fire.jpg` and `trailer005_entry_fire.jpg`. Replaced the small
+smooth orange entry sparks with large hard-edged additive orange/purple squares and added a purple
+exposure wash driven by `ShipState.atmosphere_resistance`. The fire was enlarged and made orange-
+dominant after the first capture. Speed trails and the blue speed-streak layer are suppressed during
+atmospheric entry so the entry effect does not conflict with cruise effects.
+
+Capture: `/tmp/n13_entry_probe/entry3.png`.
+
+Remaining entry gap: reference fire mass is even larger and more screen-filling; current blocks are
+still centred around the ship rather than spilling across the lower left. This is the next visual
+iteration, not a completion claim.
+
+Tests after all four visual passes: 326 tests / 97,138 assertions / 0 failures.

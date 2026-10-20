@@ -31,6 +31,8 @@ var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
 var _ambush_pending := false
 var audio: AudioService
+var speed_effects: SpeedEffects
+var entry_effects: EntryEffects
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
 var _cockpit_view := false
@@ -104,6 +106,12 @@ func _ready() -> void:
 	chase_camera.target = ship
 	add_child(chase_camera)
 	chase_camera.snap_to_target()
+	speed_effects = SpeedEffects.new()
+	speed_effects.ship = ship
+	add_child(speed_effects) # below the HUD overlay in CanvasLayer order
+	entry_effects = EntryEffects.new()
+	entry_effects.ship = ship
+	add_child(entry_effects)
 	overlay = DebugOverlay.new()
 	overlay.ship = ship
 	overlay.terrain = terrain

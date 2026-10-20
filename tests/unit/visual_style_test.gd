@@ -118,3 +118,24 @@ func test_set_active_bumps_the_revision_the_scene_watches() -> void:
 	assert_true(VisualStyle.is_rodina())
 	_after()
 	assert_true(not VisualStyle.is_rodina())
+
+
+func test_speed_streaks_are_style_speed_and_gear_gated() -> void:
+	VisualStyle.set_active(VisualStyle.SOL)
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE), 0.0, 1e-9, "Sol style has no streak field")
+	VisualStyle.set_active(VisualStyle.RODINA)
+	assert_near(SpeedEffects.intensity_for(100.0, PilotCommand.GEAR_COMBAT), 0.0, 1e-9, "precision/slow flight has no streaks")
+	assert_near(SpeedEffects.intensity_for(500.0, PilotCommand.GEAR_DOCK), 0.0, 1e-9, "dock gear never streaks")
+	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE) > 0.3, "cruise streaks appear")
+	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_WARP) > 0.3, "warp streaks appear")
+	_after()
+
+
+func test_entry_tint_is_rodina_only_and_tracks_resistance() -> void:
+	VisualStyle.set_active(VisualStyle.RODINA)
+	assert_near(EntryEffects.intensity_for(0.0), 0.0, 1e-9)
+	assert_true(EntryEffects.intensity_for(ShipDamage.ENTRY_DAMAGE_START * 0.5) > 0.4)
+	assert_near(EntryEffects.intensity_for(ShipDamage.ENTRY_DAMAGE_START * 2.0), 1.0, 1e-9)
+	VisualStyle.set_active(VisualStyle.SOL)
+	assert_near(EntryEffects.intensity_for(ShipDamage.ENTRY_DAMAGE_START), 0.0, 1e-9, "Sol entry has no purple wash")
+	_after()

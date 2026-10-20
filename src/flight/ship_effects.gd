@@ -79,6 +79,23 @@ static func _additive_sprite(size: float) -> QuadMesh:
 
 
 ## A round dot, bright in the middle and fading to nothing at the edge, so sprites are not hard squares.
+## A hard-edged additive square. It is deliberately not filtered or softened: the reference's
+## entry fire is made of visible stepped quads, not a smooth glow.
+static func _square_sprite(size: float) -> QuadMesh:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.vertex_color_use_as_albedo = true
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	material.no_depth_test = false
+	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	quad.material = material
+	return quad
+
+
 static func _soft_dot() -> GradientTexture2D:
 	var texture := GradientTexture2D.new()
 	texture.fill = GradientTexture2D.FILL_RADIAL
@@ -117,7 +134,9 @@ func _build_trails() -> void:
 func _update_trails(ship: Ship, active: bool) -> void:
 	_trail_mesh.clear_surfaces()
 	var speed := ship.state.speed()
-	if not active or not trails_should_emit(speed, ship.state.gear):
+	# During entry the blocky fire is the effect; lime cruise trails would read as a second,
+	# contradictory speed system.
+	if not active or ship.state.entering_atmosphere or ship.state.in_atmosphere or not trails_should_emit(speed, ship.state.gear):
 		return
 	var out := Vector3(0, 0, 1)
 	if speed > 1.0:
@@ -201,17 +220,21 @@ func _build_heat() -> void:
 	_sheath.visible = false
 	add_child(_sheath)
 	_streaks.name = "EntryStreaks"
-	_streaks.amount = 160
-	_streaks.lifetime = 0.6
+	_streaks.amount = 600
+	_streaks.lifetime = 1.2
 	_streaks.local_coords = true
-	_streaks.mesh = _additive_sprite(0.55)
+	_streaks.mesh = _square_sprite(1.0)
 	_streaks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_streaks.emission_box_extents = Vector3(3.2, 1.6, 0.5)
-	_streaks.position = Vector3(0.0, 0.4, -9.0)
-	_streaks.spread = 10.0
+	_streaks.emission_box_extents = Vector3(7.0, 4.0, 2.2)
+	_streaks.position = Vector3(0.0, 0.4, -7.5)
+	_streaks.spread = 28.0
 	_streaks.gravity = Vector3.ZERO
-	_streaks.initial_velocity_min = 30.0
-	_streaks.initial_velocity_max = 55.0
-	_streaks.color_ramp = _ramp([[0.0, Color(1.0, 0.75, 0.4, 0.9)], [0.3, Color(1.0, 0.5, 0.15, 0.75)], [0.75, Color(0.9, 0.2, 0.05, 0.35)], [1.0, Color(0.4, 0.05, 0.0, 0.0)]])
+	_streaks.initial_velocity_min = 25.0
+	_streaks.initial_velocity_max = 60.0
+	_streaks.scale_amount_min = 1.8
+	_streaks.scale_amount_max = 4.6
+	# Large stepped orange/purple blocks, matching the trailer's entry-fire silhouette. Keep the
+	# hot orange portion dominant; purple is the cooling tail, not the whole fire.
+	_streaks.color_ramp = _ramp([[0.0, Color(1.0, 0.82, 0.28, 1.0)], [0.35, Color(1.0, 0.46, 0.08, 0.95)], [0.66, Color(1.0, 0.16, 0.05, 0.75)], [0.86, Color(0.55, 0.04, 0.38, 0.4)], [1.0, Color(0.12, 0.0, 0.16, 0.0)]])
 	_streaks.emitting = false
 	add_child(_streaks)

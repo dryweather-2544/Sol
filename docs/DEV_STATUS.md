@@ -27,7 +27,8 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 ## N13 — visual reference research and high-speed identity
 - Indexed the actual local Rodina screenshot/video archive, extracted trailer COMBAT/CRUISE sequences frame-by-frame, and recorded `VISUAL_REFERENCE_INDEX.md`, `RODINA_VISUAL_SPECIFICATION.md`, `VISUAL_FIDELITY_REVIEWS.md`.
 - Implemented the evidence-backed speed gap in the Rodina style: 85 m chase framing, dark hull silhouette, twin state-driven dotted exhaust trails (lime for cruise, blue-white for WARP), plus a soft fallback galaxy/dust band under the starfield asset switch. Sol style is unchanged.
-- Tests: 324 tests / 97,129 assertions / 0 failures. Graphical captures in `/tmp/n13_final_cruise.png`; no human visual test yet.
+- Added a Rodina-only COMBAT-SPEED blue/white streak layer and blocky orange/purple entry fire with a resistance-driven purple wash; speed effects are suppressed during entry.
+- Tests: 326 tests / 97,138 assertions / 0 failures. Graphical captures in `/tmp/n13_streak_cruise2.png` and `/tmp/n13_entry_probe/entry3.png`; no human visual test yet.
 - Next: COMBAT-SPEED streak field/galaxy band/entry effect/HUD, guided by the video index.
 
 ## N12 — ship flicker/ghosting fix (branch `n12-render-flicker`)
