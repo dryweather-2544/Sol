@@ -24,6 +24,11 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - No 4 s atmosphere-entry timer, no reentry damage, no ship damage at all.
 - `docs/ARCHITECTURE.md` text predates ADRs 0002-0004; the ADRs win.
 
+## N10 — WARP gear (branch `n10-warp`, latest remote base `143ca6e`)
+- Fourth WARP/Limnal gear above CRUISE, gated by the installed drive and open-space environment; 6.7x distance-scaled cap, faster fuel burn, HUD/input/save coverage.
+- Fixed the pre-existing audio/decal test failures. Full suite: 315 tests / 96,572 assertions / 0 failures.
+- Tests are headless; `tools/gear_check.gd` covers real-scene PRECISION→COMBAT→CRUISE, not WARP or graphical feel. Details: `docs/N10_WARP_IMPLEMENTATION.md`.
+
 ## Ship exterior overhaul (branch `claude/sol-vtol-ship-overhaul-9eglhk`, on top of `n9-art-audio`)
 New exterior hull around the unchanged interior: see `docs/SHIP_EXTERIOR.md`. Photos with `tools/ship_shots.gd`.
 Also fixed two Godot 4.7.2 parse errors (`ship_visuals.gd`, `audio_service.gd`) that stopped `main.tscn` loading on `n9-art-audio`.

@@ -33,11 +33,17 @@ func test_decal_catalog_entries_match_the_decals_built() -> void:
 	assert_eq(decals.size(), 14 + hazard_rooms, "decal count (14 fixed + %d scorch)" % hazard_rooms)
 	for decal in decals:
 		var entry: Dictionary = {}
-		for set_id in DecalCatalog.SETS:
-			var name_in_catalog := decal.name.trim_prefix("Decal_")
-			if DecalCatalog.SETS[set_id].has(name_in_catalog):
-				entry = DecalCatalog.SETS[set_id][name_in_catalog]
-				break
+		# Duplicate sibling names get Godot's @Decal@ auto-name; the builder stores the authored
+		# catalogue identity in metadata so the test still checks the source entry.
+		var catalog_name := String(decal.get_meta(&"catalog_name", decal.name.trim_prefix("Decal_")))
+		var catalog_set := String(decal.get_meta(&"catalog_set", ""))
+		if catalog_set != "" and DecalCatalog.SETS.has(catalog_set):
+			entry = DecalCatalog.SETS[catalog_set].get(catalog_name, {})
+		else:
+			for set_id in DecalCatalog.SETS:
+				if DecalCatalog.SETS[set_id].has(catalog_name):
+					entry = DecalCatalog.SETS[set_id][catalog_name]
+					break
 		assert_true(not entry.is_empty(), "%s is in the catalogue" % decal.name)
 		if entry.is_empty():
 			continue

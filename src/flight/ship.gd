@@ -31,6 +31,7 @@ var muzzle_offset := Vector3(0, -0.2, -7.6)
 signal destroyed
 
 const FUEL_CRUISE_PER_SECOND := 0.002
+const FUEL_WARP_PER_SECOND := 0.01
 const FUEL_BOOST_PER_SECOND := 0.006
 
 
@@ -122,6 +123,8 @@ func _burn_fuel(command: PilotCommand, delta: float) -> void:
 	var burn := 0.0
 	if state.gear == PilotCommand.GEAR_CRUISE and command.thrust != Vector3.ZERO:
 		burn += FUEL_CRUISE_PER_SECOND
+	elif state.gear == PilotCommand.GEAR_WARP and command.thrust != Vector3.ZERO:
+		burn += FUEL_WARP_PER_SECOND
 	if command.boost and command.thrust != Vector3.ZERO:
 		burn += FUEL_BOOST_PER_SECOND
 	state.fuel = maxf(0.0, state.fuel - burn * upgrades.fuel_burn_multiplier() * delta)

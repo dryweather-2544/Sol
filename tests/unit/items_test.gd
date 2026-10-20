@@ -140,3 +140,31 @@ func test_empty_tank_blocks_cruise_and_boost_and_cruise_burns_fuel() -> void:
 		ship.simulate_tick(DELTA)
 	assert_near(ship.state.speed(), 500.0, 0.5, "and no boost: %f" % ship.state.speed())
 	ship.free()
+
+
+func test_warp_gear_burns_more_fuel_than_cruise() -> void:
+	var cruise := Ship.new()
+	var cruise_command := PilotCommand.new()
+	cruise_command.gear = PilotCommand.GEAR_CRUISE
+	cruise_command.thrust = Vector3(0, 0, -1)
+	var cruise_commands: Array[PilotCommand] = []
+	for tick in 60:
+		cruise_commands.append(cruise_command)
+	cruise.controller.request_control(ScriptedPilotSource.new(cruise_commands), &"pilot_seat")
+	for tick in 60:
+		cruise.simulate_tick(DELTA)
+	var warp := Ship.new()
+	var warp_command := PilotCommand.new()
+	warp_command.gear = PilotCommand.GEAR_WARP
+	warp_command.thrust = Vector3(0, 0, -1)
+	var warp_commands: Array[PilotCommand] = []
+	for tick in 60:
+		warp_commands.append(warp_command)
+	warp.controller.request_control(ScriptedPilotSource.new(warp_commands), &"pilot_seat")
+	for tick in 60:
+		warp.simulate_tick(DELTA)
+	assert_near(cruise.state.fuel, 1.0 - Ship.FUEL_CRUISE_PER_SECOND, 1e-6)
+	assert_near(warp.state.fuel, 1.0 - Ship.FUEL_WARP_PER_SECOND, 1e-6)
+	assert_true(warp.state.fuel < cruise.state.fuel, "warp is the thirstier drive")
+	cruise.free()
+	warp.free()

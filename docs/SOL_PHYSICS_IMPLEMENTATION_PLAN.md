@@ -19,6 +19,12 @@ broke a requested behaviour; dependencies in brackets.
 | 11 | Cruise: Sol's distance-scaled speed limit, not Rodina's relative time | **Kept on purpose** (Sol's scale is far smaller; research 02 §10.6) | audit §7.6 |
 | 12 | Hover vs fall when hands-off (depends on how Havok mixes velocity and acceleration) | **Open question** - Sol follows the script literally (falls) | audit §7.1; check in Rodina: release keys at 1 km in dock gear |
 
+## Round 2b: WARP gear
+
+| Problem | Fix | Evidence |
+|---|---|---|
+| The gear table ended at CRUISE; the warp coil only multiplied cruise speed and there was no separate high-speed mode | WARP gear above CRUISE, drive-gated and open-space-only, 6.7x distance-scaled cap, 0.01 fuel/s | `flight_model_test::test_warp_gear_has_a_higher_cap_than_cruise`; `progress_test` gating; `pilot_controller_test` shift reachability; save/fuel tests |
+
 ## Round 2: speeds, escape, low-speed control, gears
 
 Telemetry: `docs/physics_telemetry/modes_before.txt` and `after.txt` (scenarios `escape_*`, `precision_*`,

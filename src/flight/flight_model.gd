@@ -81,6 +81,8 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 	var move_speed := tuning.gear_max_speed[gear] * boost_factor
 	if gear == PilotCommand.GEAR_CRUISE:
 		move_speed = minf(move_speed, environment.cruise_speed_limit)
+	elif gear == PilotCommand.GEAR_WARP:
+		move_speed = minf(move_speed, environment.cruise_speed_limit * tuning.warp_speed_multiplier)
 	var acceleration_factor: float = tuning.gear_acceleration[gear]
 	var deceleration_factor: float = tuning.gear_deceleration[gear]
 	var velocity := ship_state.basis.transposed() * ship_state.velocity # ship-local
@@ -125,8 +127,8 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 			change = maxf(change, gap * clampf(command.move_lock, 0.0, 1.0))
 		if gap > 1e-9:
 			velocity += to_target * (change / gap)
-		if gear == PilotCommand.GEAR_CRUISE and environment.cruise_speed_limit < INF:
-			var over := velocity.length() - environment.cruise_speed_limit * boost_factor
+		if (gear == PilotCommand.GEAR_CRUISE or gear == PilotCommand.GEAR_WARP) and environment.cruise_speed_limit < INF:
+			var over := velocity.length() - move_speed * boost_factor
 			if over > 0.0:
 				velocity = velocity.normalized() * (velocity.length() - over * (1.0 - exp(-CRUISE_EXCESS_DECAY * delta)))
 	ship_state.velocity = ship_state.basis * velocity

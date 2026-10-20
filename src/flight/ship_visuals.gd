@@ -308,6 +308,10 @@ func _add_decal(set_id: String, decal_name: String, center: Vector3, orientation
 		return null
 	var decal := Decal.new()
 	decal.name = "Decal_" + decal_name
+	# Duplicate catalogue entries (two hazard stripes, repeated scorch variants) get Godot's
+	# @Decal@ auto-name, which loses the catalogue identity. Keep the source name as metadata.
+	decal.set_meta(&"catalog_set", set_id)
+	decal.set_meta(&"catalog_name", decal_name)
 	decal.size = Vector3(entry["size_x"], entry["depth"], entry["size_z"])
 	decal.texture_albedo = albedo
 	var maps: String = entry["maps"]

@@ -80,3 +80,13 @@ func test_poll_command_stamps_source_id() -> void:
 	controller.request_control(ScriptedPilotSource.new(), &"pilot_seat")
 	assert_eq(controller.poll_command(ShipState.new(), 0.016).source_id, &"scripted")
 	controller.free()
+
+
+func test_player_gear_shift_can_reach_warp() -> void:
+	var source := PlayerPilotSource.new()
+	var state := ShipState.new()
+	state.selected_gear = PilotCommand.GEAR_CRUISE
+	Input.action_press("gear_up")
+	var command := source.poll(state, 1.0 / 60.0)
+	Input.action_release("gear_up")
+	assert_eq(command.gear, PilotCommand.GEAR_WARP, "the player can select warp above cruise")

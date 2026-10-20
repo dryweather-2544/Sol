@@ -246,3 +246,13 @@ and the commit is pushed.
 > - Record every third-party file in `ATTRIBUTION.md` before committing it.
 > - Do not start breadth (M5+) until the full loop (M3) and saves (M4) are tagged.
 > - Tick the checkboxes in this file as you finish items, in the same commit as the work.
+
+
+## N10 — WARP gear and green flight suite
+
+- [x] Fourth WARP/Limnal gear above CRUISE; drive-gated, open-space-only, faster fuel burn.
+- [x] Player input can select it; HUD shows it; save round-trip covered.
+- [x] Repaired the pre-existing compressed-WAV length, missing audio warning reset and duplicate-decal identity failures.
+- [x] Full headless suite 315 tests / 96,572 assertions / 0 failures.
+- [ ] Human/graphical WARP verification and warp VFX/audio.
+- [ ] Replace distance-scaled WARP with a bounded local velocity + RelativeTime model if travel feel needs it.

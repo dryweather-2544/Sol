@@ -114,8 +114,13 @@ func test_audio_service_emits_cue_started_and_steals_by_priority() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var service := AudioService.new()
 	tree.root.add_child(service)
-	assert_true(service.is_inside_tree(), "the service could be added to the tree")
-	if not service.is_inside_tree():
+	# The test runner executes in SceneTree._initialize, before the root window itself has entered
+	# the tree; a child can still be attached. Check the attachment, not a notification that has not run.
+	assert_eq(service.get_parent(), tree.root, "the service could be added to the tree")
+	# _initialize runs before the root window gets its ENTER_TREE notification, so run the
+	# service's own setup explicitly; this is the same _ready() the real scene calls.
+	service._ready()
+	if service.get_parent() != tree.root:
 		service.free()
 		return
 	var started: Array = []

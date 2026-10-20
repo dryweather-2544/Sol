@@ -92,3 +92,17 @@ func test_progress_survives_a_save_and_old_saves_keep_open_space() -> void:
 	assert_true(migrated["ok"])
 	assert_eq(migrated["data"]["progress"]["warp_installed"], true, "players of older saves are not locked out of open space")
 	session.ship.free()
+
+
+func test_warp_gear_is_gated_by_the_installed_drive_and_open_space() -> void:
+	var system := StarSystem.default_system()
+	var navigator := SystemNavigator.new(system)
+	var state := ShipState.new()
+	state.position = WorldPos.new(StarSystem.SYSTEM_FRAME, 4.0e8, 0.0, 0.0)
+	var environment := FlightEnvironment.new()
+	navigator.warp_factor = 0.0005
+	navigator.fill_environment(state, environment)
+	assert_eq(environment.max_gear, PilotCommand.GEAR_CRUISE, "dead drive cannot select warp")
+	navigator.warp_factor = 1.0
+	navigator.fill_environment(state, environment)
+	assert_eq(environment.max_gear, PilotCommand.GEAR_WARP, "installed drive can select warp")

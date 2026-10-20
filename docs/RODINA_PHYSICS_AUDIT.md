@@ -123,9 +123,11 @@ spin with a normalised quaternion step (`flight_model.gd`); the camera only read
 | Above the air, cruise speed is multiplied by relative time `min(CruiseMax, CruiseMult x (d / cruiseRadius)^CruiseExponent)` | `EGDataShipPlayer.lua:178-195` | C |
 | The HUD shows the current gear | `EGMenuHUD.lua:516-536` | C |
 
-**Sol (`src/flight/flight_model.gd`, `src/planet/planet_body.gd`, `src/flight/ship_tuning.gd`):** three gears (Sol has no
-Limnal; its warp coil gates open-space cruise instead). `ShipState.selected_gear` keeps the choice and `gear` is the
-gear in effect, as Rodina does; both are saved. Cruise is allowed at any height (Sol had refused it below 2 km and
+**Sol (`src/flight/flight_model.gd`, `src/planet/planet_body.gd`, `src/flight/ship_tuning.gd`):** four gears. Gear 3
+is Sol's WARP/Limnal mode: it is gated by the installed warp coil and the system-frame environment, uses a 6.7x
+distance-scaled cap and burns fuel faster than cruise. It is deliberately not a direct port of Rodina's gear-4
+relative-time model because Sol's cruise is already distance-scaled. `ShipState.selected_gear` keeps the choice and
+`gear` is the gear in effect, as Rodina does; both are saved. Cruise is allowed at any height (Sol had refused it below 2 km and
 capped it at 0.3 x altitude: 600 m/s at 2 km, the main cause of the slow climb), with Rodina's in-air speeds and entry
 cap; above the air Sol's distance-scaled limit stands in for relative time. Combat is Rodina's unchanged.
 **Sol's own, not Rodina's [I]:** gear 0 is a *precision* gear - Rodina's dock gear scaled to Sol's ship (30 m/s, up/down

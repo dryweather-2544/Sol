@@ -160,6 +160,11 @@ static func reset_cache() -> void:
 	_missing.clear()
 
 
+## For tests: clear warnings logged by this library or the shared asset library.
+static func reset_warnings() -> void:
+	AssetLibrary.reset_warnings()
+
+
 ## Loops are made at runtime (the WAV files carry no loop chunk): forward loop over the whole sample, on a private copy.
 static func _prepared(wav: AudioStreamWAV, looped: bool) -> AudioStreamWAV:
 	if not looped:
@@ -172,6 +177,10 @@ static func _prepared(wav: AudioStreamWAV, looped: bool) -> AudioStreamWAV:
 
 
 static func frame_count(wav: AudioStreamWAV) -> int:
+	# PCM formats can be counted from the byte payload. Compressed WAVs (IMA ADPCM, QOA) store
+	# fewer bytes than frames; their decoded length is the only reliable count.
+	if wav.format == AudioStreamWAV.FORMAT_IMA_ADPCM or wav.format == AudioStreamWAV.FORMAT_QOA:
+		return int(round(wav.get_length() * wav.mix_rate))
 	var bytes_per_sample := 2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1
 	return wav.data.size() / (bytes_per_sample * (2 if wav.stereo else 1))
 

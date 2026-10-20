@@ -36,7 +36,7 @@ func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 	# Shift from the gear the pilot chose (not the one in effect), so a forced lower gear does not eat a shift.
 	command.gear = ship_state.selected_gear
 	if Input.is_action_just_pressed("gear_up"):
-		command.gear = mini(command.gear + 1, PilotCommand.GEAR_CRUISE)
+		command.gear = mini(command.gear + 1, PilotCommand.GEAR_WARP)
 	if Input.is_action_just_pressed("gear_down"):
 		command.gear = maxi(command.gear - 1, PilotCommand.GEAR_DOCK)
 	return command

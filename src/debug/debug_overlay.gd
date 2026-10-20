@@ -81,9 +81,11 @@ func _process(_delta: float) -> void:
 	if ship.planet != null:
 		vertical_speed = state.velocity.dot(ship.planet.up_at(state.position))
 		altitude_text = "%.0f m AGL" % state.altitude_above_ground if state.altitude_above_ground < 1.0e5 else "%.0f km AGL" % (state.altitude_above_ground / 1000.0)
-	var gear_names := ["PRECISION", "COMBAT", "CRUISE"]
+	var gear_names := ["PRECISION", "COMBAT", "CRUISE", "WARP"]
 	var gear_text: String = gear_names[state.gear]
 	var top_speed: float = ship.tuning.gear_max_speed[state.gear] * (ship.tuning.boost_multiplier if ship.last_command.boost else 1.0)
+	if state.gear == PilotCommand.GEAR_WARP and ship.environment.cruise_speed_limit < INF:
+		top_speed = minf(top_speed, ship.environment.cruise_speed_limit * ship.tuning.warp_speed_multiplier)
 	if state.gear == PilotCommand.GEAR_CRUISE:
 		top_speed = minf(top_speed, ship.environment.cruise_speed_limit)
 	gear_text += " (up to %s)" % ("%.0f m/s" % top_speed if top_speed < 1.0e4 else "%.0f km/s" % (top_speed / 1000.0))
@@ -91,7 +93,7 @@ func _process(_delta: float) -> void:
 		gear_text += ", %s selected: %s" % [gear_names[state.selected_gear], "no fuel" if state.fuel <= 0.0 else "not available here"]
 	elif state.gear < PilotCommand.GEAR_CRUISE and state.altitude_above_ground > 20000.0:
 		gear_text += "   - press ] for %s" % ("CRUISE" if state.gear == PilotCommand.GEAR_COMBAT else "COMBAT, then ] again for CRUISE")
-	_label.text = "fps %d   chunks %d\nspeed %.1f m/s   vertical %.1f m/s\n%s   %s\ngear %s   pilot: %s\n%s\n\nWASD thrust/strafe  Space/C up/down  Q/E roll\nmouse or arrows pitch/yaw  Shift boost  X brake\n[ ] gear: PRECISION (hovers, stops by itself) / COMBAT / CRUISE   V view  F stand up  F5 save  F9 load  Esc menu" % [
+	_label.text = "fps %d   chunks %d\nspeed %.1f m/s   vertical %.1f m/s\n%s   %s\ngear %s   pilot: %s\n%s\n\nWASD thrust/strafe  Space/C up/down  Q/E roll\nmouse or arrows pitch/yaw  Shift boost  X brake\n[ ] gear: PRECISION (hovers, stops by itself) / COMBAT / CRUISE / WARP (space, drive installed)   V view  F stand up  F5 save  F9 load  Esc menu" % [
 		Engine.get_frames_per_second(), terrain.displayed_chunk_count() if terrain != null else 0,
 		state.speed(), vertical_speed, altitude_text, FlightRegime.label(state.regime),
 		gear_text, source_text, state.status_message]

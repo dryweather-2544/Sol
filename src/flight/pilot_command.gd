@@ -7,6 +7,8 @@ extends RefCounted
 const GEAR_DOCK := 0
 const GEAR_COMBAT := 1
 const GEAR_CRUISE := 2
+## Open-space limnal/warp gear above CRUISE; the installed warp drive and system-frame environment gate it.
+const GEAR_WARP := 3
 
 ## Ship-local, each axis -1..1, Godot axes: x right, y up, -z forward.
 var thrust := Vector3.ZERO

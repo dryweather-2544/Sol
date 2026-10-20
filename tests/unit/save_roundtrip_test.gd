@@ -131,3 +131,15 @@ func test_hull_and_suit_survive_a_save() -> void:
 	assert_near(restored.suit.health, 0.8, 1e-9)
 	original.ship.free()
 	restored.ship.free()
+
+
+func test_warp_gear_survives_a_save_round_trip() -> void:
+	var original := _new_session(300000.0, Vector3(0, 0, -100))
+	original.ship.state.gear = PilotCommand.GEAR_WARP
+	original.ship.state.selected_gear = PilotCommand.GEAR_WARP
+	var pair := _round_trip(original, "warp_gear")
+	var restored: GameSession = pair["restored"]
+	assert_eq(restored.ship.state.gear, PilotCommand.GEAR_WARP, "warp gear is saved")
+	assert_eq(restored.ship.state.selected_gear, PilotCommand.GEAR_WARP, "warp selection is saved")
+	original.ship.free()
+	restored.ship.free()

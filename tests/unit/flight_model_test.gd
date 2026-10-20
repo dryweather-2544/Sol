@@ -198,7 +198,7 @@ func test_gear_selection_is_clamped_to_what_is_allowed_and_comes_back() -> void:
 	assert_eq(ship_state.gear, PilotCommand.GEAR_CRUISE, "cruise again once allowed, without a new shift")
 	cruise.gear = 99
 	_fly(ship_state, cruise, 1)
-	assert_eq(ship_state.gear, 2, "99 clamps to the highest gear (cruise)")
+	assert_eq(ship_state.gear, 3, "99 clamps to the highest gear (warp)")
 
 
 func test_shifting_down_at_speed_changes_velocity_smoothly() -> void:
@@ -379,3 +379,22 @@ func test_levelling_fades_out_as_the_nose_points_steeply() -> void:
 	var roll_before := _pitch_and_roll(ship_state).y
 	_fly(ship_state, _turn(Vector3.ZERO), 60, _air(0.25))
 	assert_near(_pitch_and_roll(ship_state).y, roll_before, 1e-4, "beyond the 1.2 rad pitch limit deep in the air: no levelling")
+
+
+func test_warp_gear_has_a_higher_cap_than_cruise() -> void:
+	var cruise := ShipState.new()
+	var warp := ShipState.new()
+	var cruise_command := PilotCommand.new()
+	cruise_command.gear = PilotCommand.GEAR_CRUISE
+	cruise_command.thrust = Vector3(0, 0, -1)
+	var warp_command := PilotCommand.new()
+	warp_command.gear = PilotCommand.GEAR_WARP
+	warp_command.thrust = Vector3(0, 0, -1)
+	var environment := FlightEnvironment.new()
+	environment.cruise_speed_limit = 5000.0
+	var tuning := ShipTuning.new()
+	for tick in 600:
+		FlightModel.step(cruise, cruise_command, tuning, environment, 1.0 / 60.0)
+		FlightModel.step(warp, warp_command, tuning, environment, 1.0 / 60.0)
+	assert_near(cruise.speed(), 5000.0, 1e-3)
+	assert_near(warp.speed(), 5000.0 * tuning.warp_speed_multiplier, 1e-3)

@@ -18,7 +18,7 @@ func _init(star_system: StarSystem) -> void:
 func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> void:
 	var distance := system.distance_to_nearest_surface(ship_state.position, time_seconds)
 	environment.gravity = Vector3.ZERO
-	environment.max_gear = PilotCommand.GEAR_CRUISE
+	environment.max_gear = PilotCommand.GEAR_WARP if warp_factor >= 0.5 else PilotCommand.GEAR_CRUISE
 	environment.cruise_speed_limit = clampf(distance * 0.3, 500.0, 2.0e7) * warp_factor
 	environment.atmosphere_ratio = INF
 	environment.atmosphere_friction = 0.0
