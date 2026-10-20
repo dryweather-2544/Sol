@@ -429,6 +429,9 @@ truncated file fails safely and falls back to `.bak`; v1 fixture loads in every 
   as the fallback; buses `Ship`, `Suit`, `Radio` are added (UI exists), all following the SFX slider; Interior low-pass is 1200 Hz with
   samples. Ship-placed loops are 2D, scaled by distance to the player, not 3D players. See `docs/N9_STATUS.md`.)*
 - **Feedback:** camera shake on touchdown/reentry, FOV with speed, reentry glow.
+- **Visual style** *(ADR 0007)*: `VisualStyle` selects `sol` (original look) or `rodina` (Rodina-inspired) from
+  `SOL_VISUAL_STYLE`, then `GameSettings.visual_style`; each world gets a `PlanetLook` (terrain colours, detail tiling,
+  sky, fog, lights). Styles change colour and light only, never terrain shape, physics or saved state.
 
 ---
 

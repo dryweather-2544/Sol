@@ -11,7 +11,11 @@ const SMALL := Vector2i(320, 180)
 const LARGE := Vector2i(1280, 720)
 const SUN_ELEVATION_DEGREES := 35.0
 ## [name, altitude metres (orbit: in planet radii), camera pitch below the horizon in degrees, ship visible]
-const VIEWS := [["orbit", 1.4, 34.0, false], ["approach", 30000.0, 7.0, false], ["low", 900.0, 9.0, false], ["ground", 0.0, 2.0, true]]
+const VIEWS := [["orbit", 1.4, 34.0, false], ["approach", 30000.0, 7.0, false], ["low", 900.0, 9.0, false], ["ground", 0.0, 2.0, true],
+	["effects", 40000.0, 0.0, true]]
+## The effects view holds the ship at this speed (above ShipDamage.HEAT_START_SPEED) under full thrust: plumes and entry heat.
+const EFFECTS_SPEED := 9000.0
+
 ## Frames to wait for terrain at each view before shooting anyway (software rendering is slow).
 const MAX_SETTLE_FRAMES := 160
 
@@ -24,6 +28,7 @@ var _settled := 0
 var _hold_position: WorldPos
 var _hold_basis: Basis
 var _camera := Camera3D.new()
+var _effects := false
 var _quit_frame := -1 # quit a few frames after the last save
 var _large_frames := 0 # frames rendered at LARGE in the current job
 var _look_basis := Basis.IDENTITY
@@ -39,6 +44,8 @@ func _initialize() -> void:
 	for body_id in [&"planet", &"cinder", &"verdant", &"selene", &"pebble"]:
 		if filter == "" or String(body_id).contains(filter):
 			for view in VIEWS:
+				if view[0] == "effects" and (body_id != &"planet" or view_filter != "effects"):
+					continue # only on request, and only where there is air to heat
 				if view_filter == "" or view[0] == view_filter:
 					_jobs.append([body_id, view])
 
@@ -101,6 +108,11 @@ func _start_job() -> void:
 	ship.state.basis = _hold_basis
 	ship.state.velocity = Vector3.ZERO
 	ship.state.landed = on_ground
+	_effects = view[0] == "effects"
+	if _effects:
+		var pilot := ThrustPilot.new()
+		ship.controller.release_control(_main.player_source)
+		ship.controller.request_control(pilot, &"pilot_seat")
 	ship.render_origin = _hold_position.duplicate_position()
 	ship.apply_origin_shift(Vector3.ZERO)
 	_main._recentre_everything_on_ship()
@@ -111,6 +123,10 @@ func _start_job() -> void:
 		pitch_degrees = rad_to_deg(acos(planet.radius / (planet.radius + altitude))) - 8.0
 	_look_basis = Basis.looking_at(forward.rotated(forward.cross(up).normalized(), -deg_to_rad(pitch_degrees)), up)
 	_eye_offset = Vector3.ZERO
+	if _effects:
+		# Front three-quarter, slightly above: the nose sheath and the plumes behind the ship are both in frame.
+		_eye_offset = forward * 22.0 - forward.cross(up).normalized() * 16.0 + up * 6.0
+		_look_basis = Basis.looking_at(-_eye_offset + forward * 2.0, up)
 	if on_ground:
 		# Stand off the ship's flank at eye height above the real ground there (it may be higher or lower than under the ship).
 		var spot := (up * ground - forward * 14.0 + forward.cross(up).normalized() * 9.0).normalized()
@@ -138,7 +154,10 @@ func _hold() -> void:
 	var ship: Ship = _main.ship
 	ship.state.position = _hold_position.duplicate_position()
 	ship.state.basis = _hold_basis
-	ship.state.velocity = Vector3.ZERO
+	ship.state.velocity = -(_hold_basis.z) * EFFECTS_SPEED if _effects else Vector3.ZERO
+	if _effects:
+		ship.state.hull = 1.0 # the held re-entry speed would otherwise burn the hull away before the shot
+		ship.state.fuel = 1.0
 	_place_camera()
 	if OS.get_environment("STYLE_SHOTS_DEBUG") != "" and _frames % 20 == 0:
 		var active := root.get_viewport().get_camera_3d()
@@ -178,3 +197,14 @@ func _log(a: Variant = "", b: Variant = "", c: Variant = "", d: Variant = "", e:
 		file.store_line(line)
 		file.close()
 	print(line)
+
+
+## Full forward thrust, so the engines show their plumes (a test cheat, like travel_shots.gd).
+class ThrustPilot extends PilotSource:
+	func _init() -> void:
+		source_id = &"style_shots"
+
+	func poll(ship_state: ShipState, delta: float) -> PilotCommand:
+		var command := super.poll(ship_state, delta) # keeps the current gear
+		command.thrust = Vector3(0, 0, -1)
+		return command
