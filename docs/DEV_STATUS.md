@@ -27,7 +27,7 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 ## N11 — Rodina reference audio (branch `n11-rodina-audio`)
 - 62 actual Rodina 1.6.2 WAV SFX copied byte-identically under `assets/sol/audio/rodina/`; engine/gear/warp/atmosphere/wind/RCS/weapons/impacts/doors/UI/pickup integrated through the existing library/service.
 - Responsive engine crossfades, power-scaled gain, WARP loop transitions, 3D projectile impacts and service lifecycle cleanup.
-- Headless suite 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 21/21 events with real main scene.
+- Headless suite 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 19/19 events. Footsteps and RCS hiss removed after playtest.
 - Music `.egu` unsupported and not integrated. Human listening/levels still unjudged. Details: `docs/N11_REPORT.md`.
 
 ## N10 — WARP gear (branch `n10-warp`, latest remote base `143ca6e`)

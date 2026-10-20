@@ -25,8 +25,8 @@ entry, the mapping is marked **inferred**.
 | `rod_wind_light_loop` | `rod_wind_light.wav` | atmospheric wind reference | light atmospheric wind outside/inside the ship, crossfaded |
 | `rod_wind_strong_loop` | `rod_wind_super.wav` | `AtmosphereWind`, loop, volume .75 | stronger atmospheric wind; never played in vacuum |
 | `rod_wind_sharp_loop` | `rod_wind_sharp.wav` | atmospheric wind reference | registered for the sharp-wind layer; currently not selected |
-| `rod_rcs_loop` | `rod_rcs_loop.wav` | RCS/manoeuvring reference loop | held while turning or braking |
-| `rod_rcs_spurt_2`, `rod_rcs_spurt_4` | `rod_rcs_spurt_2/4.wav` | `DoorOpen`/`DoorClose` in the original table, also RCS spurt material | short RCS onset cues |
+| `rod_rcs_loop` | `rod_rcs_loop.wav` | RCS/manoeuvring reference loop | **not wired** — removed after playtest (mouse-turn hiss) |
+| `rod_rcs_spurt_2`, `rod_rcs_spurt_4` | `rod_rcs_spurt_2/4.wav` | `DoorOpen`/`DoorClose` in the original table, also RCS spurt material | **not wired** — removed after playtest |
 
 Rodina's engine calls are in `EGDataShipPlayer.lua:423-432`: WARP gear plays `WarpEngine`, cruise
 uses `CruiseEngine`, and dock uses `DockEngine`. Sol uses the same authored names but its own
@@ -64,7 +64,7 @@ continuous gain/crossfade logic, because its flight model and 3D listener differ
   files have no loop metadata; the files selected are the authored loop recordings.
 - One-shot reference sounds use the existing one-shot voice pool, so weapon/impact/UI overlaps are
   bounded and priority can steal a lower-priority tail.
-- Engine, wind, entry, RCS, fire and repair loops each use one lazily created `AudioStreamPlayer`;
+- Engine, wind, entry, fire and repair loops each use one lazily created `AudioStreamPlayer`;
   no player is created per frame. Gain fades at `ENGINE_FADE_PER_SECOND = 4`.
 - Engine gain is `(0.18 + 0.82 load) * engine_factor`: load is the smoothed throttle or
   speed/top-speed, and `engine_factor` is the existing reactor × engine-health satisfaction. A

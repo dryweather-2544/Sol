@@ -17,11 +17,15 @@ Integrated categories:
 - four gear engines: PRECISION/DockEngine, COMBAT/combat loop, CRUISE/CruiseEngine,
   WARP/WarpEngine;
 - responsive engine gain from throttle, speed load and the existing engine power/health factor;
-- atmospheric entry fire, light/strong wind (only in atmosphere), RCS held loop and onset spurts;
+- atmospheric entry fire, light/strong wind (only in atmosphere);
 - ship guns, projectile impact via a fixed pool of positional `AudioStreamPlayer3D`s, landing
   impacts, doors/airlock, alarms;
 - UI: menu open/highlight/close, GUI click, inventory open/close and item pickup;
 - jetpack and repair/extinguisher air loops.
+
+After the first playtest, footsteps and all RCS/attitude-control audio were removed: the RCS hiss
+fired on mouse-turn input, and the player asked for both sounds to be gone. The reference assets
+remain inventoried but are no longer routed to gameplay.
 
 WARP activation/exit is tied to the existing N10 gear transition: the authored gear-up/down cue
 sounds and the warp loop crossfades; no second warp system was introduced. Engine loops are created
@@ -55,11 +59,11 @@ Live check (real main scene, CoreAudio, display):
 
 ```text
 N11 AUDIO output=Default driver=CoreAudio
-N11 AUDIO RESULT: PASSED (21 of 21 events passed)
+N11 AUDIO RESULT: PASSED (19 of 19 events passed)
 ```
 
-It covered all four engine loops, atmosphere/wind, RCS loop and spurt, gear cues, gun fire/hit,
-rock impact, door/airlock, pickup, menu highlight/click and alarm. The engine loop names/gear
+It covered all four engine loops, atmosphere/wind, gear cues, gun fire/hit, rock impact,
+door/airlock, pickup, menu highlight/click and alarm. The engine loop names/gear
 mapping also have a unit test.
 
 The legacy `tools/audio_check.gd` was not used as evidence: its loop-stop/restart harness reports

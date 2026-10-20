@@ -264,5 +264,5 @@ and the commit is pushed.
 - [x] Copy all 62 shipped Rodina SFX into Sol's own asset tree without conversion, with hashes and inventory.
 - [x] Route engine/gear/warp, atmosphere/wind, RCS, guns/impacts, doors, UI and pickups through the existing audio service.
 - [x] Responsive gear engine crossfades, power-scaled gain, WARP transitions, 3D impact pool and lifecycle cleanup.
-- [x] Headless 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 21/21.
+- [x] Headless 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 19/19 after removing footsteps and the RCS hiss.
 - [ ] Human listening/level/loop-seam pass; music integration remains blocked by proprietary `.egu`.

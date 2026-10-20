@@ -1,7 +1,7 @@
 class_name AudioService
 extends Node
 ## Plays Sol's synthesised sound: engine rumble from throttle, wind from speed in air, door and
-## airlock cues, footsteps, landing thud, discovery chime. Builds its own buses (Master, SFX,
+## airlock cues, landing thud, discovery chime. Builds its own buses (Master, SFX,
 ## Ambience, Interior with a low-pass) so volumes come from GameSettings. Reads game state; owns none.
 
 const BUFFER_SECONDS := 0.12
@@ -9,8 +9,6 @@ const ONE_SHOT_VOICES := 16
 const HARD_TOUCHDOWN_SPEED := 6.0 ## m/s just before landing; at or above this the hard touchdown sound plays
 const LOW_OXYGEN_WARNING := 0.25
 const CRITICAL_OXYGEN_WARNING := 0.10
-const RCS_TURN_THRESHOLD := 0.2
-const RCS_MIN_SECONDS_BETWEEN_PULSES := 0.25 ## at most 4 per second
 const TURRET_SOUND_SECONDS_BETWEEN_SHOTS := 0.2
 const HULL_ALARM_BELOW := 0.25
 const SUBSYSTEM_FAIL_BELOW := 0.25
@@ -41,7 +39,6 @@ var _cues := {}
 var _previous_door_targets := {}
 var _previous_landed := false
 var _previous_walkway_state := -1
-var _footstep_clock := 0.0
 var _smoothed_throttle := 0.0
 var _sample_loops := {}        # sound id -> AudioStreamPlayer (looped, always running; gain moves its volume)
 var _one_shot_priorities: Array[int] = []
@@ -58,8 +55,6 @@ var _oxygen_critical := false
 var _previous_pickup_total := -1
 var _previous_boost := false
 var _previous_gear := -1
-var _previous_turn_active := false
-var _rcs_clock := 0.0
 var _previous_shots_fired := 0
 var _previous_turret_firing := false
 var _turret_clock := 0.0
@@ -77,7 +72,6 @@ func _ready() -> void:
 		"door": SoundSynth.to_stream(SoundSynth.join(SoundSynth.noise_burst(0.12, 11, 0.6, 0.5, 5.0), SoundSynth.sweep(300.0, 160.0, 0.35, 0.25))),
 		"panel": SoundSynth.to_stream(SoundSynth.tone(880.0, 0.08, 0.4)),
 		"airlock": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(520.0, 0.18, 0.4), SoundSynth.tone(390.0, 0.28, 0.4))),
-		"footstep": SoundSynth.to_stream(SoundSynth.noise_burst(0.09, 21, 0.85, 0.7, 7.0)),
 		"thud": SoundSynth.to_stream(SoundSynth.noise_burst(0.35, 31, 0.93, 0.9, 5.0)),
 		"seat": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(300.0, 0.05, 0.5), SoundSynth.tone(200.0, 0.07, 0.5))),
 		"chime": SoundSynth.to_stream(SoundSynth.join(SoundSynth.tone(660.0, 0.15, 0.4), SoundSynth.join(SoundSynth.tone(880.0, 0.15, 0.4), SoundSynth.tone(1320.0, 0.35, 0.4)))),
@@ -342,25 +336,6 @@ func _play_event_cues(delta: float) -> void:
 	_previous_landed = ship.state.landed
 	if not ship.state.landed:
 		_previous_speed_in_flight = ship.state.speed()
-	var walking_speed := 0.0
-	var grounded := true
-	if session.mode == GameSession.Mode.OUTSIDE:
-		walking_speed = session.exterior_body.velocity.length()
-		grounded = session.exterior_body.grounded
-	elif session.mode == GameSession.Mode.INSIDE:
-		walking_speed = session.interior_body.velocity.length()
-	if walking_speed > 0.5 and grounded:
-		_footstep_clock -= delta
-		if _footstep_clock <= 0.0:
-			var sample_id := ""
-			if session.mode == GameSession.Mode.INSIDE:
-				sample_id = "sfx_foot_rubber" if session.player_room() in [&"airlock", &"cargo"] else "sfx_foot_metal"
-			else:
-				sample_id = "sfx_foot_soil_air" if ship.state.atmosphere_ratio < 1.0 else "sfx_foot_regolith_suit"
-			play_cue("footstep", sample_id)
-			_footstep_clock = clampf(1.5 / walking_speed, 0.25, 0.6)
-	else:
-		_footstep_clock = 0.0
 
 
 ## Edges of ship and suit state that make a sound: engine start/stop, power loss/return, airlock cycling, subsystem failure and
@@ -422,9 +397,8 @@ func _play_state_cues() -> void:
 		_oxygen_critical = false
 
 
-## Ship controls: boost, gear change, RCS pulses on turn onset, the ship gun and the turret.
+## Ship controls: boost, gear change, the ship gun and the turret.
 func _play_ship_control_cues(delta: float) -> void:
-	_rcs_clock = maxf(0.0, _rcs_clock - delta)
 	_turret_clock = maxf(0.0, _turret_clock - delta)
 	var command := ship.last_command
 	if command.boost and not _previous_boost:
@@ -439,14 +413,6 @@ func _play_ship_control_cues(delta: float) -> void:
 			if ship.state.selected_gear != ship.state.gear:
 				play_sample("rod_gear_grind", 1)
 		_previous_gear = ship.state.gear
-	var turn_active := (command.turn.length() > RCS_TURN_THRESHOLD or command.brake) and not ship.state.landed
-	# The authored RCS loop runs only while the thrusters are actually held; the one-shot spurt
-	# above marks the onset so a short tap is audible without leaving a loop playing.
-	_set_loop_gain("rod_rcs_loop", 1.0 if turn_active else 0.0, &"Ship")
-	if turn_active and not _previous_turn_active and _rcs_clock <= 0.0:
-		play_sample("rod_rcs_spurt_2" if int(Time.get_ticks_msec() / 400) % 2 == 0 else "rod_rcs_spurt_4")
-		_rcs_clock = RCS_MIN_SECONDS_BETWEEN_PULSES
-	_previous_turn_active = turn_active
 	var shots_fired := ship.weapon.shots_fired
 	if shots_fired > _previous_shots_fired:
 		play_sample("rod_gun_fire")

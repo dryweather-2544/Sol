@@ -16,8 +16,6 @@ const CASES := [
 	{"id": "rod_atmos_entry_loop", "loop": true},
 	{"id": "rod_wind_light_loop", "loop": true},
 	{"id": "rod_wind_strong_loop", "loop": true},
-	{"id": "rod_rcs_loop", "loop": true},
-	{"id": "rod_rcs_spurt_2", "loop": false},
 	{"id": "rod_gear_up", "loop": false},
 	{"id": "rod_gear_down", "loop": false},
 	{"id": "rod_gear_grind", "loop": false},
