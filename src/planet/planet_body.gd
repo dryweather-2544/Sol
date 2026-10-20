@@ -18,6 +18,8 @@ var atmosphere_height := 200000.0
 ## Can a person breathe at the surface without a suit tank?
 var breathable := true
 var height_function: HeightFunction
+## How this world is drawn under the active visual style (colours only; never height). null = the original Sol rule.
+var look: PlanetLook
 
 func profile_or_default() -> TerrainProfile:
 	return height_function.profile

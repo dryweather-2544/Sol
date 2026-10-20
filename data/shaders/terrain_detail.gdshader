@@ -32,6 +32,11 @@ uniform float fade_start_metres = 80.0;
 uniform float fade_end_metres = 250.0;
 uniform float normal_strength = 1.0;
 uniform float steep_sharpness = 6.0;        // how hard the slope weight is pushed toward 0/1 (rock breaks through dust)
+// Visual-style controls (VisualStyle / PlanetLook). Defaults reproduce the original output exactly.
+uniform float detail_contrast = 1.0;        // 1 = full detail texture, 0 = vertex colour only
+uniform float triplanar_sharpness = 4.0;    // exponent on |normal| for the projection weights
+uniform vec3 orbit_color = vec3(0.5);       // the ground hue seen from orbit (linear)
+uniform float orbit_mix = 0.0;              // 0 = ground colours, set per frame from the viewer's altitude
 
 instance uniform vec3 tile_offset = vec3(0.0);
 
@@ -46,7 +51,7 @@ void vertex() {
 }
 
 vec3 triplanar_weights(vec3 normal) {
-	vec3 weights = pow(abs(normal), vec3(4.0));
+	vec3 weights = pow(abs(normal), vec3(triplanar_sharpness));
 	return weights / (weights.x + weights.y + weights.z);
 }
 
@@ -98,13 +103,13 @@ void fragment() {
 			orm_mix += steep_weight * sample_triplanar(steep_orm, position / steep_tile_metres, weights);
 			normal_mix += steep_weight * sample_triplanar_normal(steep_normal, position / steep_tile_metres, geometric_normal, weights, normal_strength);
 		}
-		detail_ratio = mix(vec3(1.0), clamp(albedo_mix, 0.0, 3.0), fade);
+		detail_ratio = mix(vec3(1.0), clamp(albedo_mix, 0.0, 3.0), fade * detail_contrast);
 		occlusion = mix(1.0, orm_mix.r, fade);
 		roughness = mix(0.95, orm_mix.g, fade);
 		shaded_normal = normalize(mix(geometric_normal, normalize(normal_mix), fade));
 	}
 
-	ALBEDO = COLOR.rgb * detail_ratio;
+	ALBEDO = mix(COLOR.rgb * detail_ratio, orbit_color, orbit_mix);
 	ROUGHNESS = roughness;
 	METALLIC = 0.0;
 	AO = occlusion;

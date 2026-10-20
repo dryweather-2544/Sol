@@ -231,4 +231,6 @@ func build_planet_body(body_id: StringName) -> PlanetBody:
 	planet.surface_gravity = body.surface_gravity
 	planet.atmosphere_height = body.atmosphere_height
 	planet.breathable = body.breathable
+	# Colours only: the original Sol rule runs when look is null, so the sol style leaves the mesh colours untouched.
+	planet.look = VisualStyle.look_for(body) if VisualStyle.is_rodina() else null
 	return planet

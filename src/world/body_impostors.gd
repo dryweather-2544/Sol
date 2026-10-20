@@ -25,7 +25,7 @@ func _ready() -> void:
 		mesh.radial_segments = 48
 		mesh.rings = 24
 		var material := StandardMaterial3D.new()
-		material.albedo_color = body.color
+		material.albedo_color = body.color if body.is_star else VisualStyle.look_for(body).impostor_color
 		material.roughness = 1.0
 		if body.is_star:
 			material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -39,6 +39,14 @@ func _ready() -> void:
 			var shell := AtmosphereShell.new()
 			add_child(shell)
 			_shells[body_id] = shell
+
+
+## Re-colours the far-away spheres after a visual style switch.
+func restyle() -> void:
+	for body_id in _nodes:
+		var body: BodyDef = system.bodies[body_id]
+		if not body.is_star:
+			((_nodes[body_id] as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = VisualStyle.look_for(body).impostor_color
 
 
 func _process(_delta: float) -> void:
@@ -70,4 +78,4 @@ func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_fa
 	if not _shells.has(body_id):
 		return
 	var sun := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds) if runtime.active_frame != StarSystem.SYSTEM_FRAME else Vector3(0, 0, -1)
-	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 1.6) * scale_factor, centre, sun, body.atmosphere_color)
+	(_shells[body_id] as AtmosphereShell).update_shell((body.radius + body.atmosphere_height * 1.6) * scale_factor, centre, sun, VisualStyle.look_for(body).rim_color)

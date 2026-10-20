@@ -62,6 +62,8 @@ const TURRET_DECK_Y := 2.42
 const TURRET_PIVOT_Y := 2.7
 
 var materials := {} # Slot -> Material
+## Untinted albedo of each painted material, so restyle() can re-apply VisualStyle.hull_tint() in place.
+var _paint_base := {} # Slot -> Color
 var turret_pivot := Node3D.new()
 var ramp_pivot := Node3D.new()      # leaf 1, hinged at the door sill
 var ramp_second_pivot := Node3D.new() # leaf 2, hinged at the far bottom edge of leaf 1
@@ -161,7 +163,8 @@ func update_pods(upright: bool, delta: float) -> void:
 # --- materials -------------------------------------------------------------------------------------------------
 
 func _make_materials() -> void:
-	materials[Slot.HULL] = AssetLibrary.material_or("mat_hull_plating", _paint(Color(0.74, 0.72, 0.67), 0.6, 0.05))
+	# An owned copy, so the visual-style tint never reaches the shared asset (other users of mat_hull_plating).
+	materials[Slot.HULL] = AssetLibrary.material_or("mat_hull_plating", _paint(Color(0.74, 0.72, 0.67), 0.6, 0.05)).duplicate()
 	materials[Slot.PANEL] = _tinted_plating(Color(0.84, 0.82, 0.78), Color(0.63, 0.62, 0.58))
 	materials[Slot.STRUCTURE] = _tinted_plating(Color(0.52, 0.57, 0.64), Color(0.4, 0.44, 0.49))
 	materials[Slot.GRAPHITE] = _tinted_plating(Color(0.36, 0.37, 0.4), Color(0.26, 0.27, 0.29))
@@ -185,6 +188,17 @@ func _make_materials() -> void:
 		var two_sided := (materials[slot] as Material).duplicate() as BaseMaterial3D
 		two_sided.cull_mode = BaseMaterial3D.CULL_DISABLED
 		materials[TWO_SIDED[slot]] = two_sided
+	for slot in [Slot.HULL, Slot.PANEL, Slot.STRUCTURE, Slot.GRAPHITE, Slot.HULL_2S, Slot.STRUCTURE_2S, Slot.GRAPHITE_2S]:
+		if materials[slot] is BaseMaterial3D:
+			_paint_base[slot] = (materials[slot] as BaseMaterial3D).albedo_color
+	restyle()
+
+
+## Applies the visual style's hull tint to the painted materials (in place, so every part using them follows).
+func restyle() -> void:
+	var tint := VisualStyle.hull_tint()
+	for slot in _paint_base:
+		(materials[slot] as BaseMaterial3D).albedo_color = (_paint_base[slot] as Color) * tint
 
 
 ## The hull plating texture (panel seams, fasteners) tinted to a secondary colour, so every painted part shares

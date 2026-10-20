@@ -39,6 +39,9 @@ var _nav_target_index := -1
 var save_manager := SaveManager.new()
 var _was_landed := false
 var _seconds_since_autosave := 0.0
+## VisualStyle bookkeeping: the style revision and the look last applied to the sky, lights and rim.
+var _style_revision := -1
+var _applied_look: PlanetLook
 
 
 func _ready() -> void:
@@ -144,6 +147,7 @@ func _ready() -> void:
 	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
 	menu.world_ready_check = func() -> bool: return terrain != null and terrain.is_settled()
 	add_child(menu)
+	_style_revision = VisualStyle.revision
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -176,6 +180,12 @@ func _physics_process(delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	_apply_field_of_view()
+	if VisualStyle.revision != _style_revision:
+		_restyle()
+	var look := _current_look()
+	if look != _applied_look:
+		_applied_look = look
+		space_environment.apply_look(look)
 	var actor_position := session.player_world_position()
 	if terrain != null:
 		terrain.viewer = actor_position
@@ -211,12 +221,15 @@ func _process(_delta: float) -> void:
 	atmosphere_shell.visible = planet != null and planet.atmosphere_height > 0.0
 	if atmosphere_shell.visible:
 		var home_body: BodyDef = system.bodies[runtime.active_frame]
-		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, home_body.atmosphere_color)
+		atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO, sun_direction, VisualStyle.look_for(home_body).rim_color)
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
 		var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-sun_direction))
+		var viewer_altitude := 2.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground
 		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position), 0.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground)
+		if terrain != null:
+			terrain.set_viewer_altitude(viewer_altitude)
 	else:
 		space_environment.set_daylight(0.0, Vector3.UP)
 	overlay.frame_text = _frame_and_nav_text()
@@ -424,6 +437,7 @@ func _build_terrain() -> void:
 func _on_frame_changed(_old_frame: StringName, _new_frame: StringName) -> void:
 	session.nearby_pois = []
 	planet = runtime.planet_for(runtime.active_frame)
+	_assign_planet_look()
 	_build_terrain()
 	_build_poi_manager()
 	_recentre_everything_on_ship()
@@ -431,6 +445,35 @@ func _on_frame_changed(_old_frame: StringName, _new_frame: StringName) -> void:
 	overlay.poi_manager = poi_manager
 	chase_camera.snap_to_target()
 	session.say("Entering %s" % (system.bodies[runtime.active_frame] as BodyDef).display_name if runtime.active_frame != StarSystem.SYSTEM_FRAME else "Leaving orbit - open space")
+
+
+## The look for where the player is: the current world's, or the deep-space look between worlds.
+func _current_look() -> PlanetLook:
+	if planet == null or not system.bodies.has(runtime.active_frame):
+		return VisualStyle.deep_space_look()
+	return VisualStyle.look_for(system.bodies[runtime.active_frame])
+
+
+## Colours only: terrain is coloured from planet.look (null = the original Sol rule). Cached planet bodies are re-tagged
+## here so a world visited before a style switch is drawn in the new style.
+func _assign_planet_look() -> void:
+	if planet != null and system.bodies.has(planet.frame_id):
+		planet.look = VisualStyle.look_for(system.bodies[planet.frame_id]) if VisualStyle.is_rodina() else null
+
+
+## Re-applies the visual style everywhere after VisualStyle.set_active(): terrain colours (rebuilt, geometry unchanged),
+## impostors, the ship's paint and the sky. Physics, saves and positions are not touched.
+func _restyle() -> void:
+	_style_revision = VisualStyle.revision
+	_assign_planet_look()
+	if terrain != null:
+		_build_terrain()
+		overlay.terrain = terrain
+	impostors.restyle()
+	for child in ship.get_children():
+		if child is ShipVisuals:
+			(child as ShipVisuals).exterior.restyle()
+	_applied_look = null
 
 
 func _nav_targets() -> Array[StringName]:

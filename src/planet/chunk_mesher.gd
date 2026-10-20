@@ -55,7 +55,9 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			vertices.append(position)
 			normals.append(normal)
 			var outward := (position + Vector3(origin_x, origin_y, origin_z)).normalized()
-			var base_color := _color_for(planet.profile_or_default(), lattice_heights[index], 1.0 - normal.dot(outward), outward.y)
+			var steepness := 1.0 - normal.dot(outward)
+			var base_color := planet.look.surface_color(planet.profile_or_default(), lattice_heights[index], steepness, absf(outward.y), position + Vector3(origin_x, origin_y, origin_z)) \
+				if planet.look != null else _color_for(planet.profile_or_default(), lattice_heights[index], steepness, outward.y)
 			# Patchy variation from the absolute position so colours match across chunk borders.
 			var patch := sin((position.x + origin_x) * 0.00031) * sin((position.z + origin_z) * 0.00043) + 0.5 * sin((position.y + origin_y) * 0.0021 + (position.x + origin_x) * 0.0017)
 			var shade := 0.9 + 0.1 * patch

@@ -112,6 +112,18 @@ func _build_settings() -> void:
 	invert.button_pressed = settings.invert_pitch
 	invert.toggled.connect(func(pressed): settings.invert_pitch = pressed)
 	_box.add_child(invert)
+	var style_label := Label.new()
+	style_label.text = "Visual style"
+	_box.add_child(style_label)
+	var style := OptionButton.new()
+	style.add_item("Sol (original)")
+	style.add_item("Rodina-inspired")
+	style.selected = 1 if VisualStyle.is_rodina() else 0
+	style.custom_minimum_size = Vector2(320, 32)
+	style.item_selected.connect(func(index: int):
+		settings.visual_style = "rodina" if index == 1 else "sol"
+		VisualStyle.set_active(StringName(settings.visual_style)))
+	_box.add_child(style)
 	_add_button("Back", func():
 		var error := settings.save_to_file()
 		_status.text = error

@@ -44,11 +44,17 @@ func _init(planet_body: PlanetBody = null) -> void:
 	_material.roughness = 1.0
 	_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if planet_body != null:
-		_detail_material = TerrainDetail.build_material(planet_body.atmosphere_height)
+		_detail_material = TerrainDetail.build_material(planet_body.atmosphere_height, planet_body.look)
 
 
 func _ready() -> void:
 	add_to_group("origin_shift")
+
+
+## Rodina-style ground-to-orbit colour lean, from the viewer's height above the ground (no-op for the Sol style).
+func set_viewer_altitude(altitude_metres: float) -> void:
+	if _detail_material != null and planet != null and planet.look != null:
+		_detail_material.set_shader_parameter("orbit_mix", planet.look.orbit_mix_at(altitude_metres))
 
 
 func _process(delta: float) -> void:
@@ -150,7 +156,7 @@ func _show_chunk(key: int, mesh_data: Dictionary) -> void:
 	instance.mesh = mesh
 	if _detail_material != null:
 		instance.material_override = _detail_material
-		instance.set_instance_shader_parameter("tile_offset", TerrainDetail.tile_offset(mesh_data["origin"]))
+		instance.set_instance_shader_parameter("tile_offset", TerrainDetail.tile_offset(mesh_data["origin"], planet.look.detail_tile_period if planet.look != null else TerrainDetail.TILE_PERIOD))
 	else:
 		instance.material_override = _material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

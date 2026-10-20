@@ -23,8 +23,9 @@ static func flat_layer_id(atmosphere_height: float) -> String:
 
 
 ## The per-chunk `tile_offset` instance uniform: the chunk origin (planet frame, doubles) modulo the tile period, per axis.
-static func tile_offset(chunk_origin: PackedFloat64Array) -> Vector3:
-	return Vector3(fposmod(chunk_origin[0], TILE_PERIOD), fposmod(chunk_origin[1], TILE_PERIOD), fposmod(chunk_origin[2], TILE_PERIOD))
+## `period` must be a common multiple of the material's tile sizes (PlanetLook.detail_tile_period; TILE_PERIOD for the shader defaults).
+static func tile_offset(chunk_origin: PackedFloat64Array, period: float = TILE_PERIOD) -> Vector3:
+	return Vector3(fposmod(chunk_origin[0], period), fposmod(chunk_origin[1], period), fposmod(chunk_origin[2], period))
 
 
 static func _texture(layer_id: String, suffix: String) -> Texture2D:
@@ -32,7 +33,8 @@ static func _texture(layer_id: String, suffix: String) -> Texture2D:
 
 
 ## A shader material for this world, or null (switch off, shader or any of the six textures missing). One per terrain, shared by all chunks.
-static func build_material(atmosphere_height: float) -> ShaderMaterial:
+## `look` (optional) sets the tile sizes, contrast and fade (the Rodina style uses large, soft detail); null keeps the shader defaults.
+static func build_material(atmosphere_height: float, look: PlanetLook = null) -> ShaderMaterial:
 	if not GameSettings.instance().terrain_detail:
 		return null
 	if not ResourceLoader.exists(SHADER_PATH):
@@ -55,4 +57,13 @@ static func build_material(atmosphere_height: float) -> ShaderMaterial:
 		material.set_shader_parameter(uniform_name, textures[uniform_name])
 	material.set_shader_parameter("flat_mean_linear", MEAN_LINEAR_LUMINANCE[flat_id])
 	material.set_shader_parameter("steep_mean_linear", MEAN_LINEAR_LUMINANCE[STEEP_LAYER])
+	if look != null:
+		material.set_shader_parameter("flat_tile_metres", look.detail_flat_tile)
+		material.set_shader_parameter("steep_tile_metres", look.detail_steep_tile)
+		material.set_shader_parameter("far_tile_metres", look.detail_far_tile)
+		material.set_shader_parameter("detail_contrast", look.detail_contrast)
+		material.set_shader_parameter("fade_start_metres", look.detail_fade_start)
+		material.set_shader_parameter("fade_end_metres", look.detail_fade_end)
+		material.set_shader_parameter("triplanar_sharpness", look.triplanar_sharpness)
+		material.set_shader_parameter("orbit_color", Vector3(look.orbit_color.r, look.orbit_color.g, look.orbit_color.b))
 	return material
