@@ -5,6 +5,7 @@
 
 [sub_resource type="Resource" id="Resource_ncqj7"]
 script = ExtResource("2_ppnkv")
+grammar = 2
 
 [resource]
 script = ExtResource("1_mpjnh")

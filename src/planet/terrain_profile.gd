@@ -3,6 +3,11 @@ extends Resource
 ## Everything that defines one world's terrain shape. Same profile + same seed = same planet.
 
 @export var radius := 6000000.0
+## Which recovered Rodina height grammar this world uses. LEGACY is Sol's original generic
+## noise stack and is the default so existing projects/tests keep their terrain. PERUN/JARILO/
+## VELES/MORENA are Rodina's shader grammars (see Shaders/Planet*.h in the private source).
+enum Grammar { LEGACY, PERUN, JARILO, VELES, MORENA, ASTEROID }
+@export var grammar: Grammar = Grammar.LEGACY
 @export var terrain_seed := 1234
 ## Broad continents/basins (unit-sphere noise).
 @export var macro_amplitude := 2500.0

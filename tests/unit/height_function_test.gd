@@ -42,3 +42,45 @@ func test_golden_hash_of_1000_samples() -> void:
 
 
 const GOLDEN_HASH := 619230855
+
+
+func test_rodina_height_grammars_are_deterministic_finite_and_not_flat() -> void:
+	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES]:
+		var profile := TerrainProfile.new()
+		profile.grammar = grammar
+		var a := HeightFunction.new(profile)
+		var b := HeightFunction.new(profile)
+		var lowest := INF
+		var highest := -INF
+		var rng := SeedRng.new(91 + grammar)
+		for sample in 40:
+			var direction := Vector3(rng.next_float() - 0.5, rng.next_float() - 0.5, rng.next_float() - 0.5).normalized()
+			var height := a.height(direction)
+			assert_true(is_finite(height), "grammar %d produced a non-finite height" % grammar)
+			assert_eq(height, b.height(direction), "grammar %d is deterministic" % grammar)
+			lowest = minf(lowest, height)
+			highest = maxf(highest, height)
+		assert_true(highest - lowest > 100.0, "grammar %d should make terrain, range %f..%f" % [grammar, lowest, highest])
+		assert_true(highest < 100000.0 and lowest > -100000.0, "grammar %d height range %f..%f" % [grammar, lowest, highest])
+
+
+func test_world_resources_choose_the_recovered_grammars() -> void:
+	var system := StarSystem.default_system()
+	assert_eq(system.bodies[&"planet"].terrain_profile.grammar, TerrainProfile.Grammar.JARILO, "Aurelia maps to Jarilo")
+	assert_eq(system.bodies[&"cinder"].terrain_profile.grammar, TerrainProfile.Grammar.PERUN, "Cinder maps to Perun")
+	assert_eq(system.bodies[&"verdant"].terrain_profile.grammar, TerrainProfile.Grammar.VELES, "Verdant maps to Veles")
+
+
+func test_grammar_heights_are_continuous_at_small_offsets() -> void:
+	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES]:
+		var profile := TerrainProfile.new()
+		profile.grammar = grammar
+		var function := HeightFunction.new(profile)
+		var rng := SeedRng.new(700 + grammar)
+		for sample in 80:
+			var direction := Vector3(rng.next_float() - 0.5, rng.next_float() - 0.5, rng.next_float() - 0.5).normalized()
+			var nearby := (direction + Vector3(1e-4, 0.0, 0.0)).normalized()
+			var delta := absf(function.height(direction) - function.height(nearby))
+			# These grammars include deliberately high-frequency mountains/dunes; the check is for a
+			# non-finite/teleporting field, not for smoothness at metre scale.
+			assert_true(delta < 25000.0, "grammar %d has a cliff-like discontinuity: %f m" % [grammar, delta])

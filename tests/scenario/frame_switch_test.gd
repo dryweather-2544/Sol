@@ -83,6 +83,11 @@ func test_fly_home_planet_to_moon_through_system_frame_and_land() -> void:
 
 func _landed_on(system: StarSystem, body_id: StringName) -> Array:
 	var planet := system.build_planet_body(body_id)
+	# This test is about frame switching and save round-trips, not the shape of the home world.
+	# The Rodina grammar intentionally changed the home terrain, so use a flat test patch to make
+	# the landing setup independent of the planet's current height field.
+	var flat := func(_dx: float, _dy: float, _dz: float) -> float: return 0.0
+	planet.height_override = flat
 	var ship := Ship.new()
 	ship.render_origin = WorldPos.new(body_id)
 	var direction := Vector3(0.3, 0.5, 0.8).normalized()
@@ -92,6 +97,9 @@ func _landed_on(system: StarSystem, body_id: StringName) -> Array:
 	var session := GameSession.new(planet, ship, PilotSource.new())
 	session.progress.warp_installed = true
 	var runtime := WorldRuntime.new(system, session, body_id)
+	# WorldRuntime caches its own PlanetBody, so apply the flat test patch to that instance too.
+	runtime.session.planet.height_override = flat
+	runtime.session.ship.planet = runtime.session.planet
 	for tick in 240:
 		runtime.advance(DELTA)
 		session.tick(DELTA, OnFootCommand.new())
