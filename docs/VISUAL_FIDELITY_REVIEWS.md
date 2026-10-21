@@ -194,3 +194,10 @@ Added a raised dash housing and central screen in the 3D nose, visible from the 
 Capture: `/tmp/n13_cockpit_probe/cockpit11.png`. It gives the cockpit a proper lower dash instead of a
 bare black void. The two vent cylinders and screen detail are still hard to read from the seat, so
 they are recorded as geometry-only pending a better camera/dash alignment. Tests: 326 / 97,140 / 0.
+
+
+### Thirteenth iteration — hostile HUD state (2026-10-21)
+
+The top-right panel now switches from `HULL BLASTER / READY` to an amber `HOSTILE / LOCKED` state
+whenever a projected hostile target is inside the reticle field. This is a one-frame-lag HUD readout
+from the same camera projection used by the target brackets. Tests: 326 / 97,140 / 0.

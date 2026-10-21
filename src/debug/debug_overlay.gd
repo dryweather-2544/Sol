@@ -213,6 +213,12 @@ func _update_rodina_hud() -> void:
 	_prompt_label.position.y = viewport.y - 120.0
 	if seated:
 		_update_target_brackets()
+		if _reticle.target_positions.size() > 0:
+			_weapon_label.text = "HOSTILE\nLOCKED"
+			_weapon_label.add_theme_color_override("font_color", Color(1.0, 0.52, 0.28))
+		else:
+			_weapon_label.add_theme_color_override("font_color", Color(0.55, 0.86, 0.96))
+		_weapon_label.position = Vector2(viewport.x - _weapon_label.size.x - 16.0, 16.0)
 	else:
 		_reticle.target_positions = PackedVector2Array()
 		_reticle.queue_redraw()

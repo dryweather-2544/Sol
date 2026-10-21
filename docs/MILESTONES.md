@@ -293,4 +293,5 @@ and the commit is pushed.
 - [x] Compact Rodina HUD on foot and inside the ship (suit telemetry) in addition to the seated flight HUD.
 - [x] Emissive projectile bolts and a code-level muzzle flash (muzzle visual still unverified in capture).
 - [x] Raised cockpit dash housing/central screen added (vent detail still hard to read from the seat).
+- [x] HUD weapon panel switches to an amber HOSTILE/LOCKED state when a hostile is projected.
 - [ ] Human visual comparison; target/weapon detail panel and remaining WARP reference.
