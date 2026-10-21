@@ -29,6 +29,8 @@ var _landed_at := -1.0
 
 
 func _ready() -> void:
+	# The real main scene pauses at the title screen; this harness must keep running to dismiss it.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_physics_priority = -100 # before the ship's own tick
 	OUT_DIR = OUT_DIR.path_join(Time.get_datetime_string_from_system().replace(":", "-"))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
@@ -40,6 +42,7 @@ func _process(delta: float) -> void:
 	_frames += 1
 	if _frames == 3:
 		_main.menu.dismiss()
+		get_tree().paused = false
 		_place_ship(20000.0)
 		_phase = "settle"
 	if _phase == "settle":

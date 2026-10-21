@@ -63,3 +63,18 @@ Full suite in the cloud: 381 tests / 107,031 assertions / 0 failures.
   `tools/n14_fast_pass.tscn` (Run Current Scene) on the Mac; frames go to `tests/visual/out/fastpass/<time>/`.
 - Running the test suite *inside* a scene (n14_mac_runner) fails `audio_library_test` only because
   `_ready()` then runs twice; the headless runner passes it.
+
+
+## Mac fast-pass verification (2026-10-21)
+
+Real Metal run from the canonical checkout:
+
+- capture: `tests/visual/out/fastpass/2026-10-21T19-09-23/` (97 frames + `fastpass.log`)
+- every sampled phase reported `holes=none`
+- cruise/landing were effectively fully populated near the ship; low-altitude 10 km/s remained
+  preview/filler-covered rather than fully detailed (60-80% full near leaves)
+- frame rate was ~100-145 FPS; plan/visibility/upload maxima were 34.8/18.5/15.2 ms
+- the harness now sets `PROCESS_MODE_ALWAYS` and clears the title pause, otherwise direct scene runs
+  waited forever on the paused title screen
+
+The fast-pass output is local review material and is ignored by Git.

@@ -1,5 +1,13 @@
 # Sol — Agent Instructions
 
+## Canonical local checkout
+
+- Work in `/Users/arielbowyer/Dev/Sol` on macOS. This is the permanent outside-iCloud copy.
+- Godot: `/Users/arielbowyer/Downloads/Godot.app/Contents/MacOS/Godot` (4.7.2).
+- Run tests with `./tools/run_tests.sh`, sequentially; concurrent runs share `user://` save slots.
+- Real fast-pass capture: run `tools/n14_fast_pass.tscn`; output goes under `tests/visual/out/fastpass/<timestamp>/`.
+- Keep proprietary Rodina assets and recovered source out of the public remote.
+
 Sol is a Godot 4.7.2 (Forward+, GDScript, Jolt) game recreating Rodina's connected
 space → planet → on foot → ship interior → space loop, built independently.
 
