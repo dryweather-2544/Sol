@@ -106,3 +106,20 @@ func test_centres_use_built_chunk_heights_instead_of_height_queries() -> void:
 func test_the_finest_level_is_about_a_hundred_metres_across() -> void:
 	var edge := _planet.radius * PI * 0.5 / float(1 << _planet.finest_lod_level())
 	assert_true(edge <= PlanetBody.FINEST_CHUNK_EDGE_METRES and edge > PlanetBody.FINEST_CHUNK_EDGE_METRES * 0.5, "finest chunk edge %f m" % edge)
+
+
+func test_fast_flight_caps_the_finest_level() -> void:
+	var viewer := WorldPos.new(&"planet", 0.0, 0.0, _planet.radius + 100.0)
+	var slow_planner := _planner()
+	var slow := slow_planner.plan(viewer)
+	var fast_planner := _planner()
+	fast_planner.speed = 5000.0
+	var fast := fast_planner.plan(viewer)
+	var slow_finest := 0
+	for key in slow["leaves"]:
+		slow_finest = maxi(slow_finest, ChunkKey.level_of(key))
+	var fast_finest := 0
+	for key in fast["leaves"]:
+		fast_finest = maxi(fast_finest, ChunkKey.level_of(key))
+	assert_true(fast_finest < slow_finest, "fast %d vs slow %d" % [fast_finest, slow_finest])
+	assert_true(fast["leaves"].size() < slow["leaves"].size(), "fewer chunks when fast")

@@ -176,3 +176,27 @@ func test_walker_cannot_walk_into_a_prop_blocker() -> void:
 	assert_true(closest >= 3.6 - 0.2, "walker stopped %f m from the beacon centre (base radius 3.6)" % closest)
 	assert_true(closest < 6.0, "and did walk up to it: %f" % closest)
 	ship.free()
+
+
+func test_threaded_manager_merges_the_same_pois_as_the_synchronous_one() -> void:
+	var center := _center()
+	var sync_manager := PoiManager.new(_planner(7))
+	sync_manager.render_origin = center.duplicate_position()
+	sync_manager.viewer = center
+	sync_manager.update_now()
+	var threaded_manager := PoiManager.new(_planner(7))
+	threaded_manager.threaded = true
+	threaded_manager.render_origin = center.duplicate_position()
+	threaded_manager.viewer = center
+	threaded_manager.update_now() # starts the job
+	var tries := 0
+	while threaded_manager._job_task != -1 and tries < 4000:
+		OS.delay_msec(5)
+		threaded_manager.update_now()
+		tries += 1
+	threaded_manager.update_now()
+	assert_true(sync_manager.known_instances().size() > 0, "the region holds POIs")
+	assert_eq(threaded_manager.known_instances().size(), sync_manager.known_instances().size(), "same POIs once the job lands")
+	threaded_manager._exit_tree()
+	sync_manager.free()
+	threaded_manager.free()

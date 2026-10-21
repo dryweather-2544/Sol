@@ -12,12 +12,18 @@ extends RefCounted
 ## of vertical view over 1080 px this is about 8 px per quad at the near end of a chunk's range and 4 px at the far end.
 const SPLIT_RATIO := 3.0
 const MERGE_HYSTERESIS := 1.15
+const FAST_FLIGHT_EDGE_SECONDS := 0.25
+const FAST_FLIGHT_MIN_LEVEL := 5
 
 var planet: PlanetBody
 var max_level := 18 # set from the planet's size in _init
 var split_ratio := SPLIT_RATIO
 ## Internal (split) nodes of the most recent plan.
 var last_internal := {}
+## Viewer speed (m/s) for the next plan. Fast flight cannot use the finest chunks (they would be gone before they are
+## built), so the finest level allowed is the one whose edge is still at least speed * FAST_FLIGHT_EDGE_SECONDS. Once
+## the ship slows, the cap lifts and the planner refines (the geomorph blends it in).
+var speed := 0.0
 var _direction_cache := {} # key -> unit direction of the chunk centre
 var _height_hints := {}    # key -> surface height above the radius at the chunk centre (from built chunks)
 var _was_split := {}       # keys split by the previous plan
@@ -76,6 +82,9 @@ func plan(viewer: WorldPos, preload_points = null) -> Dictionary:
 		for point in preload_points:
 			if point is WorldPos:
 				points.append(Vector3(point.x, point.y, point.z))
+	var level_limit := max_level
+	while level_limit > FAST_FLIGHT_MIN_LEVEL and chunk_edge_metres(level_limit) < speed * FAST_FLIGHT_EDGE_SECONDS:
+		level_limit -= 1
 	var leaves := {}
 	var internal := {}
 	var pending: Array[int] = []
@@ -85,7 +94,7 @@ func plan(viewer: WorldPos, preload_points = null) -> Dictionary:
 		var key: int = pending.pop_back()
 		var level := ChunkKey.level_of(key)
 		var near := false
-		if level < max_level:
+		if level < level_limit:
 			var split_distance := chunk_edge_metres(level) * split_ratio
 			if _was_split.has(key):
 				split_distance *= MERGE_HYSTERESIS

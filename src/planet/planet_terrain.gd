@@ -48,8 +48,10 @@ const UPLOAD_BUDGET_USEC := 3000
 ## Hierarchical backstop: 6 + 24 + 96 small-grid chunks that together always cover the planet.
 const FALLBACK_LEVELS := [0, 1, 2]
 ## Hidden (cached) chunks. A full chunk is about 90 KB of mesh.
-const READY_CACHE_BUDGET_BYTES := 64 * 1024 * 1024
-const READY_CACHE_MAX_ENTRIES := 768
+const READY_CACHE_BUDGET_BYTES := 160 * 1024 * 1024
+const READY_CACHE_MAX_ENTRIES := 2048
+const EVICT_TARGET := 0.9
+const EVICT_PER_PASS := 40
 ## Seconds a chunk takes to ease from its parent's shape to its own.
 const MORPH_SECONDS := 0.7
 ## Chunk nodes are placed relative to an anchor; when the render origin has moved this far from it they are re-placed.
@@ -75,6 +77,21 @@ var viewer := WorldPos.new(&"planet")
 var viewer_velocity := Vector3.ZERO
 ## Worker tasks in flight. Defaults to the core count minus two (rendering and the main thread).
 var max_builds_in_flight := MAX_BUILDS_IN_FLIGHT
+var _evicting := false
+var _frame_added := 0
+var _frame_freed := 0
+var _frame_applied := 0
+var _last_added := 0
+var _last_freed := 0
+var _last_applied := 0
+var _prev_process_usec := 0
+var _last_process_usec := 0
+var _measuring := false
+var _render_cpu_max := 0.0 ## longest measured render CPU time (ms) since the last report
+var _render_gpu_max := 0.0 ## longest measured GPU time (ms) since the last report
+var _frame_max := 0.0 ## longest frame (s) since the last report
+var _slow_frames := 0 ## frames over 25 ms since the last report
+var _process_usec_max := 0 ## longest terrain _process since the last report
 ## Plan on a background thread (the game sets this; tests plan on the calling thread so they are deterministic).
 var threaded_planning := false
 
@@ -162,6 +179,29 @@ func set_viewer_altitude(altitude_metres: float) -> void:
 
 
 func _process(delta: float) -> void:
+	var process_started := Time.get_ticks_usec()
+	_frame_max = maxf(_frame_max, delta)
+	if threaded_planning and OS.is_debug_build() and is_inside_tree():
+		var viewport_rid := get_viewport().get_viewport_rid()
+		if not _measuring:
+			RenderingServer.viewport_set_measure_render_time(viewport_rid, true)
+			_measuring = true
+		_render_cpu_max = maxf(_render_cpu_max, RenderingServer.viewport_get_measured_render_time_cpu(viewport_rid))
+		_render_gpu_max = maxf(_render_gpu_max, RenderingServer.viewport_get_measured_render_time_gpu(viewport_rid))
+	if delta > 0.025:
+		_slow_frames += 1
+	if delta > 0.03 and threaded_planning and OS.is_debug_build():
+		# The frame that just ended took `delta`; the counters below are what this node did in it.
+		print("slow frame %.0f ms | engine process %.1f ms  physics %.1f ms | this frame: chunks added %d  freed %d  plans applied %d  builds running %d | frame total %.1f ms in terrain" % [
+			delta * 1000.0, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			_last_added, _last_freed, _last_applied, _pending.size(), float(_last_process_usec) / 1000.0])
+	_last_added = _frame_added
+	_last_freed = _frame_freed
+	_last_applied = _frame_applied
+	_last_process_usec = _prev_process_usec
+	_frame_added = 0
+	_frame_freed = 0
+	_frame_applied = 0
 	_seconds_since_plan += delta
 	_collect_finished_builds()
 	if threaded_planning:
@@ -173,6 +213,8 @@ func _process(delta: float) -> void:
 		_seconds_since_plan = 0.0
 		_replan()
 	_update_morphs(delta)
+	_prev_process_usec = Time.get_ticks_usec() - process_started
+	_process_usec_max = maxi(_process_usec_max, _prev_process_usec)
 	_stats_report_timer += delta
 	if _stats_report_timer >= 5.0 and threaded_planning and OS.is_debug_build():
 		_stats_report_timer = 0.0
@@ -186,6 +228,18 @@ func _print_stream_report() -> void:
 		_displayed.size(), _chunks.size(), _desired.size() + _internal.size(), maxi(0, _build_order.size() - _order_cursor), _pending.size(),
 		float(_stats["plan_compute_usec_max"]) / 1000.0, float(_stats["plan_usec_max"]) / 1000.0,
 		float(_stats["visibility_usec_max"]) / 1000.0, float(_stats["upload_usec_max"]) / 1000.0])
+	print("frames: longest %.1f ms  over 25 ms: %d  | terrain _process longest %.1f ms" % [_frame_max * 1000.0, _slow_frames, float(_process_usec_max) / 1000.0])
+	print("render: cpu %.1f ms  gpu %.1f ms  draw calls %d  objects %d  triangles %d  refresh %.0f Hz" % [
+		_render_cpu_max, _render_gpu_max,
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
+		DisplayServer.screen_get_refresh_rate()])
+	_render_cpu_max = 0.0
+	_render_gpu_max = 0.0
+	_frame_max = 0.0
+	_slow_frames = 0
+	_process_usec_max = 0
 	for stat in ["plan_compute_usec_max", "plan_usec_max", "visibility_usec_max", "upload_usec_max"]:
 		_stats[stat] = 0
 
@@ -231,6 +285,7 @@ func _make_plan_request() -> Dictionary:
 		"corridor": _preload_points(),
 		"available": _available_grids.duplicate(),
 		"hints": _new_hints,
+		"speed": viewer_velocity.length(),
 	}
 	_new_hints = {}
 	return request
@@ -292,6 +347,7 @@ func _compute_plan(request: Dictionary) -> PlanResult:
 	for key in hints:
 		planner.note_height(key, float(hints[key]))
 	var corridor: Array = request["corridor"]
+	planner.speed = float(request.get("speed", 0.0))
 	var tree := planner.plan(request["viewer"], corridor)
 	var result := PlanResult.new()
 	result.leaves = tree["leaves"]
@@ -370,6 +426,7 @@ static func _resolve_tiles(key: int, internal: Dictionary, available: Dictionary
 
 
 func _apply_plan(result: PlanResult) -> void:
+	_frame_applied += 1
 	_tick += 1
 	_desired = result.leaves
 	_internal = result.internal
@@ -527,6 +584,7 @@ func _collect_finished_builds() -> void:
 ## Uploads a finished mesh as an available (hidden) chunk; a plan pass decides when it is shown. A better-grid mesh
 ## for a chunk on screen takes its place in the same frame.
 func _add_chunk(key: int, mesh_data: Dictionary) -> void:
+	_frame_added += 1
 	var grid: int = int(mesh_data.get("grid", ChunkMesher.FINE_GRID))
 	var existing: Dictionary = _chunks.get(key, {})
 	var was_visible := false
@@ -575,6 +633,7 @@ func _add_chunk(key: int, mesh_data: Dictionary) -> void:
 
 
 func _free_chunk(key: int) -> void:
+	_frame_freed += 1
 	var record: Dictionary = _chunks.get(key, {})
 	if record.is_empty():
 		return
@@ -699,9 +758,13 @@ func _set_visible(record: Dictionary, show: bool) -> void:
 
 
 ## Bounded LRU over hidden chunks. The pinned backstop is never evicted, nor anything wanted now.
+## Frees the least recently used hidden chunks once the cache is over budget. It frees down to EVICT_TARGET of the
+## budget in small steps (EVICT_PER_PASS per plan pass) so a big overshoot never becomes one long frame, and it only
+## scans while over budget.
 func _evict_hidden() -> void:
-	if _hidden_bytes <= READY_CACHE_BUDGET_BYTES and _hidden_count <= READY_CACHE_MAX_ENTRIES:
+	if not _evicting and _hidden_bytes <= READY_CACHE_BUDGET_BYTES and _hidden_count <= READY_CACHE_MAX_ENTRIES:
 		return
+	_evicting = true
 	var hidden: Array = []
 	for key in _chunks:
 		var record: Dictionary = _chunks[key]
@@ -709,11 +772,16 @@ func _evict_hidden() -> void:
 			continue
 		hidden.append([int(record["used"]), key])
 	hidden.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	var freed := 0
 	for entry in hidden:
-		if _hidden_bytes <= READY_CACHE_BUDGET_BYTES and _hidden_count <= READY_CACHE_MAX_ENTRIES:
+		if freed >= EVICT_PER_PASS:
+			break
+		if _hidden_bytes <= READY_CACHE_BUDGET_BYTES * EVICT_TARGET and _hidden_count <= int(READY_CACHE_MAX_ENTRIES * EVICT_TARGET):
+			_evicting = false
 			break
 		_free_chunk(entry[1])
 		_stats["cache_evicted"] = int(_stats["cache_evicted"]) + 1
+		freed += 1
 
 
 ## Chunk nodes sit under _root at positions relative to the anchor; the root is offset from the render origin, so an

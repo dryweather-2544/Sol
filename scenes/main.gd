@@ -441,6 +441,7 @@ func _build_poi_manager() -> void:
 		return
 	var prefix := "" if runtime.active_frame == system.home_id else String(runtime.active_frame)
 	poi_manager = PoiManager.new(PoiPlanner.new(planet, SeedHash.derive(WORLD_SEED, String(runtime.active_frame)), 0.22, prefix))
+	poi_manager.threaded = true
 	poi_manager.render_origin = ship.render_origin.duplicate_position()
 	poi_manager.viewer = ship.state.position
 	add_child(poi_manager)

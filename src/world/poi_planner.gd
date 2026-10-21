@@ -28,6 +28,16 @@ func _init(planet_body: PlanetBody, seed_for_planet: int, cell_density: float = 
 
 ## All POIs whose cell lies within radius_metres (plus a cell of margin) of the centre.
 func plan_region(center: WorldPos, radius_metres: float) -> Array[PoiInstance]:
+	var found := plan_cells(center, radius_metres)
+	for instance in pinned.values():
+		if instance.position.distance_to(center) <= radius_metres:
+			found.append(instance)
+	return found
+
+
+## The planned (non-pinned) POIs of plan_region. It only touches the cell cache, so one thread at a time may run it
+## (PoiManager does, to keep the exact CPU terrain heights off the frame).
+func plan_cells(center: WorldPos, radius_metres: float) -> Array[PoiInstance]:
 	var found: Array[PoiInstance] = []
 	var reach := radius_metres + CELL_SIZE * 2.0
 	var low_i := int(floor((center.x - reach) / CELL_SIZE))
@@ -44,9 +54,6 @@ func plan_region(center: WorldPos, radius_metres: float) -> Array[PoiInstance]:
 				var instance := plan_cell(cell_i, cell_j, cell_k)
 				if instance != null and instance.position.distance_to(center) <= radius_metres:
 					found.append(instance)
-	for instance in pinned.values():
-		if instance.position.distance_to(center) <= radius_metres:
-			found.append(instance)
 	return found
 
 

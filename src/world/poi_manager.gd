@@ -5,6 +5,7 @@ extends Node3D
 
 const UPDATE_INTERVAL_SECONDS := 0.5
 const REPLAN_DISTANCE := 2000.0
+const PLAN_RADIUS := PoiRings.PROXY_EXIT + REPLAN_DISTANCE * 2.0
 
 var planner: PoiPlanner
 var planet: PlanetBody
@@ -17,6 +18,12 @@ var _content := {}  # id -> Node3D
 var _markers := {}  # id -> Node3D
 var _replan_center: WorldPos
 var _seconds_since_update := UPDATE_INTERVAL_SECONDS
+## When true, planning new regions runs on a worker thread and its result is merged on a later frame (planning uses
+## the exact CPU terrain heights, which cost tens of milliseconds a region). Off in tests, which plan synchronously.
+var threaded := false
+var _job_task := -1
+var _job_center: WorldPos
+var _job_result: Array = []
 
 
 func _init(poi_planner: PoiPlanner = null) -> void:
@@ -83,11 +90,46 @@ func nearest_undiscovered(discovery_log: DiscoveryLog) -> PoiInstance:
 
 
 func update_now() -> void:
+	if threaded:
+		_update_threaded()
+		return
 	if _replan_center == null or viewer.distance_to(_replan_center) > REPLAN_DISTANCE:
 		_replan_center = viewer.duplicate_position()
-		for instance in planner.plan_region(viewer, PoiRings.PROXY_EXIT + REPLAN_DISTANCE * 2.0):
+		for instance in planner.plan_region(viewer, PLAN_RADIUS):
 			_known[instance.id] = instance
 		_forget_distant()
+	_update_rings()
+
+
+func _update_threaded() -> void:
+	if _job_task != -1 and WorkerThreadPool.is_task_completed(_job_task):
+		WorkerThreadPool.wait_for_task_completion(_job_task)
+		_job_task = -1
+		for instance in _job_result:
+			_known[instance.id] = instance
+		for instance in planner.pinned.values():
+			if instance.position.distance_to(_job_center) <= PLAN_RADIUS:
+				_known[instance.id] = instance
+		_job_result = []
+		_forget_distant()
+	if _job_task == -1 and (_replan_center == null or viewer.distance_to(_replan_center) > REPLAN_DISTANCE):
+		_replan_center = viewer.duplicate_position()
+		_job_center = _replan_center
+		_job_task = WorkerThreadPool.add_task(_plan_in_background.bind(_job_center))
+	_update_rings()
+
+
+func _plan_in_background(center: WorldPos) -> void:
+	_job_result = planner.plan_cells(center, PLAN_RADIUS)
+
+
+func _exit_tree() -> void:
+	if _job_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_job_task)
+		_job_task = -1
+
+
+func _update_rings() -> void:
 	for poi_id in _known:
 		var instance: PoiInstance = _known[poi_id]
 		var distance: float = instance.position.distance_to(viewer)
