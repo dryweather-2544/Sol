@@ -117,5 +117,13 @@ the olive exhaust trails, matching the two distinct reference sequences.
 
 Capture: `/tmp/n13_hud_cruise.png`; combat capture `/tmp/n13_hud_combat.png`.
 
-Remaining HUD gap: no reticle, no weapon/status panels and no target brackets. Those are the next
-HUD pass. Tests: 326 tests / 97,139 assertions / 0 failures.
+Remaining HUD gap after the first pass: no reticle/weapon panel/target brackets.
+
+### Sixth iteration — reticle and weapon panel (2026-10-21)
+
+Added a small cyan central reticle and a top-right `HULL BLASTER / READY` panel, matching the
+reference's minimal flight interface while retaining the larger prompt/objective text for usability.
+Capture: `/tmp/n13_hud_reticle.png`.
+
+Still open: target brackets and a proper weapon/target status panel. Tests: 326 tests / 97,139
+assertions / 0 failures.

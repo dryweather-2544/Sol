@@ -14,6 +14,8 @@ var _objective_label := Label.new()
 var _alert_label := Label.new()
 var _mode_label := Label.new()
 var _telemetry_label := Label.new()
+var _reticle := FlightReticle.new()
+var _weapon_label := Label.new()
 
 
 func _ready() -> void:
@@ -74,6 +76,24 @@ func _ready() -> void:
 	_telemetry_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_telemetry_label.add_theme_constant_override("outline_size", 3)
 	add_child(_telemetry_label)
+	_reticle.visible = false
+	add_child(_reticle)
+	_weapon_label.visible = false
+	_weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_weapon_label.add_theme_font_size_override("font_size", 14)
+	_weapon_label.add_theme_color_override("font_color", Color(0.55, 0.86, 0.96))
+	_weapon_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_weapon_label.add_theme_constant_override("outline_size", 3)
+	var weapon_style := StyleBoxFlat.new()
+	weapon_style.bg_color = Color(0.025, 0.10, 0.15, 0.66)
+	weapon_style.border_color = Color(0.25, 0.75, 0.95, 0.85)
+	weapon_style.set_border_width_all(1)
+	weapon_style.content_margin_left = 10
+	weapon_style.content_margin_right = 10
+	weapon_style.content_margin_top = 3
+	weapon_style.content_margin_bottom = 3
+	_weapon_label.add_theme_stylebox_override("normal", weapon_style)
+	add_child(_weapon_label)
 
 
 func _process(_delta: float) -> void:
@@ -144,6 +164,8 @@ func _set_debug_hud_visible(visible: bool) -> void:
 	_signal_label.visible = visible
 	_mode_label.visible = false
 	_telemetry_label.visible = false
+	_reticle.visible = false
+	_weapon_label.visible = false
 
 
 func _update_rodina_hud() -> void:
@@ -151,6 +173,8 @@ func _update_rodina_hud() -> void:
 	_signal_label.visible = false
 	_mode_label.visible = true
 	_telemetry_label.visible = true
+	_reticle.visible = true
+	_weapon_label.visible = true
 	var state := ship.state
 	var modes := ["PRECISION", "COMBAT SPEED", "CRUISE SPEED", "WARP"]
 	_mode_label.text = modes[state.gear]
@@ -162,6 +186,9 @@ func _update_rodina_hud() -> void:
 		roundi(state.hull * 100.0), roundi(state.fuel * 100.0),
 		("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
 	_telemetry_label.position = Vector2(viewport.x * 0.5 - _telemetry_label.size.x * 0.5, viewport.y - 38.0)
+	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
+	_weapon_label.text = "HULL BLASTER\nREADY"
+	_weapon_label.position = Vector2(viewport.x - _weapon_label.size.x - 16.0, 16.0)
 	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
 	_objective_label.add_theme_font_size_override("font_size", 14)
 	_objective_label.position = Vector2(14, viewport.y - 64.0)

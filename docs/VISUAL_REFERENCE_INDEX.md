@@ -92,4 +92,4 @@ labelled as inference until such a sequence is found or captured from the runnin
 - After the N13 entry pass: `/tmp/n13_entry_probe/entry3.png` — blocky orange/purple entry fire and
   purple exposure wash.
 - After the N13 HUD pass: `/tmp/n13_hud_cruise.png` and `/tmp/n13_hud_combat.png` — compact cyan HUD
-  with no developer prose.
+  with no developer prose; `/tmp/n13_hud_reticle.png` adds the central reticle and weapon panel.

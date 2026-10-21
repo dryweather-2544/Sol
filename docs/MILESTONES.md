@@ -286,4 +286,5 @@ and the commit is pushed.
 - [x] COMBAT-SPEED blue/white streak layer and blocky orange/purple entry fire with purple exposure.
 - [x] Compact seated flight HUD; combat-only streak field; blocky entry fire and purple exposure.
 - [x] 326 tests / 97,139 assertions / 0 failures.
-- [ ] Human visual comparison; reticle/weapon panels/target brackets and remaining WARP reference.
+- [x] Central cyan reticle and basic weapon-ready panel.
+- [ ] Human visual comparison; target brackets and remaining WARP reference.
