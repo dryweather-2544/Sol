@@ -8,7 +8,7 @@ worktree are preserved; a file-level backup of the dirty worktree is at
 ## Baseline
 
 - Baseline suite before N14: **356 tests / 104,544 assertions / 0 failures**.
-- Current suite: **363 tests / 105,372 assertions / 0 failures**.
+- Current suite: **364 tests / 105,375 assertions / 0 failures**.
 - Real main scene boots and passes `tools/n13_graphics_check.gd` (cruise/combat capture), with Metal on the M4.
 - Current N14 game was launched from the worktree; no push has been made.
 

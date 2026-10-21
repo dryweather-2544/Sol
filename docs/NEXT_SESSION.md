@@ -32,6 +32,6 @@ failures before the terrain changes; current suite must be re-run after every co
 
 ## N14 final verification
 
-- Full suite: 363 tests / 105,372 assertions / 0 failures.
+- Full suite: 364 tests / 105,375 assertions / 0 failures.
 - Real main scene: `N13_SCENE=cruise` and `combat` graphical checks passed.
 - Detailed handoff: `N14_REPORT.md`.
