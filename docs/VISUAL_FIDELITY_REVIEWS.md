@@ -128,3 +128,14 @@ Capture: `/tmp/n13_hud_reticle.png`.
 Target brackets were added in the same pass: visible hostile targets are projected through the active
 camera and drawn as four corner brackets in orange, filtered for team/alive/behind-camera. The
 capture path is `/tmp/n13_hud_reticle.png` (no hostile present in that frame). Tests: 326 / 97,139 / 0.
+
+
+### Seventh iteration — projectile hit flashes (2026-10-21)
+
+Reference combat frames show a bright stepped impact at the hit point; Sol's ProjectileView removed a
+projectile without any effect. Added a fixed 16-flare, allocation-free impact pool in
+`CombatEffects`, connected to `ProjectileSim.hit`, with short orange/purple additive blocks. This is a
+rendering-only effect; damage remains authoritative in the simulation.
+
+No hostile target is present in the HUD capture, so this pass is currently compilation/test verified
+and needs a live combat screenshot before it can be called visually matched.

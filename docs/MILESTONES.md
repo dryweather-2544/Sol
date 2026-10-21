@@ -288,4 +288,5 @@ and the commit is pushed.
 - [x] 326 tests / 97,139 assertions / 0 failures.
 - [x] Central cyan reticle and basic weapon-ready panel.
 - [x] Hostile target brackets projected through the active camera.
+- [x] Pooled projectile impact flashes connected to the projectile simulation.
 - [ ] Human visual comparison; weapon/target detail panel and remaining WARP reference.

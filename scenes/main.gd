@@ -35,6 +35,7 @@ var speed_effects: SpeedEffects
 var entry_effects: EntryEffects
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
+var combat_effects: CombatEffects
 var _cockpit_view := false
 var _welcomed := false
 var _nav_target_index := -1
@@ -92,6 +93,10 @@ func _ready() -> void:
 	projectile_view.sim = session.projectiles
 	projectile_view.render_origin = ship.render_origin.duplicate_position()
 	add_child(projectile_view)
+	combat_effects = CombatEffects.new()
+	combat_effects.render_origin = ship.render_origin.duplicate_position()
+	add_child(combat_effects)
+	session.projectiles.hit.connect(func(_projectile, _target): combat_effects.flash(_projectile.position))
 
 	on_foot = OnFootController.new()
 	on_foot.planet = planet
