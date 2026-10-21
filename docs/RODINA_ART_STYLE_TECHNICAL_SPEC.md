@@ -1,5 +1,9 @@
 # Rodina art style: technical specification for Sol
 
+> **N14 correction (2026-10-21):** this document was written when the reference archive was not
+> reachable. Rodina screenshots, five gameplay videos, selected frames, palettes and recovered shader
+> sources now exist locally; later N13/N14 docs supersede the “no images” evidence limit below.
+
 Status: Stage 1 of the Rodina visual mission, written in a cloud session (Godot 4.7.2, branch
 `claude/sol-vtol-ship-overhaul-9eglhk` on top of `n9-art-audio`). Read the evidence limits first.
 

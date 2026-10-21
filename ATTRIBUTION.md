@@ -1,7 +1,9 @@
 # Attribution and Licence Register
 
 Every third-party file in this repository must have a row here **before** it is committed.
-No Rodina code, assets, or data files may ever be added.
+Rodina reference files already present for the local project are listed below as **proprietary,
+local-reference only, not for redistribution**. They must never be pushed to the public repository.
+New Rodina code/assets/data must not be added without the project owner's recorded authorisation.
 
 Allowed licences without asking: CC0, CC-BY (with credit below), MIT, BSD, Apache-2.0, OFL (fonts).
 Anything else: ask the project owner first.
@@ -17,3 +19,5 @@ Anything else: ask the project owner first.
 ## Credits shown in-game (CC-BY and similar)
 
 _(none yet)_
+| 2026-10-21 | Rodina player-ship EGM reference (`Ship1.ShipOpen.egm`, `Ship1.ShipOpen.Physics.egm`) | Elliptic Games LLC; local recovered 1.6.2 installation under `Deepseek workspace/rodina-recovery/game-reference/Data/Models/` | Proprietary; reference/analysis only, **not added to Sol** | `docs/RODINA_SOURCE_MAP.md` | not in repository | no |
+| 2026-10-21 | Rodina terrain shader sources (`PlanetPerun.h`, `PlanetJarilo.h`, `PlanetVeles.h`, `PlanetMorena.h`, `PlanetAsteroid.h`, `_perlin.h`, `_voronoi.h`) | Elliptic Games LLC; private `dryweather-2544/rodina` and local recovery | Proprietary; formulas/data used as reference, no shader file copied | `docs/N14_TERRAIN_PORT` / source map | formula transcription only | yes (translated) |

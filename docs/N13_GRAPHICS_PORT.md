@@ -12,9 +12,10 @@ in the recovered files, chosen from how the data is used; **NOT PORTED** = said 
 
 - Rodina 1.6.2 **Lua scripts** (the owner's private `rodina` repo: `Scripts/`), read directly. All formulas below come
   from them, with line numbers.
-- **Not available in this session:** the shader sources (`Shaders/*.fx`, `_atmosphere.h`), meshes, textures and
-  any Rodina image or video. Those are on the Mac only. The shader behaviour is known only through the research
-  summary (`research/rodina-starfall-reference/_work/rendering_notes.md`), so no shader was ported line for line.
+- **N14 correction:** the shader sources, original EGM models/textures and the trailer/five gameplay videos are now
+  present locally in `rodina-recovery/game-reference/` and `rodina-visual-research/`; this N13 document's “not
+  available” statement was true for its earlier session only. N14 added source-derived terrain grammars and uses
+  the supplied Rodina frames for comparison.
 - No Rodina reference footage, so **no side-by-side comparison with Rodina frames was possible**. "Matches" below
   always means "matches Rodina's code and data", never "looks the same as a Rodina screenshot".
 

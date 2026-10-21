@@ -17,7 +17,8 @@ failures before the terrain changes; current suite must be re-run after every co
    addition, not a source port.
 5. Inspect/replace the N13 atmosphere filter calibration once the shader/filter evidence is available.
 6. Human-audition audio and record findings in `RODINA_AUDIO_COMPARISONS.md`.
-7. Keep the proprietary Rodina WAVs and transcribed particle tables local; do not push this public repository.
+7. Keep the proprietary Rodina WAVs, EGM models/textures and transcribed particle tables local; do not push this
+   public repository. See `N14_DISTRIBUTION_RISK.md` and the corrected `ATTRIBUTION.md`.
 
 ## Open design questions
 

@@ -1,5 +1,9 @@
 # Rodina visual style: results of the in-game checks
 
+> **N14 correction (2026-10-21):** the “no Rodina image/video” limitation below applied to the earlier
+> session. A trailer, five gameplay videos, screenshots, selected frames and palette reports now exist
+> in `rodina-visual-research`; later N13/N14 comparisons use them.
+
 Companion to `RODINA_ART_STYLE_TECHNICAL_SPEC.md` (evidence and techniques) and `RODINA_PLANET_TYPES.md` (families).
 Photos are in `docs/rodina_style_shots/`. All were rendered in a cloud container (Godot 4.7.2, lavapipe software
 Vulkan under Xvfb, about 1 frame per second) with `tools/style_shots.gd`; none were taken on the Mac.
