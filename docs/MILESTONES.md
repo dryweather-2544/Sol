@@ -284,5 +284,6 @@ and the commit is pushed.
 - [x] Rodina style: wider 85 m chase framing, dark hull silhouette and state-driven twin dotted exhaust trails.
 - [x] Soft Rodina-only galaxy/dust fallback tested against the official orbit frame; block/noise and stripe variants rejected.
 - [x] COMBAT-SPEED blue/white streak layer and blocky orange/purple entry fire with purple exposure.
-- [x] 326 tests / 97,138 assertions / 0 failures.
-- [ ] Human visual comparison; entry fire mass/HUD/remaining WARP reference.
+- [x] Compact seated flight HUD; combat-only streak field; blocky entry fire and purple exposure.
+- [x] 326 tests / 97,139 assertions / 0 failures.
+- [ ] Human visual comparison; reticle/weapon panels/target brackets and remaining WARP reference.

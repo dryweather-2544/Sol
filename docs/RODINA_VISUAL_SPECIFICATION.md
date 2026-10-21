@@ -58,8 +58,9 @@ Companion to `VISUAL_REFERENCE_INDEX.md` and `VISUAL_FIDELITY_REVIEWS.md`. Tags:
 
 - [OBS] Cyan/angular bitmap HUD, low-resolution UI blocks, sparse dark interiors and strong local
   colour.
-- Not changed in this pass: current Sol HUD is a debug overlay and is a larger redesign than a
-  single visual-fidelity fix.
+- Implemented a compact Rodina-style seated HUD: mode tab, bottom hull/fuel/speed, small objective
+  and prompt. The full debug overlay remains available for Sol style/outside/interior. Reticle,
+  weapon/status panels and target brackets remain open.
 
 ## 7. Implementation constraints
 

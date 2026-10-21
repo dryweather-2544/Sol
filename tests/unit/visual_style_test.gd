@@ -126,8 +126,9 @@ func test_speed_streaks_are_style_speed_and_gear_gated() -> void:
 	VisualStyle.set_active(VisualStyle.RODINA)
 	assert_near(SpeedEffects.intensity_for(100.0, PilotCommand.GEAR_COMBAT), 0.0, 1e-9, "precision/slow flight has no streaks")
 	assert_near(SpeedEffects.intensity_for(500.0, PilotCommand.GEAR_DOCK), 0.0, 1e-9, "dock gear never streaks")
-	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE) > 0.3, "cruise streaks appear")
-	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_WARP) > 0.3, "warp streaks appear")
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE), 0.0, 1e-9, "cruise keeps trails, not the combat streak field")
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_WARP), 0.0, 1e-9, "WARP uses its own trail; no invented combat streaks")
+	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_COMBAT) > 0.3, "combat streaks appear")
 	_after()
 
 

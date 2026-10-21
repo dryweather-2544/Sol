@@ -25,7 +25,9 @@ func _init() -> void:
 
 ## Pure gate used by tests and the live layer. Sol-style views and slow flight have no streaks.
 static func intensity_for(speed: float, gear: int) -> float:
-	if not VisualStyle.is_rodina() or gear < PilotCommand.GEAR_COMBAT:
+	# The labelled reference sequence is COMBAT SPEED. CRUISE has the olive exhaust trails, not this
+	# blue-white field, so do not leave the two effects layered together.
+	if not VisualStyle.is_rodina() or gear != PilotCommand.GEAR_COMBAT:
 		return 0.0
 	return smoothstep(MIN_SPEED, FULL_SPEED, speed) * 0.58
 

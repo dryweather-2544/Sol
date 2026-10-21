@@ -101,3 +101,21 @@ still centred around the ship rather than spilling across the lower left. This i
 iteration, not a completion claim.
 
 Tests after all four visual passes: 326 tests / 97,138 assertions / 0 failures.
+
+
+### Fifth iteration — compact flight HUD (2026-10-21)
+
+Reference: all gameplay frames show a minimal cyan HUD: mode tab top centre, health/status near the
+bottom, reticle in the middle and no developer prose. Current Sol exposed FPS, chunk count, control
+legends, crew and power in large green text.
+
+Implemented a Rodina-style seated-flight HUD: cyan angular `CRUISE SPEED`/`COMBAT SPEED`/`PRECISION`/
+`WARP` mode tab at the top, `HULL`/`FUEL`/`SPEED` centred at the bottom, a small objective line and
+the existing interaction prompt. The detailed debug overlay remains in Sol style and while
+outside/inside the ship. The blue COMBAT streak field is now strictly combat-only; CRUISE shows only
+the olive exhaust trails, matching the two distinct reference sequences.
+
+Capture: `/tmp/n13_hud_cruise.png`; combat capture `/tmp/n13_hud_combat.png`.
+
+Remaining HUD gap: no reticle, no weapon/status panels and no target brackets. Those are the next
+HUD pass. Tests: 326 tests / 97,139 assertions / 0 failures.

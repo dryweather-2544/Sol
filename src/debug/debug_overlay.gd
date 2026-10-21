@@ -12,6 +12,8 @@ var _prompt_label := Label.new()
 var _signal_label := Label.new()
 var _objective_label := Label.new()
 var _alert_label := Label.new()
+var _mode_label := Label.new()
+var _telemetry_label := Label.new()
 
 
 func _ready() -> void:
@@ -44,6 +46,34 @@ func _ready() -> void:
 	_alert_label.add_theme_constant_override("outline_size", 6)
 	_alert_label.visible = false
 	add_child(_alert_label)
+	# Compact Rodina-style flight HUD. Hidden in the Sol style/outside/in the interior, where the
+	# original debug overlay remains the developer-facing display.
+	_mode_label.visible = false
+	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mode_label.add_theme_font_size_override("font_size", 18)
+	_mode_label.add_theme_color_override("font_color", Color(0.65, 0.9, 1.0))
+	_mode_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_mode_label.add_theme_constant_override("outline_size", 3)
+	var mode_style := StyleBoxFlat.new()
+	mode_style.bg_color = Color(0.025, 0.10, 0.15, 0.72)
+	mode_style.border_color = Color(0.25, 0.75, 0.95, 0.9)
+	mode_style.border_width_left = 1
+	mode_style.border_width_right = 1
+	mode_style.border_width_top = 1
+	mode_style.border_width_bottom = 1
+	mode_style.content_margin_left = 18
+	mode_style.content_margin_right = 18
+	mode_style.content_margin_top = 3
+	mode_style.content_margin_bottom = 3
+	_mode_label.add_theme_stylebox_override("normal", mode_style)
+	add_child(_mode_label)
+	_telemetry_label.visible = false
+	_telemetry_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_telemetry_label.add_theme_font_size_override("font_size", 15)
+	_telemetry_label.add_theme_color_override("font_color", Color(0.55, 0.86, 0.96))
+	_telemetry_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_telemetry_label.add_theme_constant_override("outline_size", 3)
+	add_child(_telemetry_label)
 
 
 func _process(_delta: float) -> void:
@@ -56,6 +86,10 @@ func _process(_delta: float) -> void:
 	_objective_label.text = "Objective: " + session.progress.current_text() if session != null else ""
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
+	if _use_rodina_hud():
+		_update_rodina_hud()
+		return
+	_set_debug_hud_visible(true)
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:
 		var body := session.exterior_body
 		_label.text = "fps %d   chunks %d\nOUTSIDE   speed %.1f m/s   %s\nheight above ground %.2f m%s\nWASD move  Shift run  Space jump  mouse look  click/Ctrl fire\nwalk up the ramp to board  Esc menu" % [
@@ -99,6 +133,39 @@ func _process(_delta: float) -> void:
 		gear_text, source_text, state.status_message]
 	_label.text += "\nfuel %d%%   hull %d%%%s   Tab inventory" % [state.fuel * 100.0, state.hull * 100.0, "   STEEP REENTRY" if ShipDamage.entry_damage_rate(state.atmosphere_resistance) > 0.0 else ""]
 	_label.text += _power_text()
+
+
+func _use_rodina_hud() -> bool:
+	return VisualStyle.is_rodina() and session != null and (session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING) and not get_tree().paused
+
+
+func _set_debug_hud_visible(visible: bool) -> void:
+	_label.visible = visible
+	_signal_label.visible = visible
+	_mode_label.visible = false
+	_telemetry_label.visible = false
+
+
+func _update_rodina_hud() -> void:
+	_label.visible = false
+	_signal_label.visible = false
+	_mode_label.visible = true
+	_telemetry_label.visible = true
+	var state := ship.state
+	var modes := ["PRECISION", "COMBAT SPEED", "CRUISE SPEED", "WARP"]
+	_mode_label.text = modes[state.gear]
+	if state.selected_gear != state.gear:
+		_mode_label.text += "   %s SELECTED" % modes[state.selected_gear]
+	var viewport := get_viewport().get_visible_rect().size
+	_mode_label.position = Vector2(viewport.x * 0.5 - _mode_label.size.x * 0.5, 12.0)
+	_telemetry_label.text = "HULL %d%%    FUEL %d%%    SPEED %s" % [
+		roundi(state.hull * 100.0), roundi(state.fuel * 100.0),
+		("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
+	_telemetry_label.position = Vector2(viewport.x * 0.5 - _telemetry_label.size.x * 0.5, viewport.y - 38.0)
+	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
+	_objective_label.add_theme_font_size_override("font_size", 14)
+	_objective_label.position = Vector2(14, viewport.y - 64.0)
+	_prompt_label.position.y = viewport.y - 150.0
 
 
 func _power_text() -> String:
