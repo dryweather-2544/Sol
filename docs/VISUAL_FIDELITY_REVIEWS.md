@@ -201,3 +201,10 @@ they are recorded as geometry-only pending a better camera/dash alignment. Tests
 The top-right panel now switches from `HULL BLASTER / READY` to an amber `HOSTILE / LOCKED` state
 whenever a projected hostile target is inside the reticle field. This is a one-frame-lag HUD readout
 from the same camera projection used by the target brackets. Tests: 326 / 97,140 / 0.
+
+
+### Fourteenth iteration — warning strip (2026-10-21)
+
+Restored the reference's red warning-strip language in the Rodina HUD: alerts use a dark red bordered
+panel and are centred below the mode tab (the old alert was a raw red label lower left). No new
+gameplay condition is introduced; this only formats `session.alert_text()`. Tests: 326 / 97,140 / 0.

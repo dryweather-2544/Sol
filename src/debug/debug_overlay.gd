@@ -45,7 +45,16 @@ func _ready() -> void:
 	_alert_label.add_theme_font_size_override("font_size", 24)
 	_alert_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
 	_alert_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	_alert_label.add_theme_constant_override("outline_size", 6)
+	_alert_label.add_theme_constant_override("outline_size", 4)
+	var alert_style := StyleBoxFlat.new()
+	alert_style.bg_color = Color(0.20, 0.035, 0.025, 0.82)
+	alert_style.border_color = Color(0.95, 0.25, 0.12, 0.95)
+	alert_style.set_border_width_all(1)
+	alert_style.content_margin_left = 14
+	alert_style.content_margin_right = 14
+	alert_style.content_margin_top = 2
+	alert_style.content_margin_bottom = 2
+	_alert_label.add_theme_stylebox_override("normal", alert_style)
 	_alert_label.visible = false
 	add_child(_alert_label)
 	# Compact Rodina-style flight HUD. Hidden in the Sol style/outside/in the interior, where the
@@ -103,6 +112,10 @@ func _process(_delta: float) -> void:
 	var alert := session.alert_text() if session != null else ""
 	_alert_label.text = alert
 	_alert_label.visible = alert != ""
+	if alert != "":
+		_alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_alert_label.add_theme_font_size_override("font_size", 15)
+		_alert_label.position = Vector2(get_viewport().get_visible_rect().size.x * 0.5 - _alert_label.size.x * 0.5, 54.0)
 	_objective_label.text = "Objective: " + session.progress.current_text() if session != null else ""
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
