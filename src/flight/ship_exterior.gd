@@ -332,6 +332,14 @@ func _build_canopy_nose(hull: HullMeshBuilder) -> void:
 	hull.add_chamfer_box(Vector3(3.9, 0.52, 0.10), 0.03, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, -0.11, -6.58)))
 	for side in [-1.0, 0.0, 1.0]:
 		hull.add_chamfer_box(Vector3(0.95, 0.22, 0.03), 0.01, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(side * 1.12, -0.09, -6.64)))
+	# Raised dash housing visible through the forward pilot camera (the seat camera is at z -6.4).
+	hull.add_chamfer_box(Vector3(4.0, 0.55, 0.60), 0.07, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, 0.10, -7.25)))
+	hull.add_chamfer_box(Vector3(2.7, 0.26, 0.04), 0.02, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, 0.16, -6.93)))
+	hull.add_chamfer_box(Vector3(2.2, 0.055, 0.02), 0.005, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(0, 0.19, -6.90)))
+	for side in [-1.0, 1.0]:
+		var vent_x: float = side * 1.35
+		hull.add_cylinder(16, 0.30, 0.30, 0.04, 0.11, Slot.STRUCTURE, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(vent_x, 0.12, -6.94)))
+		hull.add_cylinder(16, 0.21, 0.21, 0.05, 0.12, Slot.RECESS, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(vent_x, 0.12, -6.94)))
 	hull.add_chamfer_box(Vector3(4.0, 0.22, 0.16), 0.04, Slot.STRUCTURE, Transform3D(Basis.IDENTITY, Vector3(0, -0.23, -6.95)))
 	for side in [-1.0, 1.0]:
 		# Recessed instrument screens and a few bright cyan tell-tales.

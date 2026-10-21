@@ -292,4 +292,5 @@ and the commit is pushed.
 - [x] Cockpit camera obstruction removed; dark cockpit tub/console geometry added.
 - [x] Compact Rodina HUD on foot and inside the ship (suit telemetry) in addition to the seated flight HUD.
 - [x] Emissive projectile bolts and a code-level muzzle flash (muzzle visual still unverified in capture).
-- [ ] Human visual comparison; cockpit dashboard detail, weapon/target panel and remaining WARP reference.
+- [x] Raised cockpit dash housing/central screen added (vent detail still hard to read from the seat).
+- [ ] Human visual comparison; target/weapon detail panel and remaining WARP reference.

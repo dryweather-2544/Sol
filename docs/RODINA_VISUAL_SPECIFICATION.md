@@ -56,6 +56,9 @@ Companion to `VISUAL_REFERENCE_INDEX.md` and `VISUAL_FIDELITY_REVIEWS.md`. Tags:
 
 ## 6. HUD and interiors
 
+- Cockpit: the reference has a dark dash with two circular vents, a central screen and a faceted canopy.
+  Sol now has the faceted canopy and a raised dash/screen; vent alignment remains unresolved.
+
 - [OBS] Cyan/angular bitmap HUD, low-resolution UI blocks, sparse dark interiors and strong local
   colour.
 - Implemented a compact Rodina-style seated HUD: mode tab, bottom hull/fuel/speed, small objective

@@ -186,3 +186,11 @@ Added emission to the projectile bolts and a short additive muzzle flash driven 
 muzzle flash clearly because the probe fired while the ship was low over the terrain and the muzzle is
 close to the hull; the projectile glow itself remains a small code-level improvement. This is
 reported as unverified rather than claimed as a matched effect. Tests: 326 tests / 97,140 assertions.
+
+
+### Twelfth iteration — cockpit dash housing (2026-10-21)
+
+Added a raised dash housing and central screen in the 3D nose, visible from the forward pilot camera.
+Capture: `/tmp/n13_cockpit_probe/cockpit11.png`. It gives the cockpit a proper lower dash instead of a
+bare black void. The two vent cylinders and screen detail are still hard to read from the seat, so
+they are recorded as geometry-only pending a better camera/dash alignment. Tests: 326 / 97,140 / 0.
