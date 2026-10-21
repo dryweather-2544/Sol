@@ -39,14 +39,18 @@ uniform vec3 orbit_color = vec3(0.5);       // the ground hue seen from orbit (l
 uniform float orbit_mix = 0.0;              // 0 = ground colours, set per frame from the viewer's altitude
 
 instance uniform vec3 tile_offset = vec3(0.0);
+// Geomorph: 0 = the chunk's own shape, 1 = the shape of its parent (CUSTOM0 holds the offset to it). PlanetTerrain starts a
+// chunk at 1 when it replaces its parent and eases it to 0, so refining a chunk does not pop.
+instance uniform float morph : hint_range(0.0, 1.0) = 0.0;
 
 varying vec3 local_position;
 varying vec3 model_normal;
 varying float view_distance;
 
 void vertex() {
-	local_position = VERTEX;
+	local_position = VERTEX; // the detail textures stay put while the shape morphs
 	model_normal = NORMAL;
+	VERTEX += CUSTOM0.xyz * morph;
 	view_distance = length((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz);
 }
 

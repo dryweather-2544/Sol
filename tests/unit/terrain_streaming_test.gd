@@ -1,6 +1,6 @@
 extends "res://tests/test_case.gd"
-## Streaming-specific checks: backstop coverage, cover selection, previews, the hidden-chunk cache
-## and predictive planning. Mesh "builds" here are instant fake meshes; the real threaded pipeline
+## Streaming-specific checks: backstop coverage, one-layer cover selection, top-down build order, the hidden-chunk
+## cache, geomorphing and predictive planning. Mesh "builds" here are instant fake meshes; the real threaded pipeline
 ## is exercised by tools/n14_stream_probe.gd.
 
 func _planet() -> PlanetBody:
@@ -10,8 +10,8 @@ func _planet() -> PlanetBody:
 	return planet
 
 
-func _fake_mesh(level: int = 0, grid: int = ChunkMesher.FINE_GRID) -> Dictionary:
-	return {
+func _fake_mesh(level: int = 0, grid: int = ChunkMesher.FINE_GRID, with_morph: bool = false) -> Dictionary:
+	var data := {
 		"origin": PackedFloat64Array([0.0, 0.0, 100000.0]),
 		"vertices": PackedVector3Array([Vector3(0, 0, 0), Vector3(10, 0, 0), Vector3(0, 10, 0)]),
 		"normals": PackedVector3Array([Vector3.UP, Vector3.UP, Vector3.UP]),
@@ -20,6 +20,9 @@ func _fake_mesh(level: int = 0, grid: int = ChunkMesher.FINE_GRID) -> Dictionary
 		"level": level,
 		"grid": grid,
 	}
+	if with_morph:
+		data["morph"] = PackedVector3Array([Vector3.ZERO, Vector3(0, 1, 0), Vector3.ZERO])
+	return data
 
 
 ## A terrain that never starts worker builds, so tests drive it with fake meshes.
@@ -53,41 +56,40 @@ func test_hierarchical_fallback_covers_a_desired_fine_chunk() -> void:
 	terrain.free()
 
 
-func test_parent_is_kept_until_all_four_children_are_displayed() -> void:
+func test_parent_is_kept_until_all_four_children_are_available() -> void:
 	var terrain := _terrain()
 	var parent := ChunkKey.make(0, 2, 0, 0)
 	var children := _children(parent)
-	terrain._desired = {}
-	for child in children:
-		terrain._desired[child] = true
+	terrain.set_plan_for_test(children)
 	terrain._show_chunk(parent, _fake_mesh(2))
 	for index in 3:
 		terrain._show_chunk(children[index], _fake_mesh(3))
-	assert_true(terrain._displayed.has(parent), "parent stays while three of four children exist")
-	assert_true(bool(terrain._displayed[parent]["filler"]), "the parent is a sunk filler while it overlaps its children")
+	assert_true(terrain._displayed.has(parent), "the parent stays while three of four children exist")
+	for index in 3:
+		assert_true(not terrain._displayed.has(children[index]), "no child is shown next to its parent (one layer only)")
 	terrain._show_chunk(children[3], _fake_mesh(3))
-	assert_true(not terrain._displayed.has(parent), "parent leaves the screen only after all four children are displayed")
+	assert_true(not terrain._displayed.has(parent), "the parent leaves the screen when the fourth child arrives")
+	for child in children:
+		assert_true(terrain._displayed.has(child), "all four children are shown together")
 	assert_true(terrain._chunks.has(parent), "the parent is hidden and cached, not thrown away")
 	terrain.free()
 
 
-func test_finer_chunks_stay_until_the_coarser_desired_leaf_is_ready() -> void:
-	# Behind the ship the plan coarsens: the old fine chunks must keep the area until the
-	# coarser leaf exists (the first N14 pass dropped them to the smooth backstop instead).
+func test_coarsening_swaps_to_the_parent_that_was_already_built() -> void:
+	# Behind the ship the plan coarsens. The parent was a split node, so it was built, and it takes over at once.
 	var terrain := _terrain()
-	var face := ChunkKey.make(0, 0, 0, 0)
 	var parent := ChunkKey.make(0, 4, 3, 3)
-	terrain._desired = {parent: true}
-	terrain._show_chunk(face, _fake_mesh(0, ChunkMesher.grid_for_level(0)))
+	terrain.set_plan_for_test(_children(parent))
+	terrain._show_chunk(parent, _fake_mesh(4))
 	for child in _children(parent):
 		terrain._show_chunk(child, _fake_mesh(5))
 	for child in _children(parent):
-		assert_true(terrain._displayed.has(child), "fine chunk stays visible while its coarser replacement builds")
-	assert_true(not terrain._displayed.has(face), "the backstop is not shown over a fully covered area")
-	terrain._show_chunk(parent, _fake_mesh(4))
-	assert_true(terrain._displayed.has(parent), "the coarser leaf shows once built")
+		assert_true(terrain._displayed.has(child), "the fine chunks show while the plan wants them")
+	terrain.set_plan_for_test([parent])
+	terrain._update_visibility()
+	assert_true(terrain._displayed.has(parent), "the coarser leaf shows as soon as the plan wants it")
 	for child in _children(parent):
-		assert_true(not terrain._displayed.has(child), "the old fine chunks are hidden once the leaf replaces them")
+		assert_true(not terrain._displayed.has(child), "the fine chunks are hidden and cached")
 	terrain.free()
 
 
@@ -97,62 +99,102 @@ func test_backstop_is_built_once_and_never_requeued() -> void:
 	var terrain := _terrain()
 	terrain.viewer = WorldPos.new(&"planet", 0.0, 0.0, 100000.0 + 2000.0)
 	terrain._replan()
+	var first_wave := terrain._build_order.duplicate()
+	assert_true(first_wave.size() > 0, "a cold start queues builds")
 	for key in terrain._fallback:
-		terrain._add_chunk(key, _fake_mesh(ChunkKey.level_of(key), ChunkMesher.grid_for_level(ChunkKey.level_of(key))))
+		terrain._add_chunk(key, _fake_mesh(ChunkKey.level_of(key), PlanetTerrain._required_grid(key, terrain._desired.has(key))))
 	terrain._update_visibility()
 	terrain._replan()
-	for entry in terrain._build_queue:
-		if terrain._fallback.has(entry[0]):
-			# Only a backstop chunk that is itself a desired leaf may be queued: for its full grid.
-			assert_true(terrain._desired.has(entry[0]) and entry[1] == ChunkMesher.FINE_GRID, "a backstop chunk that exists is not queued again")
+	for key in terrain._build_order:
+		if terrain._fallback.has(key):
+			assert_true(int(terrain._available_grids.get(key, 0)) < PlanetTerrain._required_grid(key, terrain._desired.has(key)), "a backstop chunk that exists is not queued again")
 	for key in terrain._fallback:
 		assert_true(terrain._chunks.has(key), "backstop chunks stay available (hidden when unused)")
 	terrain.free()
 
 
-func test_badly_covered_leaf_gets_a_preview_then_its_full_grid() -> void:
+func test_backstop_is_queued_first_and_the_tree_is_built_top_down() -> void:
 	var terrain := _terrain()
 	terrain.viewer = WorldPos.new(&"planet", 0.0, 0.0, 100000.0 + 2000.0)
 	terrain._replan()
-	for key in terrain._fallback:
-		if ChunkKey.level_of(key) == 0:
-			terrain._add_chunk(key, _fake_mesh(0, ChunkMesher.grid_for_level(0)))
-	terrain._replan()
-	var leaf := -1
-	for entry in terrain._build_queue:
-		if terrain._desired.has(entry[0]) and ChunkKey.level_of(entry[0]) >= 4:
-			leaf = entry[0]
-			assert_eq(entry[1], ChunkMesher.PREVIEW_GRID, "a leaf covered only by the backstop asks for a preview first")
-			break
-	assert_true(leaf >= 0, "a fine leaf is queued")
-	terrain._show_chunk(leaf, _fake_mesh(ChunkKey.level_of(leaf), ChunkMesher.PREVIEW_GRID))
-	assert_true(terrain._displayed.has(leaf) and bool(terrain._displayed[leaf]["preview"]), "the preview is on screen")
-	terrain._replan()
-	var full_requested := false
-	for entry in terrain._build_queue:
-		if entry[0] == leaf:
-			full_requested = entry[1] == ChunkMesher.FINE_GRID
-	assert_true(full_requested, "once the preview is up, the full grid is requested")
-	terrain._show_chunk(leaf, _fake_mesh(ChunkKey.level_of(leaf)))
-	assert_eq(int(terrain._chunks[leaf]["grid"]), ChunkMesher.FINE_GRID, "the full mesh replaces the preview")
+	var position_of := {}
+	for index in terrain._build_order.size():
+		position_of[terrain._build_order[index]] = index
+	var last_backstop := -1
+	var first_other := terrain._build_order.size()
+	for key in terrain._build_order:
+		if ChunkKey.level_of(key) in PlanetTerrain.FALLBACK_LEVELS:
+			last_backstop = maxi(last_backstop, position_of[key])
+		else:
+			first_other = mini(first_other, position_of[key])
+	assert_true(last_backstop < first_other, "every backstop chunk is queued before any finer one")
+	var misordered := 0
+	for key in terrain._build_order:
+		if ChunkKey.level_of(key) <= 3:
+			continue
+		var parent := ChunkKey.parent_of(key)
+		if position_of.has(parent) and int(position_of[parent]) > int(position_of[key]):
+			misordered += 1
+	assert_eq(misordered, 0, "a chunk is never queued before its parent")
 	terrain.free()
 
 
-func test_filler_is_sunk_below_finer_neighbours() -> void:
+func test_a_new_plan_shows_the_deepest_complete_level_and_one_layer() -> void:
 	var terrain := _terrain()
-	var parent := ChunkKey.make(0, 3, 1, 1)
+	terrain.viewer = WorldPos.new(&"planet", 0.0, 0.0, 100000.0 + 300.0)
+	terrain._replan()
+	# Build only the levels down to 5 anywhere they are wanted.
+	for key in terrain._desired.keys() + terrain._internal.keys():
+		if ChunkKey.level_of(key) <= 5:
+			terrain._add_chunk(key, _fake_mesh(ChunkKey.level_of(key), PlanetTerrain._required_grid(key, terrain._desired.has(key))))
+	terrain._update_visibility()
+	var deepest := 0
+	for key in terrain._displayed:
+		deepest = maxi(deepest, ChunkKey.level_of(key))
+		var ancestor: int = key
+		while ChunkKey.level_of(ancestor) > 0:
+			ancestor = ChunkKey.parent_of(ancestor)
+			assert_true(not terrain._displayed.has(ancestor), "no chunk is shown over its own ancestor")
+	assert_eq(deepest, 5, "the planet is shown at the deepest level that is complete")
+	assert_true(terrain.desired_has_no_holes(), "no holes while finer levels are still building")
+	terrain.free()
+
+
+func test_replacing_a_parent_starts_a_geomorph_and_it_finishes() -> void:
+	var terrain := _terrain()
+	var material := ShaderMaterial.new()
+	material.shader = load(TerrainDetail.SHADER_PATH) as Shader
+	terrain._detail_material = material
+	var parent := ChunkKey.make(0, 2, 0, 0)
 	var children := _children(parent)
-	terrain._desired = {children[0]: true, children[1]: true}
-	terrain._show_chunk(parent, _fake_mesh(3))
-	terrain._show_chunk(children[0], _fake_mesh(4))
-	var parent_record: Dictionary = terrain._displayed[parent]
-	var child_record: Dictionary = terrain._displayed[children[0]]
-	var parent_node: Node3D = parent_record["node"]
-	var child_node: Node3D = child_record["node"]
-	# Both fake meshes have the same origin; the filler is moved toward the planet centre.
-	var centre := WorldPos.new(&"planet", 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin)
-	assert_true(parent_node.position.distance_to(centre) < child_node.position.distance_to(centre), "the filler sits lower than the finer chunk")
-	assert_true(not bool(child_record["filler"]), "a leaf at its own level is never sunk")
+	terrain.set_plan_for_test(children)
+	terrain._show_chunk(parent, _fake_mesh(2, ChunkMesher.FINE_GRID, true))
+	assert_true(terrain._morphing.is_empty(), "a chunk with nothing to replace does not morph")
+	for child in children:
+		terrain._show_chunk(child, _fake_mesh(3, ChunkMesher.FINE_GRID, true))
+	for child in children:
+		assert_true(terrain._morphing.has(child), "a child that replaces its parent starts in the parent's shape")
+		assert_near(float(terrain._chunks[child]["morph_t"]), 0.0, 1e-6, "the morph starts at the beginning")
+	terrain._update_morphs(PlanetTerrain.MORPH_SECONDS * 0.5)
+	assert_true(terrain._morphing.size() == 4 and float(terrain._chunks[children[0]]["morph_t"]) > 0.4, "the morph advances with time")
+	terrain._update_morphs(PlanetTerrain.MORPH_SECONDS)
+	assert_true(terrain._morphing.is_empty(), "and ends in the chunk's own shape")
+	terrain.free()
+
+
+func test_planning_on_a_thread_gives_the_same_kind_of_plan() -> void:
+	var terrain := _terrain()
+	terrain.threaded_planning = true
+	terrain.viewer = WorldPos.new(&"planet", 0.0, 0.0, 100000.0 + 2000.0)
+	terrain._post_plan_request()
+	var waited := 0
+	while terrain._plan_in_flight and waited < 5000:
+		OS.delay_msec(5)
+		waited += 5
+		terrain._collect_plan_result()
+	assert_true(not terrain._plan_in_flight, "the planning thread answered")
+	assert_true(not terrain._desired.is_empty() and not terrain._internal.is_empty(), "the plan has leaves and split nodes")
+	terrain._exit_tree() # joins the thread (the terrain is not in a scene tree here)
 	terrain.free()
 
 
@@ -160,12 +202,15 @@ func test_hidden_chunk_is_reused_when_the_viewer_returns() -> void:
 	var terrain := _terrain()
 	var parent := ChunkKey.make(0, 3, 2, 2)
 	var leaf := _children(parent)[0]
-	terrain._desired = {leaf: true}
-	terrain._show_chunk(leaf, _fake_mesh(4))
-	terrain._desired = {parent: true}
+	terrain.set_plan_for_test(_children(parent))
 	terrain._show_chunk(parent, _fake_mesh(3))
+	for child in _children(parent):
+		terrain._show_chunk(child, _fake_mesh(4))
+	assert_true(terrain._displayed.has(leaf), "the leaf is shown")
+	terrain.set_plan_for_test([parent])
+	terrain._update_visibility()
 	assert_true(not terrain._displayed.has(leaf), "leaf hidden after moving away")
-	terrain._desired = {leaf: true}
+	terrain.set_plan_for_test(_children(parent))
 	terrain._update_visibility()
 	assert_true(terrain._displayed.has(leaf), "leaf is shown again from the cache without a rebuild")
 	assert_true(int(terrain.stream_stats()["cache_hits"]) >= 1, "the reuse is counted")
@@ -218,17 +263,19 @@ func test_coarse_face_meshes_cover_the_planet_without_high_detail() -> void:
 	assert_eq(int(leaf["grid"]), ChunkMesher.FINE_GRID, "a desired leaf always gets the full grid, even at level 0")
 
 
-func test_coverage_holds_through_a_coarsening_pass() -> void:
+func test_coarsening_never_leaves_the_area_uncovered() -> void:
 	var terrain := _terrain()
 	var parent := ChunkKey.make(0, 1, 0, 0)
-	terrain._desired = {ChunkKey.make(0, 0, 0, 0): true}
+	terrain.set_plan_for_test(_children(parent))
 	terrain._show_chunk(parent, _fake_mesh(1))
 	for child in _children(parent):
 		terrain._show_chunk(child, _fake_mesh(2))
-	terrain._remove_obsolete_chunks()
+	terrain.set_plan_for_test([parent])
+	terrain._update_visibility()
 	assert_true(not terrain._displayed.is_empty(), "the visibility pass cannot hide both layers")
 	assert_true(terrain._is_covered(parent), "the parent area remains covered")
-	assert_true(not (terrain._displayed.has(parent) and not bool(terrain._displayed[parent]["filler"]) and terrain._displayed.has(_children(parent)[0])), "never two unsunk layers")
+	for child in _children(parent):
+		assert_true(not (terrain._displayed.has(parent) and terrain._displayed.has(child)), "never two layers")
 	terrain.free()
 
 
@@ -291,8 +338,8 @@ func test_six_coarse_faces_cover_the_whole_planet() -> void:
 
 
 ## Violent movement: random teleports and turns, with builds finishing in random order and
-## random subsets. With the level-0 backstop present there must never be a hole, and two visible
-## chunks may only overlap when the coarser one is a sunk filler.
+## random subsets. With the level-0 backstop present there must never be a hole, and no visible chunk may
+## have a visible ancestor (one layer only).
 func test_random_viewer_jumps_never_leave_holes_or_double_layers() -> void:
 	var terrain := _terrain()
 	var rng := RandomNumberGenerator.new()
@@ -314,11 +361,11 @@ func test_random_viewer_jumps_never_leave_holes_or_double_layers() -> void:
 		terrain.viewer = WorldPos.new(&"planet", position.x, position.y, position.z)
 		terrain.viewer_velocity = Vector3(rng.randfn(), rng.randfn(), rng.randfn()) * rng.randf_range(0.0, 8000.0)
 		terrain._replan()
-		# Finish a random part of the queue, in random order, some as previews.
-		var queue := terrain._build_queue.duplicate()
+		# Finish a random part of the queue, in random order.
+		var queue := terrain._build_order.duplicate()
 		queue.shuffle()
-		for entry in queue.slice(0, rng.randi_range(0, mini(queue.size(), 40))):
-			terrain._add_chunk(entry[0], _fake_mesh(ChunkKey.level_of(entry[0]), entry[1]))
+		for key in queue.slice(0, rng.randi_range(0, mini(queue.size(), 40))):
+			terrain._add_chunk(key, _fake_mesh(ChunkKey.level_of(key), PlanetTerrain._required_grid(key, terrain._desired.has(key))))
 		terrain._update_visibility()
 		if not terrain.desired_has_no_holes():
 			violations += 1
@@ -326,9 +373,9 @@ func test_random_viewer_jumps_never_leave_holes_or_double_layers() -> void:
 			var ancestor: int = key
 			while ChunkKey.level_of(ancestor) > 0:
 				ancestor = ChunkKey.parent_of(ancestor)
-				if terrain._displayed.has(ancestor) and not bool(terrain._displayed[ancestor]["filler"]):
+				if terrain._displayed.has(ancestor):
 					violations += 1
 					break
-	assert_eq(violations, 0, "no holes and no unsunk overlapping layers across random jumps")
+	assert_eq(violations, 0, "no holes and no overlapping layers across random jumps")
 	assert_true(terrain.ready_cache_entries() <= terrain.READY_CACHE_MAX_ENTRIES, "cache bounded after the run")
 	terrain.free()

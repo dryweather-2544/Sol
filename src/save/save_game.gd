@@ -87,6 +87,8 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	ship_state.selected_gear = int(ship_data.get("selected_gear", ship_state.gear))
 	ship_state.landed = bool(ship_data["landed"])
 	ship_state.hull = float(ship_data.get("hull", 1.0))
+	if ship_state.hull <= 0.0:
+		ship_state.hull = 1.0 # a wrecked ship is never restored: it would stay at 0, take no more damage and show no engine or entry flames
 	ship_state.fuel = float(ship_data.get("fuel", 1.0))
 	_reseat_after_terrain_change(session, data)
 

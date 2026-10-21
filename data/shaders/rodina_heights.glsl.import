@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://c76u1q4jgp8se"
+path="res://.godot/imported/rodina_heights.glsl-e5f3c870f9d1a6f89a76b6451df790a4.res"
+
+[deps]
+
+source_file="res://data/shaders/rodina_heights.glsl"
+dest_files=["res://.godot/imported/rodina_heights.glsl-e5f3c870f9d1a6f89a76b6451df790a4.res"]
+
+[params]
+

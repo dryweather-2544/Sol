@@ -90,7 +90,14 @@ func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float
 	# Ground haze: a little distance fog by day, thinning out with altitude.
 	_environment.fog_enabled = daylight > 0.02
 	_environment.fog_light_color = _look.fog_color
-	var thinning := 1.0 - smoothstep(2000.0, 30000.0, altitude_metres) if _look.fog_thins_with_altitude else 1.0
+	var thinning := 1.0
+	if _look.fog_thins_with_altitude:
+		if _look.family == &"sol":
+			thinning = 1.0 - smoothstep(2000.0, 30000.0, altitude_metres)
+		else:
+			# Rodina's air thins smoothly: an exponential fall-off with height (about 8 km scale) has no band where the haze
+			# suddenly appears on the way down. The old smoothstep switched it on between 30 km and 2 km.
+			thinning = exp(-maxf(altitude_metres, 0.0) / 8000.0)
 	_environment.fog_density = _look.fog_density * daylight * thinning
 	_environment.fog_aerial_perspective = _look.fog_aerial_perspective
 	_environment.fog_sky_affect = 0.0

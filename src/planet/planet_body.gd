@@ -44,12 +44,18 @@ var height_override := Callable()
 
 func _init(terrain_profile: TerrainProfile = TerrainProfile.new()) -> void:
 	radius = terrain_profile.radius
+	GpuHeights.warm_up() # main thread, once; HeightFunction reads the result
 	height_function = HeightFunction.new(terrain_profile)
 
 
-## Quadtree depth at which a chunk is about 40 m across (about 1 m between vertices).
+## The finest chunk is at most this many metres across (a bit over 2 m between vertices). Finer than this the surface only
+## shows the rounding noise of float32 height maths, and no streaming can keep up with it at speed.
+const FINEST_CHUNK_EDGE_METRES := 96.0
+
+
+## Quadtree depth at which a chunk is at most FINEST_CHUNK_EDGE_METRES across.
 func finest_lod_level() -> int:
-	return maxi(3, int(ceil(log(PI * radius / 80.0) / log(2.0))))
+	return maxi(3, int(ceil(log(PI * radius / (2.0 * FINEST_CHUNK_EDGE_METRES)) / log(2.0))))
 
 
 func terrain_height_xyz(dx: float, dy: float, dz: float) -> float:

@@ -18,10 +18,15 @@ var _rough: FastNoiseLite
 var _mid: FastNoiseLite
 var _large: FastNoiseLite
 var _grammar_noises := {}
+## True when the GPU runs Rodina's exact planet functions (GpuHeights): ground queries then use the same
+## functions on the CPU (RodinaPlanets) so the ship stands on the surface that is drawn. False keeps the
+## approximate FastNoiseLite grammars below (headless tests, no GPU).
+var exact := false
 
 
 func _init(terrain_profile: TerrainProfile) -> void:
 	profile = terrain_profile
+	exact = GpuHeights.is_ready() and terrain_profile.grammar != TerrainProfile.Grammar.LEGACY
 	_macro = _make_noise("macro", 6, FastNoiseLite.FRACTAL_FBM)
 	_ridge = _make_noise("ridge", 4, FastNoiseLite.FRACTAL_NONE)
 	_hills = _make_noise("hills", 3, FastNoiseLite.FRACTAL_FBM)
@@ -46,6 +51,8 @@ func _make_noise(label: String, octaves: int, fractal: int) -> FastNoiseLite:
 ## (dx, dy, dz) must be a unit direction.
 func height_xyz(dx: float, dy: float, dz: float) -> float:
 	var direction := Vector3(dx, dy, dz)
+	if exact:
+		return RodinaPlanets.height(profile.grammar, direction, profile.radius)
 	match profile.grammar:
 		TerrainProfile.Grammar.PERUN:
 			return _perun_height(direction)

@@ -89,6 +89,7 @@ func _ready() -> void:
 	terrain.render_origin = ship.render_origin.duplicate_position()
 	terrain.viewer = ship.state.position
 	terrain.viewer_velocity = Vector3.ZERO
+	terrain.threaded_planning = true
 	add_child(terrain)
 
 	_build_poi_manager()
@@ -471,6 +472,7 @@ func _build_terrain() -> void:
 	terrain.render_origin = ship.render_origin.duplicate_position()
 	terrain.viewer = ship.state.position
 	terrain.viewer_velocity = Vector3.ZERO
+	terrain.threaded_planning = true
 	add_child(terrain)
 
 

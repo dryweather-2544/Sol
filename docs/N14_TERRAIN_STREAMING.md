@@ -78,3 +78,32 @@ Real Metal run from the canonical checkout:
   waited forever on the paused title screen
 
 The fast-pass output is local review material and is ignored by Git.
+
+
+## Streaming rework (2026-10-21, after the GPU-height flights)
+
+Owner report: far chunks loaded as huge blocks, morphed and glitched as smaller ones formed near the ship, and flying
+stuttered. Measured before the rework (fast pass above): plan 34.8 ms, visibility 18.5 ms, upload 15.2 ms on the main thread.
+
+What changed (all in `src/planet/`):
+
+- **One layer only.** The planner returns a tree (leaves plus split nodes). A split node shows its four children only when
+  all four can be shown; otherwise it shows itself. No overlap, so no sunk "filler" layer, no depth fighting, no preview
+  grids. Levels 0-2 stay a pinned backstop built first.
+- **Top-down builds.** Every node of the tree is built (not just the leaves), ordered by how near the ship is or will be,
+  ancestors before descendants. A region refines one level at a time.
+- **Geomorph.** Each vertex carries (CUSTOM0) the offset to where it sits on the parent chunk. A chunk that replaces its
+  parent starts at morph 1 (the parent's exact shape) and eases to 0 in 0.7 s (`morph` instance uniform in
+  `terrain_detail.gdshader`). Replacing a parent therefore does not pop.
+- **Finer detail.** `LodPlanner.SPLIT_RATIO` 2 -> 3 (about 8 px per quad at the near edge of a chunk's range, 4 px at the far
+  edge); a chunk that was split merges back only at 1.15 times that distance (no flip-flopping). The finest chunk is about
+  72-96 m across (`PlanetBody.FINEST_CHUNK_EDGE_METRES`, 2.2 m vertex spacing) instead of 40 m / 1 m: below that the surface only
+  showed float32 rounding noise (the "corrugation").
+- **Main-thread cost.** Planning (tree, build order, what to show) runs on its own thread (`threaded_planning`, set by
+  `scenes/main.gd`); the main thread applies only the difference. The planner no longer queries terrain height (centres use the
+  height of the nearest built chunk). Workers build the `ArrayMesh` themselves. All chunk nodes sit under one root, so a
+  floating-origin shift moves one node instead of re-placing every chunk.
+- **Diagnostics.** Debug runs print a `terrain:` line every five seconds with the worst plan / show-hide / upload times.
+
+Tuning knobs: `LodPlanner.SPLIT_RATIO`, `MERGE_HYSTERESIS`, `PlanetBody.FINEST_CHUNK_EDGE_METRES`, `PlanetTerrain.MORPH_SECONDS`,
+`PLAN_INTERVAL_SECONDS`. Not yet verified on the Mac: frame times and the look of the morph (written without a Godot binary).

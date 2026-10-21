@@ -57,12 +57,29 @@ static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_
 	lattice_positions.resize(lattice * lattice)
 	var lattice_heights := PackedFloat32Array()
 	lattice_heights.resize(lattice * lattice)
+	var directions := PackedFloat64Array()
+	directions.resize(lattice * lattice * 3)
 	for row in lattice:
 		for column in lattice:
 			var direction := CubeSphere.direction_xyz(face, face_u_start + (column - 1) * step, face_v_start + (row - 1) * step)
-			var height: float = height_function.height_xyz(direction[0], direction[1], direction[2]) if height_function != null else planet.terrain_height_xyz(direction[0], direction[1], direction[2])
+			var slot := (row * lattice + column) * 3
+			directions[slot] = direction[0]
+			directions[slot + 1] = direction[1]
+			directions[slot + 2] = direction[2]
+	# Rodina renders heights on the GPU; do the same when there is one (the grammar worlds only).
+	var gpu_heights := _gpu_lattice_heights(planet, directions, lattice * lattice)
+	for row in lattice:
+		for column in lattice:
+			var slot := (row * lattice + column) * 3
+			var height: float
+			if not gpu_heights.is_empty():
+				height = gpu_heights[row * lattice + column]
+			elif height_function != null:
+				height = height_function.height_xyz(directions[slot], directions[slot + 1], directions[slot + 2])
+			else:
+				height = planet.terrain_height_xyz(directions[slot], directions[slot + 1], directions[slot + 2])
 			var distance := planet.radius + height
-			lattice_positions[row * lattice + column] = Vector3(direction[0] * distance - origin_x, direction[1] * distance - origin_y, direction[2] * distance - origin_z)
+			lattice_positions[row * lattice + column] = Vector3(directions[slot] * distance - origin_x, directions[slot + 1] * distance - origin_y, directions[slot + 2] * distance - origin_z)
 			lattice_heights[row * lattice + column] = height
 
 	var vertices_per_edge := grid + 1
@@ -95,6 +112,29 @@ static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_
 			var shade := 0.9 + 0.1 * patch
 			colors.append(Color(base_color.r * shade, base_color.g * shade, base_color.b * shade, steep_weight(1.0 - normal.dot(outward))))
 
+	# Geomorph targets: where each vertex would sit on the next-coarser chunk (this chunk's parent, half the vertex count).
+	# Even rows and columns are shared with the parent and stay put; the others sit on the parent's triangles, which here
+	# means the midpoint of the two vertices either side along the row or column, or along the diagonal the triangles share
+	# (row + 1, column - 1) to (row - 1, column + 1). PlanetTerrain blends a freshly shown chunk from this shape to its own,
+	# so replacing a parent by its children does not pop.
+	var morph_offsets := PackedVector3Array()
+	morph_offsets.resize(vertices.size())
+	for row in vertices_per_edge:
+		for column in vertices_per_edge:
+			var odd_row := (row & 1) == 1
+			var odd_column := (column & 1) == 1
+			if not odd_row and not odd_column:
+				continue
+			var vertex_index := row * vertices_per_edge + column
+			var coarse: Vector3
+			if odd_row and odd_column:
+				coarse = (vertices[vertex_index + vertices_per_edge - 1] + vertices[vertex_index - vertices_per_edge + 1]) * 0.5
+			elif odd_row:
+				coarse = (vertices[vertex_index - vertices_per_edge] + vertices[vertex_index + vertices_per_edge]) * 0.5
+			else:
+				coarse = (vertices[vertex_index - 1] + vertices[vertex_index + 1]) * 0.5
+			morph_offsets[vertex_index] = coarse - vertices[vertex_index]
+
 	var indices := PackedInt32Array()
 	for row in grid:
 		for column in grid:
@@ -117,6 +157,7 @@ static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_
 			vertices.append(surface_position - outward * skirt_drop)
 			normals.append(normals[border_vertex])
 			colors.append(colors[border_vertex])
+			morph_offsets.append(morph_offsets[border_vertex])
 		for position_along_border in border.size() - 1:
 			var top_a: int = border[position_along_border]
 			var top_b: int = border[position_along_border + 1]
@@ -124,7 +165,44 @@ static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_
 			var skirt_b: int = skirt_a + 1
 			indices.append_array([top_a, skirt_a, top_b, top_b, skirt_a, skirt_b])
 
-	return {"origin": PackedFloat64Array([origin_x, origin_y, origin_z]), "vertices": vertices, "normals": normals, "colors": colors, "indices": indices, "grid": grid, "level": level}
+	var centre_slot := ((grid >> 1) + 1) * lattice + (grid >> 1) + 1
+	return {"origin": PackedFloat64Array([origin_x, origin_y, origin_z]), "vertices": vertices, "normals": normals, "colors": colors, "indices": indices, "grid": grid, "level": level,
+		"morph": morph_offsets, "centre_height": lattice_heights[centre_slot]}
+
+
+## The ArrayMesh for built mesh data. Safe on a worker thread (the terrain builds it there so the main thread only has to
+## add a node). The geomorph offsets travel as CUSTOM0 (three floats per vertex) when the data has them.
+static func make_mesh(mesh_data: Dictionary) -> ArrayMesh:
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = mesh_data["vertices"]
+	arrays[Mesh.ARRAY_NORMAL] = mesh_data["normals"]
+	arrays[Mesh.ARRAY_COLOR] = mesh_data["colors"]
+	arrays[Mesh.ARRAY_INDEX] = mesh_data["indices"]
+	var flags := 0
+	if mesh_data.has("morph"):
+		arrays[Mesh.ARRAY_CUSTOM0] = (mesh_data["morph"] as PackedVector3Array).to_byte_array().to_float32_array()
+		flags = Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+	return mesh
+
+
+## Heights for a lattice of directions (x, y, z doubles per point) from the GPU, or an empty array when the
+## planet is not a Rodina-grammar world, a test override is set, or there is no GPU.
+static func _gpu_lattice_heights(planet: PlanetBody, directions: PackedFloat64Array, count: int) -> PackedFloat32Array:
+	if planet.height_override.is_valid() or not GpuHeights.is_ready():
+		return PackedFloat32Array()
+	var profile := planet.profile_or_default()
+	if profile.grammar == TerrainProfile.Grammar.LEGACY:
+		return PackedFloat32Array()
+	var floats := PackedFloat32Array()
+	floats.resize(count * 4)
+	for index in count:
+		floats[index * 4] = directions[index * 3]
+		floats[index * 4 + 1] = directions[index * 3 + 1]
+		floats[index * 4 + 2] = directions[index * 3 + 2]
+	return GpuHeights.instance().heights(floats, count, profile.grammar, RodinaPlanets.asteroid_scale(profile.radius))
 
 
 static func steep_weight(steepness: float) -> float:

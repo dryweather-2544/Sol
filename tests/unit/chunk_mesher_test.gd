@@ -81,3 +81,39 @@ func test_lod_grids_are_progressive_and_preserve_coarse_shape() -> void:
 			for i in mini(vertices.size(), 64):
 				assert_true(normals[i].length() > 0.99 and normals[i].length() < 1.01, "normal is unit length")
 	assert_eq(int(ChunkMesher.build(ChunkKey.make(0, 10, 0, 0), planet)["grid"]), ChunkMesher.FINE_GRID, "the default build is the full grid")
+
+
+func test_geomorph_offsets_lead_to_the_parent_shape() -> void:
+	var planet := PlanetBody.new()
+	planet.height_override = func(dx: float, dy: float, dz: float) -> float: return 40.0 * sin(dx * 900.0) * cos(dz * 700.0)
+	var mesh_data := ChunkMesher.build(ChunkKey.make(2, 12, 1000, 2000), planet)
+	var vertices: PackedVector3Array = mesh_data["vertices"]
+	var morph: PackedVector3Array = mesh_data["morph"]
+	var grid: int = mesh_data["grid"]
+	var per_edge := grid + 1
+	assert_eq(morph.size(), vertices.size(), "one offset per vertex, skirts included")
+	for row in per_edge:
+		for column in per_edge:
+			var index := row * per_edge + column
+			if row % 2 == 0 and column % 2 == 0:
+				assert_true(morph[index] == Vector3.ZERO, "vertices shared with the parent do not move")
+			elif row % 2 == 1 and column % 2 == 1:
+				var target := (vertices[index + per_edge - 1] + vertices[index - per_edge + 1]) * 0.5
+				assert_true((vertices[index] + morph[index]).is_equal_approx(target), "a cell centre goes to the midpoint of the shared diagonal")
+			elif row % 2 == 1:
+				var target := (vertices[index - per_edge] + vertices[index + per_edge]) * 0.5
+				assert_true((vertices[index] + morph[index]).is_equal_approx(target), "an odd row goes to the midpoint along its column")
+			else:
+				var target := (vertices[index - 1] + vertices[index + 1]) * 0.5
+				assert_true((vertices[index] + morph[index]).is_equal_approx(target), "an odd column goes to the midpoint along its row")
+	for skirt_index in range(per_edge * per_edge, vertices.size()):
+		assert_true(morph[skirt_index].length() < 1.0e4, "skirt offsets are finite and local")
+
+
+func test_chunk_reports_its_centre_height_and_makes_a_mesh() -> void:
+	var planet := PlanetBody.new()
+	planet.height_override = func(_dx: float, _dy: float, _dz: float) -> float: return 123.0
+	var mesh_data := ChunkMesher.build(ChunkKey.make(0, 9, 100, 100), planet)
+	assert_near(float(mesh_data["centre_height"]), 123.0, 1e-3, "the centre height")
+	var mesh := ChunkMesher.make_mesh(mesh_data)
+	assert_eq(mesh.get_surface_count(), 1, "one surface")

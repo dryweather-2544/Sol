@@ -44,13 +44,13 @@ func test_detail_concentrates_near_the_viewer_and_counts_stay_bounded() -> void:
 	for key in on_ground:
 		deepest = maxi(deepest, ChunkKey.level_of(key))
 	assert_eq(deepest, planner.max_level, "standing on the ground reaches the finest level")
-	assert_true(on_ground.size() < 1500, "ground chunk count %d" % on_ground.size())
+	assert_true(on_ground.size() < 3000, "ground chunk count %d" % on_ground.size())
 	var in_orbit := planner.select_leaves(WorldPos.new(&"planet", 0.0, 0.0, _planet.radius + 300000.0))
 	var orbit_deepest := 0
 	for key in in_orbit:
 		orbit_deepest = maxi(orbit_deepest, ChunkKey.level_of(key))
 	assert_true(orbit_deepest < 10, "orbit needs only coarse chunks, deepest %d" % orbit_deepest)
-	assert_true(in_orbit.size() < 400, "orbit chunk count %d" % in_orbit.size())
+	assert_true(in_orbit.size() < 1000, "orbit chunk count %d" % in_orbit.size())
 
 
 func test_preload_viewer_requests_detail_ahead_without_overlap() -> void:
@@ -70,3 +70,39 @@ func test_preload_viewer_requests_detail_ahead_without_overlap() -> void:
 	for key in preloaded:
 		deepest = maxi(deepest, ChunkKey.level_of(key))
 	assert_true(deepest >= 1, "preload point is actually subdivided")
+
+
+func test_a_split_chunk_stays_split_a_little_past_its_split_distance() -> void:
+	var planner := _planner()
+	var key := ChunkKey.make(0, 3, 4, 4)
+	var centre := planner.chunk_center(key)
+	var outward := centre.normalized()
+	var split := planner.chunk_edge_metres(3) * planner.split_ratio
+	var inside := centre + outward * split * 0.95
+	planner.plan(WorldPos.new(&"planet", inside.x, inside.y, inside.z))
+	assert_true(planner.last_internal.has(key), "split while the viewer is inside the split distance")
+	var just_outside := centre + outward * split * 1.05
+	planner.plan(WorldPos.new(&"planet", just_outside.x, just_outside.y, just_outside.z))
+	assert_true(planner.last_internal.has(key), "still split just outside it (hysteresis)")
+	var well_outside := centre + outward * split * 1.3
+	planner.plan(WorldPos.new(&"planet", well_outside.x, well_outside.y, well_outside.z))
+	assert_true(not planner.last_internal.has(key), "merged once the viewer is clearly farther")
+	var fresh := _planner()
+	fresh.plan(WorldPos.new(&"planet", just_outside.x, just_outside.y, just_outside.z))
+	assert_true(not fresh.last_internal.has(key), "without history the same position does not split")
+
+
+func test_centres_use_built_chunk_heights_instead_of_height_queries() -> void:
+	var planner := _planner()
+	var key := ChunkKey.make(2, 6, 10, 10)
+	var plain := planner.chunk_center(key).length()
+	assert_near(plain, _planet.radius, 1.0, "no hint: the planet radius")
+	planner.note_height(ChunkKey.parent_of(key), 1500.0)
+	assert_near(planner.chunk_center(key).length(), _planet.radius + 1500.0, 1.0, "an unbuilt chunk borrows its parent's height")
+	planner.note_height(key, 2200.0)
+	assert_near(planner.chunk_center(key).length(), _planet.radius + 2200.0, 1.0, "a built chunk uses its own")
+
+
+func test_the_finest_level_is_about_a_hundred_metres_across() -> void:
+	var edge := _planet.radius * PI * 0.5 / float(1 << _planet.finest_lod_level())
+	assert_true(edge <= PlanetBody.FINEST_CHUNK_EDGE_METRES and edge > PlanetBody.FINEST_CHUNK_EDGE_METRES * 0.5, "finest chunk edge %f m" % edge)

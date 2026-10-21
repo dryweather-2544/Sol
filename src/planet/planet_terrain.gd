@@ -4,17 +4,21 @@ extends Node3D
 ## built on worker threads. Collision is not meshes: ship and player query the same HeightFunction
 ## directly (see docs/decisions/0002-height-query-collision.md).
 ##
-## N14 streaming model (docs/N14_TERRAIN_STREAMING.md):
-## - The planner picks the desired leaves around the viewer and a short predicted corridor ahead.
-## - Every built chunk is "available" (an uploaded mesh). Each pass picks, per desired leaf, the
-##   best available cover and shows exactly those chunks: the leaf itself at full grid, else finer
-##   chunks that fully cover it, else the leaf's quick preview mesh, else the nearest available
-##   ancestor as a filler (sunk slightly so finer neighbours win the depth test). Everything else
-##   is hidden, not freed: hidden chunks are a bounded LRU cache that is reused on return.
-## - Levels 0-2 are a pinned, cheap whole-planet backstop, so there is never a hole, and they are
-##   built once (never rebuilt: hidden when unused).
-## - A leaf that is badly covered first gets a preview mesh (~1/10 of the samples), then its full
-##   grid. Current-view work is ordered ahead of speculative work along the predicted path.
+## Streaming model (docs/N14_TERRAIN_STREAMING.md, reworked after the first GPU-height flights):
+## - The planner picks a quadtree around the viewer and a short predicted corridor ahead: leaves are the chunks to show,
+##   internal nodes are the split chunks above them. Every node of that tree is built, coarse and near first, so a
+##   region refines one level at a time instead of jumping from a huge block to the finest grid.
+## - Exactly one layer is ever shown. A node shows its four children only once all four can be shown (themselves or
+##   through their own children); until then the node itself covers the area. Chunks never overlap, so there is no
+##   depth fighting and no sunk "filler" layer. Levels 0-2 are a pinned, cheap whole-planet backstop that is built
+##   first and never evicted, so there is never a hole.
+## - A chunk that replaces its parent starts in the parent's shape and eases into its own (geomorph, the "morph"
+##   instance uniform of the terrain shader), so refining does not pop.
+## - Hidden chunks stay a bounded LRU cache and are reused on return.
+## - Planning (the tree, the build order and the choice of what to show) runs on its own thread; the main thread only
+##   starts builds, uploads finished meshes (already built into ArrayMeshes by the workers) and applies the small
+##   difference in what is visible. Chunk nodes live under one root node, so a floating-origin shift moves one node, not
+##   every chunk.
 
 ## Shared with worker threads. Lives on its own (not on the node) so a task that finishes after the
 ## terrain was freed - for example when the ship leaves this world - touches nothing that is gone.
@@ -27,21 +31,31 @@ class BuildState extends RefCounted:
 	var height_pool: Array[HeightFunction] = []
 
 
-const PLAN_INTERVAL_SECONDS := 0.2
-## Uploaded chunks are swapped in by the visibility pass at most this often (it walks every chunk).
-const VISIBILITY_INTERVAL_SECONDS := 0.1
-const CHUNKS_ADDED_PER_FRAME := 12
-## Main-thread time allowed for uploading finished meshes in one frame.
-const UPLOAD_BUDGET_USEC := 4000
+## What one planning pass decided.
+class PlanResult extends RefCounted:
+	var leaves := {}   # key -> true: the chunks to show
+	var internal := {} # key -> true: the split chunks above them
+	var order: Array[int] = [] # keys still to build, most urgent first
+	var tiles := {}    # key -> true: the chunks that should be visible, given what was built when the plan was made
+	var compute_usec := 0
+
+
+## Minimum time between planning passes (a pass starts as soon as the previous one has been applied after this).
+const PLAN_INTERVAL_SECONDS := 0.1
+## Uploads per frame and the main-thread time allowed for them.
+const CHUNKS_ADDED_PER_FRAME := 16
+const UPLOAD_BUDGET_USEC := 3000
 ## Hierarchical backstop: 6 + 24 + 96 small-grid chunks that together always cover the planet.
 const FALLBACK_LEVELS := [0, 1, 2]
-## A desired leaf whose best cover is this many levels coarser (or a hole) gets a preview first.
-const PREVIEW_DEFICIT_LEVELS := 2
-## Hidden (cached) chunks. A full chunk is about 76 KB of mesh, so 48 MiB holds ~640 of them.
-const READY_CACHE_BUDGET_BYTES := 48 * 1024 * 1024
+## Hidden (cached) chunks. A full chunk is about 90 KB of mesh.
+const READY_CACHE_BUDGET_BYTES := 64 * 1024 * 1024
 const READY_CACHE_MAX_ENTRIES := 768
+## Seconds a chunk takes to ease from its parent's shape to its own.
+const MORPH_SECONDS := 0.7
+## Chunk nodes are placed relative to an anchor; when the render origin has moved this far from it they are re-placed.
+const REANCHOR_METRES := 30000.0
 ## Predicted corridor: how far ahead the planner refines. The lookahead time grows with the
-## measured request-to-screen latency, within these bounds, and is capped in metres.
+## measured build backlog, within these bounds, and is capped in metres.
 const PRELOAD_MIN_SECONDS := 3.0
 const PRELOAD_MAX_SECONDS := 8.0
 const PRELOAD_MAX_METRES := 60000.0
@@ -51,11 +65,6 @@ const PRELOAD_CORRIDOR_POINTS := 3
 const AHEAD_DISTANCE_WEIGHT := 1.35
 ## Kept for tools/tests that read it; the live limit is max_builds_in_flight (scaled to the CPU).
 const MAX_BUILDS_IN_FLIGHT := 8
-## Tier order of the build queue (lower first).
-const TIER_BACKSTOP := 0
-const TIER_PREVIEW := 1
-const TIER_FULL := 2
-const TIER_REFINE_COVERED := 3
 
 var planet: PlanetBody
 var planner: LodPlanner
@@ -66,28 +75,41 @@ var viewer := WorldPos.new(&"planet")
 var viewer_velocity := Vector3.ZERO
 ## Worker tasks in flight. Defaults to the core count minus two (rendering and the main thread).
 var max_builds_in_flight := MAX_BUILDS_IN_FLIGHT
+## Plan on a background thread (the game sets this; tests plan on the calling thread so they are deterministic).
+var threaded_planning := false
 
 var _material := StandardMaterial3D.new()
 var _detail_material: ShaderMaterial ## null = plain vertex-colour material (switch off, or an asset missing)
-var _chunks := {}             # key -> record: every uploaded chunk, visible or hidden
-var _available_prefixes := {} # key -> count of available descendants (cheap coverage queries)
-var _displayed := {}          # key -> record: the visible subset of _chunks
-var _displayed_prefixes := {} # key -> count of visible descendants
-var _desired := {}
-var _fallback := {}           # pinned backstop keys (levels in FALLBACK_LEVELS)
-var _pending := {}            # key -> grid being built
-var _build_queue: Array = []  # [key, grid] still to build, in priority order
-var _first_wanted := {}       # key -> usec the key was first queued (for the latency estimate)
+var _root := Node3D.new()      # parent of every chunk node
+var _anchor: WorldPos = null   # chunk nodes are positioned relative to this; _root is offset from the render origin
+var _chunks := {}              # key -> record: every uploaded chunk, visible or hidden
+var _available_grids := {}     # key -> grid of the uploaded chunk
+var _displayed := {}           # key -> record: the visible subset of _chunks
+var _displayed_prefixes := {}  # key -> count of visible descendants
+var _desired := {}             # leaf keys of the latest plan
+var _internal := {}            # split keys of the latest plan
+var _fallback := {}            # backstop keys (levels in FALLBACK_LEVELS) seen at the first plan
+var _pending := {}             # key -> grid being built
+var _build_order: Array[int] = [] # keys to build, most urgent first (the latest plan)
+var _order_cursor := 0
+var _new_hints := {}           # key -> centre height of chunks built since the last plan request
+var _morphing := {}            # key -> true while the chunk eases from its parent's shape
 var _build_state := BuildState.new()
 var _task_ids: Array[int] = []
 var _seconds_since_plan := PLAN_INTERVAL_SECONDS
-var _visibility_dirty := false
-var _seconds_since_visibility := 0.0
 var _tick := 0
 var _hidden_bytes := 0
 var _hidden_count := 0
-var _latency_ema_seconds := 0.5
+var _build_seconds_ema := 0.01
 var _lookahead_seconds := PRELOAD_MIN_SECONDS
+var _plan_thread: Thread
+var _plan_semaphore := Semaphore.new()
+var _plan_mutex := Mutex.new()
+var _plan_request = null
+var _plan_result = null
+var _plan_in_flight := false
+var _plan_stop := false
+var _stats_report_timer := 0.0
 ## Debug/measurement counters, cheap and read-only for tests and probes.
 var _stats := {
 	"desired_by_level": {},
@@ -108,6 +130,7 @@ var _stats := {
 	"visibility_usec_max": 0,
 	"plan_usec_max": 0,
 	"plan_usec_sum": 0,
+	"plan_compute_usec_max": 0,
 	"visibility_usec_sum": 0,
 	"visibility_passes": 0,
 }
@@ -122,6 +145,8 @@ func _init(planet_body: PlanetBody = null) -> void:
 	_material.vertex_color_use_as_albedo = true
 	_material.roughness = 1.0
 	_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_root.name = "Chunks"
+	add_child(_root)
 	if planet_body != null:
 		_detail_material = TerrainDetail.build_material(planet_body.atmosphere_height, planet_body.look)
 
@@ -138,21 +163,42 @@ func set_viewer_altitude(altitude_metres: float) -> void:
 
 func _process(delta: float) -> void:
 	_seconds_since_plan += delta
-	_seconds_since_visibility += delta
-	if _seconds_since_plan >= PLAN_INTERVAL_SECONDS:
-		_seconds_since_plan = 0.0
-		_replan() # schedules a visibility pass for the next frame
-		_collect_finished_builds()
-		return
 	_collect_finished_builds()
-	if _visibility_dirty and _seconds_since_visibility >= VISIBILITY_INTERVAL_SECONDS:
-		_update_visibility()
+	if threaded_planning:
+		_collect_plan_result()
+		if not _plan_in_flight and _seconds_since_plan >= PLAN_INTERVAL_SECONDS:
+			_seconds_since_plan = 0.0
+			_post_plan_request()
+	elif _seconds_since_plan >= PLAN_INTERVAL_SECONDS * 2.0:
+		_seconds_since_plan = 0.0
+		_replan()
+	_update_morphs(delta)
+	_stats_report_timer += delta
+	if _stats_report_timer >= 5.0 and threaded_planning and OS.is_debug_build():
+		_stats_report_timer = 0.0
+		_print_stream_report()
+
+
+## One line every five seconds in debug runs, so a stutter can be matched to the step that caused it (worst case since the
+## last line, in milliseconds on the main thread unless stated).
+func _print_stream_report() -> void:
+	print("terrain: shown %d  built %d  wanted %d  queued %d  building %d  | plan thread %.1f  plan main %.1f  show/hide %.1f  upload %.1f ms" % [
+		_displayed.size(), _chunks.size(), _desired.size() + _internal.size(), maxi(0, _build_order.size() - _order_cursor), _pending.size(),
+		float(_stats["plan_compute_usec_max"]) / 1000.0, float(_stats["plan_usec_max"]) / 1000.0,
+		float(_stats["visibility_usec_max"]) / 1000.0, float(_stats["upload_usec_max"]) / 1000.0])
+	for stat in ["plan_compute_usec_max", "plan_usec_max", "visibility_usec_max", "upload_usec_max"]:
+		_stats[stat] = 0
 
 
 func apply_origin_shift(shift: Vector3) -> void:
 	render_origin = render_origin.offset_by(shift)
-	for chunk_record in _chunks.values():
-		_place(chunk_record)
+	if _anchor == null:
+		return
+	if _anchor.to_local_vector3(render_origin).length() > REANCHOR_METRES:
+		_anchor = render_origin.duplicate_position()
+		for chunk_record in _chunks.values():
+			_place(chunk_record)
+	_update_root()
 
 
 func displayed_chunk_count() -> int:
@@ -172,88 +218,172 @@ func is_settled() -> bool:
 
 # --- planning -------------------------------------------------------------------------------
 
+## One planning pass on the calling thread (what tests drive; the game uses the planning thread).
 func _replan() -> void:
 	var started := Time.get_ticks_usec()
-	_tick += 1
-	var corridor := _preload_points()
-	_desired = planner.select_leaves(viewer, corridor)
-	_stats["plan_count"] = int(_stats["plan_count"]) + 1
-	_count_desired_by_level()
-	if _fallback.is_empty():
-		_fallback = _fallback_ancestors(_desired)
-	var viewer_point := Vector3(viewer.x, viewer.y, viewer.z)
+	_apply_plan(_compute_plan(_make_plan_request()))
+	_record_plan_cost(Time.get_ticks_usec() - started)
+
+
+func _make_plan_request() -> Dictionary:
+	var request := {
+		"viewer": viewer.duplicate_position(),
+		"corridor": _preload_points(),
+		"available": _available_grids.duplicate(),
+		"hints": _new_hints,
+	}
+	_new_hints = {}
+	return request
+
+
+func _post_plan_request() -> void:
+	var started := Time.get_ticks_usec()
+	if _plan_thread == null:
+		_plan_thread = Thread.new()
+		_plan_thread.start(_plan_thread_loop)
+	var request := _make_plan_request()
+	_plan_mutex.lock()
+	_plan_request = request
+	_plan_mutex.unlock()
+	_plan_in_flight = true
+	_plan_semaphore.post()
+	_record_plan_cost(Time.get_ticks_usec() - started)
+
+
+func _plan_thread_loop() -> void:
+	while true:
+		_plan_semaphore.wait()
+		if _plan_stop:
+			return
+		_plan_mutex.lock()
+		var request = _plan_request
+		_plan_request = null
+		_plan_mutex.unlock()
+		if request == null:
+			continue
+		var result := _compute_plan(request)
+		_plan_mutex.lock()
+		_plan_result = result
+		_plan_mutex.unlock()
+
+
+func _collect_plan_result() -> void:
+	_plan_mutex.lock()
+	var result = _plan_result
+	_plan_result = null
+	_plan_mutex.unlock()
+	if result == null:
+		return
+	_plan_in_flight = false
+	var started := Time.get_ticks_usec()
+	_apply_plan(result)
+	_record_plan_cost(Time.get_ticks_usec() - started)
+
+
+func _record_plan_cost(spent: int) -> void:
+	_stats["plan_usec_max"] = maxi(int(_stats["plan_usec_max"]), spent)
+	_stats["plan_usec_sum"] = int(_stats["plan_usec_sum"]) + spent
+
+
+## The pure part of a pass, safe on the planning thread: reads only the request and the planner.
+func _compute_plan(request: Dictionary) -> PlanResult:
+	var started := Time.get_ticks_usec()
+	var hints: Dictionary = request["hints"]
+	for key in hints:
+		planner.note_height(key, float(hints[key]))
+	var corridor: Array = request["corridor"]
+	var tree := planner.plan(request["viewer"], corridor)
+	var result := PlanResult.new()
+	result.leaves = tree["leaves"]
+	result.internal = tree["internal"]
+	var available: Dictionary = request["available"]
+	var viewer_position: WorldPos = request["viewer"]
+	var viewer_point := Vector3(viewer_position.x, viewer_position.y, viewer_position.z)
 	var corridor_points: Array[Vector3] = []
 	var corridor_along: Array[float] = [] # path distance from the viewer to each corridor point
 	for point in corridor:
 		var corridor_point := Vector3(point.x, point.y, point.z)
 		corridor_points.append(corridor_point)
 		corridor_along.append(viewer_point.distance_to(corridor_point))
-	# Candidates as Vector4i(tier, distance in metres, key high bits, key low bits) so the native
-	# sort orders them (tier first, then distance) without a script comparator.
+	# Candidates as Vector4i(urgency in metres, level, key high bits, key low bits) so the native sort orders them
+	# without a script comparator. The backstop levels are first of all.
 	var candidates: Array[Vector4i] = []
-	var grids := {} # key -> grid to build
-	for key in _fallback:
-		if not _chunks.has(key) and not _pending.has(key):
-			var tier := TIER_BACKSTOP if ChunkKey.level_of(key) == 0 else TIER_PREVIEW
-			candidates.append(_candidate(tier, viewer_point.distance_to(planner.chunk_center(key)), key))
-			grids[key] = ChunkMesher.grid_for_level(ChunkKey.level_of(key))
-	for key in _desired:
-		if _pending.has(key):
-			continue
-		var record: Dictionary = _chunks.get(key, {})
-		var have_grid: int = 0 if record.is_empty() else int(record["grid"])
-		if have_grid >= ChunkMesher.FINE_GRID:
-			continue
-		var center := planner.chunk_center(key)
-		var score := viewer_point.distance_to(center)
-		# Rank by how soon the ship reaches the chunk: the path length to a corridor point plus the
-		# distance from that point. A chunk centred on a corridor point 60 km ahead used to score ~0
-		# and was built before chunks the ship reaches in 0.1 s, starving the near field at 10 km/s.
-		for index in corridor_points.size():
-			score = minf(score, corridor_along[index] + corridor_points[index].distance_to(center) * AHEAD_DISTANCE_WEIGHT)
-		var tier := TIER_FULL
-		var grid := ChunkMesher.FINE_GRID
-		if have_grid == 0:
-			if _available_prefixes.has(key) and _available_descendants_cover(key):
-				tier = TIER_REFINE_COVERED
-			elif _cover_deficit(key) >= PREVIEW_DEFICIT_LEVELS:
-				tier = TIER_PREVIEW
-				grid = ChunkMesher.PREVIEW_GRID
-		candidates.append(_candidate(tier, score, key))
-		grids[key] = grid
+	for key in result.leaves:
+		_add_candidate(candidates, key, true, available, viewer_point, corridor_points, corridor_along)
+	for key in result.internal:
+		_add_candidate(candidates, key, false, available, viewer_point, corridor_points, corridor_along)
 	candidates.sort()
-	var now := Time.get_ticks_usec()
-	_build_queue.clear()
 	for candidate in candidates:
-		var key: int = (candidate.z << 32) | (candidate.w & 0xFFFFFFFF)
-		_build_queue.append([key, grids[key]])
-		if not _first_wanted.has(key):
-			_first_wanted[key] = now
-	if _first_wanted.size() > 4096:
-		_first_wanted.clear()
-	_stats["peak_queue"] = maxi(int(_stats["peak_queue"]), _build_queue.size())
+		result.order.append((candidate.z << 32) | (candidate.w & 0xFFFFFFFF))
+	result.tiles = _resolve_all(result.internal, available)
+	result.compute_usec = Time.get_ticks_usec() - started
+	return result
+
+
+func _add_candidate(candidates: Array[Vector4i], key: int, is_leaf: bool, available: Dictionary, viewer_point: Vector3, corridor_points: Array[Vector3], corridor_along: Array[float]) -> void:
+	if int(available.get(key, 0)) >= _required_grid(key, is_leaf):
+		return
+	var level := ChunkKey.level_of(key)
+	var score := -1000000.0 + float(level) if level in FALLBACK_LEVELS else planner.urgency(key, viewer_point, corridor_points, corridor_along, AHEAD_DISTANCE_WEIGHT)
+	candidates.append(Vector4i(clampi(int(score), -0x7FFFFFFF, 0x7FFFFFFF), level, key >> 32, key & 0xFFFFFFFF))
+
+
+## Grid a node is built at. The backstop levels use cheap grids unless they are themselves what is shown.
+static func _required_grid(key: int, is_leaf: bool) -> int:
+	var level := ChunkKey.level_of(key)
+	if level in FALLBACK_LEVELS and not is_leaf:
+		return ChunkMesher.grid_for_level(level)
+	return ChunkMesher.FINE_GRID
+
+
+## The chunks to show for the six faces. A split node shows its four children only when all four can be shown; otherwise
+## it shows itself when it exists; otherwise whatever its children can show (an ancestor then covers the rest).
+static func _resolve_all(internal: Dictionary, available: Dictionary) -> Dictionary:
+	var shown: Array[int] = []
+	for face in 6:
+		_resolve_tiles(ChunkKey.make(face, 0, 0, 0), internal, available, shown)
+	var tiles := {}
+	for key in shown:
+		tiles[key] = true
+	return tiles
+
+
+static func _resolve_tiles(key: int, internal: Dictionary, available: Dictionary, out: Array[int]) -> bool:
+	if internal.has(key):
+		var start := out.size()
+		var complete := true
+		for child_column in 2:
+			for child_row in 2:
+				if not _resolve_tiles(ChunkKey.child_of(key, child_column, child_row), internal, available, out):
+					complete = false
+		if complete:
+			return true
+		if available.has(key):
+			out.resize(start)
+			out.append(key)
+			return true
+		return false
+	if available.has(key):
+		out.append(key)
+		return true
+	return false
+
+
+func _apply_plan(result: PlanResult) -> void:
+	_tick += 1
+	_desired = result.leaves
+	_internal = result.internal
+	_stats["plan_count"] = int(_stats["plan_count"]) + 1
+	_stats["plan_compute_usec_max"] = maxi(int(_stats["plan_compute_usec_max"]), result.compute_usec)
+	_count_desired_by_level()
+	if _fallback.is_empty():
+		_fallback = _fallback_ancestors(_desired)
+	_build_order = result.order
+	_order_cursor = 0
+	_stats["peak_queue"] = maxi(int(_stats["peak_queue"]), _build_order.size())
+	_update_lookahead()
 	_start_queued_builds()
-	# The visibility pass runs on the next frame (from _process), not in this one, so the two
-	# main-thread costs never add up into one long frame.
-	_visibility_dirty = true
-	_seconds_since_visibility = VISIBILITY_INTERVAL_SECONDS
-	var spent := Time.get_ticks_usec() - started
-	_stats["plan_usec_max"] = maxi(int(_stats["plan_usec_max"]), spent)
-	_stats["plan_usec_sum"] = int(_stats["plan_usec_sum"]) + spent
-
-
-static func _candidate(tier: int, score: float, key: int) -> Vector4i:
-	return Vector4i(tier, mini(int(score), 0x7FFFFFFF), key >> 32, key & 0xFFFFFFFF)
-
-
-## Levels more coarse than the leaf that its best current cover is (99 = nothing covers it).
-func _cover_deficit(key: int) -> int:
-	var ancestor := key
-	while ChunkKey.level_of(ancestor) > 0:
-		ancestor = ChunkKey.parent_of(ancestor)
-		if _chunks.has(ancestor):
-			return ChunkKey.level_of(key) - ChunkKey.level_of(ancestor)
-	return 99
+	_apply_tiles(result.tiles)
 
 
 func _fallback_ancestors(leaves: Dictionary) -> Dictionary:
@@ -269,6 +399,12 @@ func _fallback_ancestors(leaves: Dictionary) -> Dictionary:
 	return result
 
 
+func _update_lookahead() -> void:
+	var remaining := maxi(0, _build_order.size() - _order_cursor) + _pending.size()
+	var backlog_seconds := float(remaining) * _build_seconds_ema / float(maxi(1, max_builds_in_flight))
+	_lookahead_seconds = clampf(2.0 + 2.0 * backlog_seconds, PRELOAD_MIN_SECONDS, PRELOAD_MAX_SECONDS)
+
+
 ## The predicted corridor ahead of the viewer: PRELOAD_CORRIDOR_POINTS points spaced along the
 ## velocity up to the lookahead distance. Capped in metres so an orbital speed cannot flood the
 ## planner. Empty when the viewer is (nearly) still.
@@ -277,7 +413,6 @@ func _preload_points() -> Array[WorldPos]:
 	var speed := viewer_velocity.length()
 	if speed < 1.0:
 		return points
-	_lookahead_seconds = clampf(1.5 + 2.0 * _latency_ema_seconds, PRELOAD_MIN_SECONDS, PRELOAD_MAX_SECONDS)
 	var distance := minf(speed * _lookahead_seconds, PRELOAD_MAX_METRES)
 	if distance < PRELOAD_MIN_METRES:
 		return points
@@ -297,16 +432,16 @@ func _preload_viewer() -> WorldPos:
 # --- building -------------------------------------------------------------------------------
 
 func _start_queued_builds() -> void:
-	while _pending.size() < max_builds_in_flight and not _build_queue.is_empty():
-		var entry: Array = _build_queue.pop_front()
-		var key: int = entry[0]
-		var grid: int = entry[1]
+	while _pending.size() < max_builds_in_flight and _order_cursor < _build_order.size():
+		var key: int = _build_order[_order_cursor]
+		_order_cursor += 1
 		if _pending.has(key):
 			continue
-		var record: Dictionary = _chunks.get(key, {})
-		if not record.is_empty() and int(record["grid"]) >= grid:
+		var is_leaf := _desired.has(key)
+		if not is_leaf and not _internal.has(key):
 			continue
-		if not _desired.has(key) and not _fallback.has(key):
+		var grid := _required_grid(key, is_leaf)
+		if int(_available_grids.get(key, 0)) >= grid:
 			continue
 		_pending[key] = grid
 		_task_ids.append(WorkerThreadPool.add_task(PlanetTerrain._build_in_background.bind(key, grid, planet, _build_state)))
@@ -335,6 +470,7 @@ static func _build_in_background(key: int, grid: int, planet_body: PlanetBody, s
 			height_function = HeightFunction.new(planet_body.profile_or_default())
 	var mesh_data := ChunkMesher.build(key, planet_body, grid, height_function)
 	mesh_data["key"] = key
+	mesh_data["mesh"] = ChunkMesher.make_mesh(mesh_data) # the main thread only has to add a node
 	mesh_data["build_microseconds"] = Time.get_ticks_usec() - started
 	state.mutex.lock()
 	if height_function != null:
@@ -349,6 +485,11 @@ func _exit_tree() -> void:
 	for task_id in _task_ids:
 		WorkerThreadPool.wait_for_task_completion(task_id)
 	_task_ids.clear()
+	if _plan_thread != null:
+		_plan_stop = true
+		_plan_semaphore.post()
+		_plan_thread.wait_to_finish()
+		_plan_thread = null
 
 
 func _collect_finished_builds() -> void:
@@ -369,45 +510,36 @@ func _collect_finished_builds() -> void:
 		var level := ChunkKey.level_of(key)
 		var by_level: Dictionary = _stats["build_times_by_level"]
 		var times: Array = by_level.get(level, [])
-		times.append(float(mesh_data.get("build_microseconds", 0)) / 1000.0)
+		var build_ms := float(mesh_data.get("build_microseconds", 0)) / 1000.0
+		times.append(build_ms)
 		if times.size() > 256:
 			times.pop_front()
 		by_level[level] = times
-		if grid >= ChunkMesher.FINE_GRID and _first_wanted.has(key):
-			var latency := float(Time.get_ticks_usec() - int(_first_wanted[key])) / 1000000.0
-			_latency_ema_seconds = lerpf(_latency_ema_seconds, latency, 0.1)
-		if grid >= ChunkMesher.FINE_GRID or ChunkKey.level_of(key) in FALLBACK_LEVELS:
-			_first_wanted.erase(key)
+		_build_seconds_ema = lerpf(_build_seconds_ema, build_ms / 1000.0, 0.1)
+		if mesh_data.has("centre_height"):
+			_new_hints[key] = float(mesh_data["centre_height"])
 		_add_chunk(key, mesh_data)
 	if uploaded > 0:
 		_stats["upload_usec_max"] = maxi(int(_stats["upload_usec_max"]), Time.get_ticks_usec() - started)
 	_start_queued_builds()
 
 
-## Uploads a finished mesh as an available chunk (hidden until the visibility pass picks it).
-## A better-grid mesh for a key replaces the old one.
+## Uploads a finished mesh as an available (hidden) chunk; a plan pass decides when it is shown. A better-grid mesh
+## for a chunk on screen takes its place in the same frame.
 func _add_chunk(key: int, mesh_data: Dictionary) -> void:
 	var grid: int = int(mesh_data.get("grid", ChunkMesher.FINE_GRID))
 	var existing: Dictionary = _chunks.get(key, {})
 	var was_visible := false
-	var was_filler := false
 	if not existing.is_empty():
 		if int(existing["grid"]) >= grid:
 			_stats["discarded"] = int(_stats["discarded"]) + 1
 			return
-		# A better mesh for a chunk on screen takes its place in the same frame (no gap until
-		# the next visibility pass).
 		was_visible = bool(existing["visible"])
-		was_filler = bool(existing["filler"])
 		_free_chunk(key)
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = mesh_data["vertices"]
-	arrays[Mesh.ARRAY_NORMAL] = mesh_data["normals"]
-	arrays[Mesh.ARRAY_COLOR] = mesh_data["colors"]
-	arrays[Mesh.ARRAY_INDEX] = mesh_data["indices"]
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	if _anchor == null:
+		_anchor = render_origin.duplicate_position()
+		_update_root()
+	var mesh: ArrayMesh = mesh_data["mesh"] if mesh_data.has("mesh") else ChunkMesher.make_mesh(mesh_data)
 	var origin_components: PackedFloat64Array = mesh_data["origin"]
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
@@ -418,7 +550,7 @@ func _add_chunk(key: int, mesh_data: Dictionary) -> void:
 		instance.material_override = _material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	instance.visible = false
-	add_child(instance)
+	_root.add_child(instance)
 	var level := ChunkKey.level_of(key)
 	var record := {
 		"key": key,
@@ -430,18 +562,16 @@ func _add_chunk(key: int, mesh_data: Dictionary) -> void:
 		"visible": false,
 		"filler": false,
 		"preview": grid < ChunkMesher.FINE_GRID and not (level in FALLBACK_LEVELS),
-		"sink": clampf(planner.chunk_edge_metres(level) / float(grid) * 0.5, 2.0, 3000.0),
+		"morphs": _detail_material != null and mesh_data.has("morph"),
+		"morph_t": 1.0,
 	}
 	_chunks[key] = record
+	_available_grids[key] = grid
 	_hidden_bytes += int(record["bytes"])
 	_hidden_count += 1
 	_place(record)
-	_adjust_prefixes(_available_prefixes, key, 1)
 	if was_visible:
-		record["filler"] = was_filler
 		_set_visible(record, true)
-		_place(record)
-	_visibility_dirty = true
 
 
 func _free_chunk(key: int) -> void:
@@ -454,7 +584,8 @@ func _free_chunk(key: int) -> void:
 	_hidden_count -= 1
 	(record["node"] as Node).queue_free()
 	_chunks.erase(key)
-	_adjust_prefixes(_available_prefixes, key, -1)
+	_available_grids.erase(key)
+	_morphing.erase(key)
 
 
 func _adjust_prefixes(prefixes: Dictionary, key: int, amount: int) -> void:
@@ -470,37 +601,39 @@ func _adjust_prefixes(prefixes: Dictionary, key: int, amount: int) -> void:
 
 func _mesh_memory_bytes(mesh_data: Dictionary) -> int:
 	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
-	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
 	var colors: PackedColorArray = mesh_data.get("colors", PackedColorArray())
 	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
-	return vertices.size() * 12 + normals.size() * 12 + colors.size() * 16 + indices.size() * 4 + 64
+	return vertices.size() * 36 + colors.size() * 16 + indices.size() * 4 + 64 # position, normal and geomorph offset: 12 bytes each
 
 
 # --- visibility -----------------------------------------------------------------------------
 
-## Picks the cover for every desired leaf and shows exactly those chunks (see the class comment).
+## Re-decides what is shown from the chunks available now, on the calling thread (tests, and tools that drive a terrain by
+## hand; the game gets the same decision from each planning pass).
 func _update_visibility() -> void:
+	_apply_tiles(_resolve_all(_internal, _available_grids))
+
+
+## Makes exactly `tiles` visible: shows what is new (a chunk replacing its parent starts in the parent's shape), hides the
+## rest. Chunks that were freed since the plan was made are skipped.
+func _apply_tiles(tiles: Dictionary) -> void:
 	var started := Time.get_ticks_usec()
-	_visibility_dirty = false
-	_seconds_since_visibility = 0.0
-	var keep := {} # key -> true when shown as a sunk filler
-	for key in _desired:
-		_choose_cover(key, keep)
-	var fillers := 0
-	for key in _chunks.keys():
+	var to_show: Array[int] = []
+	for key in tiles:
+		if _chunks.has(key) and not _displayed.has(key):
+			to_show.append(key)
+	var to_hide: Array[int] = []
+	for key in _displayed:
+		if not tiles.has(key):
+			to_hide.append(key)
+	for key in to_show:
 		var record: Dictionary = _chunks[key]
-		var show := keep.has(key)
-		if show != bool(record["visible"]):
-			_set_visible(record, show)
-		if show:
-			record["used"] = _tick
-			var filler: bool = keep[key]
-			if filler:
-				fillers += 1
-			if filler != bool(record["filler"]):
-				record["filler"] = filler
-				_place(record)
-	_stats["fillers"] = fillers
+		var replaces_parent := ChunkKey.level_of(key) > 0 and _displayed.has(ChunkKey.parent_of(key)) and not _displayed_prefixes.has(key)
+		_set_visible(record, true)
+		record["used"] = _tick
+		_begin_morph(record, replaces_parent)
+	for key in to_hide:
+		_set_visible(_chunks[key], false)
 	_evict_hidden()
 	var spent := Time.get_ticks_usec() - started
 	_stats["visibility_usec_max"] = maxi(int(_stats["visibility_usec_max"]), spent)
@@ -508,58 +641,39 @@ func _update_visibility() -> void:
 	_stats["visibility_passes"] = int(_stats["visibility_passes"]) + 1
 
 
-func _choose_cover(key: int, keep: Dictionary) -> void:
-	var record: Dictionary = _chunks.get(key, {})
-	if not record.is_empty() and int(record["grid"]) >= ChunkMesher.FINE_GRID:
-		keep[key] = false
+func _begin_morph(record: Dictionary, from_parent: bool) -> void:
+	if not bool(record.get("morphs", false)):
 		return
-	var partial: Array[int] = []
-	var full := _collect_available_cover(key, partial)
-	for covered in partial:
-		keep[covered] = false
-	if full:
+	var node := record["node"] as MeshInstance3D
+	var key: int = record["key"]
+	if from_parent:
+		record["morph_t"] = 0.0
+		node.set_instance_shader_parameter("morph", 1.0)
+		_morphing[key] = true
+	else:
+		if float(record["morph_t"]) < 1.0:
+			node.set_instance_shader_parameter("morph", 0.0)
+		record["morph_t"] = 1.0
+		_morphing.erase(key)
+
+
+func _update_morphs(delta: float) -> void:
+	if _morphing.is_empty():
 		return
-	if not record.is_empty():
-		# The leaf's own preview: sunk only if finer leftovers overlap it.
-		keep[key] = not partial.is_empty()
-		return
-	var ancestor := key
-	while ChunkKey.level_of(ancestor) > 0:
-		ancestor = ChunkKey.parent_of(ancestor)
-		if _chunks.has(ancestor):
-			keep[ancestor] = true # a filler always overlaps finer chunks of its other children
-			return
-
-
-## Collects the coarsest available chunks strictly below key. Returns true when they cover key
-## fully. A full-grid child is used as is; a preview child is used unless full finer chunks
-## completely cover it.
-func _collect_available_cover(key: int, out: Array[int]) -> bool:
-	if ChunkKey.level_of(key) >= planner.max_level or not _available_prefixes.has(key):
-		return false
-	var full := true
-	for child_column in 2:
-		for child_row in 2:
-			var child := ChunkKey.child_of(key, child_column, child_row)
-			var record: Dictionary = _chunks.get(child, {})
-			if not record.is_empty() and int(record["grid"]) >= ChunkMesher.FINE_GRID:
-				out.append(child)
-				continue
-			var below: Array[int] = []
-			var below_full := _collect_available_cover(child, below)
-			if below_full:
-				out.append_array(below)
-			elif not record.is_empty():
-				out.append(child) # the preview child covers its whole area; finer scraps stay hidden
-			else:
-				out.append_array(below)
-				full = false
-	return full
-
-
-func _available_descendants_cover(key: int) -> bool:
-	var scratch: Array[int] = []
-	return _collect_available_cover(key, scratch)
+	for key in _morphing.keys():
+		var record: Dictionary = _chunks.get(key, {})
+		if record.is_empty() or not bool(record["visible"]):
+			_morphing.erase(key)
+			continue
+		var progress := float(record["morph_t"]) + delta / MORPH_SECONDS
+		var node := record["node"] as MeshInstance3D
+		if progress >= 1.0:
+			record["morph_t"] = 1.0
+			node.set_instance_shader_parameter("morph", 0.0)
+			_morphing.erase(key)
+		else:
+			record["morph_t"] = progress
+			node.set_instance_shader_parameter("morph", 1.0 - smoothstep(0.0, 1.0, progress))
 
 
 func _set_visible(record: Dictionary, show: bool) -> void:
@@ -570,6 +684,7 @@ func _set_visible(record: Dictionary, show: bool) -> void:
 		if bool(record.get("was_shown", false)):
 			_stats["cache_hits"] = int(_stats["cache_hits"]) + 1
 		record["was_shown"] = true
+		_stats["shown"] = int(_stats["shown"]) + 1
 		_displayed[key] = record
 		_adjust_prefixes(_displayed_prefixes, key, 1)
 		_hidden_bytes -= int(record["bytes"])
@@ -590,7 +705,7 @@ func _evict_hidden() -> void:
 	var hidden: Array = []
 	for key in _chunks:
 		var record: Dictionary = _chunks[key]
-		if bool(record["visible"]) or _fallback.has(key) or _desired.has(key) or _pending.has(key):
+		if bool(record["visible"]) or _fallback.has(key) or _desired.has(key) or _internal.has(key) or _pending.has(key) or ChunkKey.level_of(key) in FALLBACK_LEVELS:
 			continue
 		hidden.append([int(record["used"]), key])
 	hidden.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
@@ -601,17 +716,19 @@ func _evict_hidden() -> void:
 		_stats["cache_evicted"] = int(_stats["cache_evicted"]) + 1
 
 
+## Chunk nodes sit under _root at positions relative to the anchor; the root is offset from the render origin, so an
+## origin shift moves one node.
 func _place(chunk_record: Dictionary) -> void:
 	var instance: MeshInstance3D = chunk_record["node"]
-	var position := (chunk_record["origin"] as WorldPos).to_local_vector3(render_origin)
-	if bool(chunk_record.get("filler", false)):
-		# A filler overlaps finer chunks; sink it by about half its quad spacing (its own
-		# approximation error) toward the planet centre so the finer surface wins the depth test.
-		var centre := WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(render_origin)
-		var outward := (position - centre).normalized()
-		position -= outward * float(chunk_record.get("sink", 50.0))
-	instance.position = position
+	instance.position = (chunk_record["origin"] as WorldPos).to_local_vector3(_anchor)
 	instance.reset_physics_interpolation()
+
+
+func _update_root() -> void:
+	if _anchor == null:
+		return
+	_root.position = _anchor.to_local_vector3(render_origin)
+	_root.reset_physics_interpolation()
 
 
 # --- queries, stats and test hooks ----------------------------------------------------------
@@ -642,7 +759,7 @@ func displayed_coverage_is_complete() -> bool:
 	return true
 
 
-## True when the point of every desired leaf has some visible cover (itself, finer, or a filler).
+## True when the point of every desired leaf has some visible cover (itself, finer, or an ancestor).
 func desired_has_no_holes() -> bool:
 	for key in _desired:
 		if _displayed.has(key) or _is_covered(key):
@@ -677,15 +794,39 @@ func cache_mesh_for_test(key: int, mesh_data: Dictionary) -> void:
 	_evict_hidden()
 
 
-## Test hook kept from the first N14 pass: upload and re-run the visibility pass.
+## Test hook: upload and re-run the visibility decision.
 func _show_chunk(key: int, mesh_data: Dictionary) -> void:
 	_add_chunk(key, mesh_data)
 	_update_visibility()
 
 
-## Test hook kept from the first N14 pass: re-run the visibility pass.
+## Test hook: re-run the visibility decision.
 func _remove_obsolete_chunks() -> void:
 	_update_visibility()
+
+
+## Test hook: sets the plan by hand from a set of leaf keys: the leaves, every ancestor as a split node, and every
+## sibling of those that is not itself split as a leaf too, so the leaves tile the planet.
+func set_plan_for_test(leaves: Array) -> void:
+	_desired = {}
+	_internal = {}
+	for leaf in leaves:
+		var ancestor: int = leaf
+		while ChunkKey.level_of(ancestor) > 0:
+			ancestor = ChunkKey.parent_of(ancestor)
+			_internal[ancestor] = true
+	for leaf in leaves:
+		_desired[leaf] = true
+	for face in 6:
+		var root := ChunkKey.make(face, 0, 0, 0)
+		if not _desired.has(root) and not _internal.has(root):
+			_desired[root] = true
+	for key in _internal.keys():
+		for child_column in 2:
+			for child_row in 2:
+				var child := ChunkKey.child_of(key, child_column, child_row)
+				if not _internal.has(child):
+					_desired[child] = true
 
 
 func _count_desired_by_level() -> void:
@@ -705,13 +846,14 @@ func stream_stats() -> Dictionary:
 		displayed[level] = int(displayed.get(level, 0)) + 1
 	copy["displayed_by_level"] = displayed
 	copy["desired_count"] = _desired.size()
+	copy["internal_count"] = _internal.size()
 	copy["displayed_count"] = _displayed.size()
 	copy["available_count"] = _chunks.size()
 	copy["pending_count"] = _pending.size()
-	copy["queued_count"] = _build_queue.size()
+	copy["queued_count"] = maxi(0, _build_order.size() - _order_cursor)
 	copy["cache_entries"] = _hidden_count
 	copy["cache_bytes"] = _hidden_bytes
-	copy["latency_ema_s"] = _latency_ema_seconds
+	copy["latency_ema_s"] = _build_seconds_ema
 	copy["lookahead_s"] = _lookahead_seconds
 	copy["max_builds_in_flight"] = max_builds_in_flight
 	return copy
