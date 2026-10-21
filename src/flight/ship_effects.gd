@@ -9,6 +9,7 @@ extends Node3D
 ##   of the entry (ShipState.atmosphere_resistance): it builds as resistance rises and is full where the hull burns.
 
 var _plumes: Array[CPUParticles3D] = []
+var _plume_outer: Array[CPUParticles3D] = []
 var _nacelles: Array[MeshInstance3D] = []
 var _trail_mesh := ImmediateMesh.new()
 var _trail_instance := MeshInstance3D.new()
@@ -29,9 +30,12 @@ func setup(nacelles: Array[MeshInstance3D]) -> void:
 	# which tilt with the pods, every frame.
 	_nacelles = nacelles
 	for nacelle in nacelles:
-		var plume := _make_plume()
+		var plume := _make_plume(false)
 		add_child(plume)
 		_plumes.append(plume)
+		var outer := _make_plume(true)
+		add_child(outer)
+		_plume_outer.append(outer)
 	_build_trails()
 	_build_heat()
 	_build_muzzle_flash()
@@ -47,6 +51,10 @@ func update_effects(ship: Ship, delta: float) -> void:
 		plume.transform = _nacelles[index].transform * Transform3D(Basis.IDENTITY, Vector3(0, 0.4, 0)) # nozzle exit
 		plume.emitting = active and demand > 0.1
 		plume.speed_scale = 0.6 + 0.6 * demand
+		var outer := _plume_outer[index]
+		outer.transform = plume.transform
+		outer.emitting = active and demand > 0.1
+		outer.speed_scale = 0.6 + 0.5 * demand
 	_update_trails(ship, active)
 	var state := ship.state
 	var target := clampf(state.atmosphere_resistance / ShipDamage.ENTRY_DAMAGE_START, 0.0, 1.0) if active else 0.0
@@ -166,12 +174,17 @@ func _update_trails(ship: Ship, active: bool) -> void:
 		for index in dots:
 			var t := (float(index) + 0.5) / float(dots)
 			var centre := start.lerp(finish, t)
+			# The chase camera sits behind the ship, so the last part of the trail would pass
+			# between the camera and the hull. A constant-width camera-facing dot there projects as
+			# a huge square; skip the near-camera stretch instead of drawing it.
+			if (centre - camera_local).length() < 40.0:
+				continue
 			var normal := (camera_local - centre).normalized()
 			var side := out.cross(normal)
 			if side.length() < 0.001:
 				side = out.cross(Vector3.UP)
-			side = side.normalized() * 0.36
-			var up := normal.cross(side).normalized() * 0.36
+			side = side.normalized() * 0.23
+			var up := normal.cross(side).normalized() * 0.23
 			var colour := start_color.lerp(end_color, t)
 			# Dotted path: the quads are separated along the path by their spacing.
 			_trail_mesh.surface_set_color(colour)
@@ -189,25 +202,31 @@ func _update_trails(ship: Ship, active: bool) -> void:
 	_trail_mesh.surface_end()
 
 
-func _make_plume() -> CPUParticles3D:
+## Hard-edged pixel flame. The reference's entry fire is visibly stepped, so the engine exhaust
+## follows the same language rather than using a soft round glow. The outer layer is a wider, slower
+## cyan/purple plume; the inner core is a short white-hot cluster.
+func _make_plume(outer: bool) -> CPUParticles3D:
 	var plume := CPUParticles3D.new()
-	plume.name = "Plume"
-	plume.amount = 28
-	plume.lifetime = 0.45
+	plume.name = "OuterPixelPlume" if outer else "CorePixelPlume"
+	plume.amount = 24 if outer else 30
+	plume.lifetime = 0.32 if outer else 0.18
 	# Ship-relative: at entry speeds the ship covers ~150 m per frame, so world-space particles would be left behind.
 	plume.local_coords = true
-	plume.mesh = _additive_sprite(0.9)
+	plume.mesh = _square_sprite(1.45 if outer else 0.72)
 	plume.direction = Vector3(0, 1, 0)
-	plume.spread = 5.0
+	plume.spread = 14.0 if outer else 9.0
 	plume.gravity = Vector3.ZERO
-	plume.initial_velocity_min = 16.0
-	plume.initial_velocity_max = 24.0
-	plume.scale_amount_min = 0.7
-	plume.scale_amount_max = 1.1
+	plume.initial_velocity_min = 25.0 if outer else 42.0
+	plume.initial_velocity_max = 40.0 if outer else 62.0
+	plume.scale_amount_min = 0.9 if outer else 0.45
+	plume.scale_amount_max = 1.6 if outer else 0.8
 	plume.scale_amount_curve = Curve.new()
 	plume.scale_amount_curve.add_point(Vector2(0.0, 1.0))
-	plume.scale_amount_curve.add_point(Vector2(1.0, 0.35))
-	plume.color_ramp = _ramp([[0.0, Color(1.0, 0.97, 0.92, 0.9)], [0.25, Color(0.55, 0.9, 1.0, 0.7)], [0.7, Color(0.2, 0.45, 1.0, 0.3)], [1.0, Color(0.1, 0.2, 0.6, 0.0)]])
+	plume.scale_amount_curve.add_point(Vector2(1.0, 0.30))
+	if outer:
+		plume.color_ramp = _ramp([[0.0, Color(0.9, 0.98, 1.0, 0.85)], [0.22, Color(0.35, 0.78, 1.0, 0.65)], [0.68, Color(0.30, 0.22, 0.9, 0.35)], [1.0, Color(0.12, 0.04, 0.35, 0.0)]])
+	else:
+		plume.color_ramp = _ramp([[0.0, Color(1.0, 1.0, 1.0, 1.0)], [0.30, Color(0.75, 0.96, 1.0, 0.9)], [0.75, Color(0.25, 0.65, 1.0, 0.45)], [1.0, Color(0.08, 0.18, 0.75, 0.0)]])
 	plume.emitting = false
 	return plume
 

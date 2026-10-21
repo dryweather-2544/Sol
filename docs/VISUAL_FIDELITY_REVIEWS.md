@@ -208,3 +208,15 @@ from the same camera projection used by the target brackets. Tests: 326 / 97,140
 Restored the reference's red warning-strip language in the Rodina HUD: alerts use a dark red bordered
 panel and are centred below the mode tab (the old alert was a raw red label lower left). No new
 gameplay condition is introduced; this only formats `session.alert_text()`. Tests: 326 / 97,140 / 0.
+
+
+### Fifteenth iteration — pixel engine flames (2026-10-21)
+
+User-requested follow-up: the engine exhaust was still a soft round cyan sprite while entry fire was
+blocky. Replaced it with two hard-edged additive square layers per nozzle: a short white-hot core and a
+wider cyan/purple outer plume. The capture under thrust exposed a separate bug: at chase distance the
+cruise trail's near-camera dots projected as huge yellow squares between camera and hull. Those dots
+are now clipped within 40 m of the camera and reduced in width.
+
+Capture: `/tmp/n13_thrust_probe/flames4.png` (thrust held; pixel flames visible at both nozzles).
+Tests: 326 tests / 97,140 assertions / 0 failures.

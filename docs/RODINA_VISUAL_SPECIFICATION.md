@@ -37,6 +37,8 @@ Companion to `VISUAL_REFERENCE_INDEX.md` and `VISUAL_FIDELITY_REVIEWS.md`. Tags:
 
 - [OBS] Ordinary engine output is a small blue/purple plume; the long green trails are the dominant
   motion effect at cruise.
+- Implemented: two hard-edged additive square layers per nozzle (white-hot core, cyan/purple outer)
+  so engine flames use the same stepped pixel language as entry fire.
 - [OBS] Entry fire is large, blocky, additive purple/orange and screen-filling around the silhouette;
   Sol's entry now uses large hard-edged orange/purple squares, a purple exposure wash and suppresses
   cruise/speed effects during entry. It remains less screen-filling than the reference.
