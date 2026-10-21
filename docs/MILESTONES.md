@@ -290,4 +290,5 @@ and the commit is pushed.
 - [x] Hostile target brackets projected through the active camera.
 - [x] Pooled projectile impact flashes connected to the projectile simulation.
 - [x] Cockpit camera obstruction removed; dark cockpit tub/console geometry added.
+- [x] Compact Rodina HUD on foot and inside the ship (suit telemetry) in addition to the seated flight HUD.
 - [ ] Human visual comparison; cockpit dashboard detail, weapon/target panel and remaining WARP reference.

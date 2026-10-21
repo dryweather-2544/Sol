@@ -154,3 +154,14 @@ dash and planet. Added a dark cockpit floor/tub and console/instrument geometry 
 Capture after the change: `/tmp/n13_cockpit_probe/cockpit4.png`. It is much closer to the reference
 cockpit composition, but still lacks the reference's detailed vents, dashboard screens and framing;
 those remain open. No flight or camera-transform logic changed.
+
+
+### Ninth iteration — compact HUD on foot and in the ship (2026-10-21)
+
+Extended the cyan HUD beyond the pilot seat: `ON FOOT` shows O2/jetpack/health and `INSIDE SHIP`
+shows the same suit telemetry, with the reticle/weapon panel reserved for seated flight. This removes
+the green developer wall from those views while keeping the debug overlay for Sol style.
+
+The impact flare now also has a short billboard quad to make the hit visible even when the particle
+sparks are small. A direct flash capture still did not show it cleanly, so it remains test-verified
+but visually unconfirmed. Tests: 326 tests / 97,139 assertions / 0 failures.

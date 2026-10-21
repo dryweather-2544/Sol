@@ -9,6 +9,8 @@ const LIFE := 0.32
 
 var render_origin := WorldPos.new(&"planet")
 var _pool: Array[CPUParticles3D] = []
+var _flashes: Array[MeshInstance3D] = []
+var _flash_times: Array[float] = []
 
 
 func _ready() -> void:
@@ -34,6 +36,24 @@ func _ready() -> void:
 		flare.color_ramp = _ramp([[0.0, Color(1.0, 0.9, 0.6, 1.0)], [0.25, Color(1.0, 0.45, 0.1, 0.9)], [0.7, Color(0.4, 0.15, 0.8, 0.45)], [1.0, Color(0.1, 0.0, 0.2, 0.0)]])
 		add_child(flare)
 		_pool.append(flare)
+	var flash_mesh := QuadMesh.new()
+	flash_mesh.size = Vector2(1.8, 1.8)
+	var flash_material := StandardMaterial3D.new()
+	flash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flash_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	flash_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flash_material.albedo_color = Color(1.0, 0.62, 0.2, 0.8)
+	flash_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	flash_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	flash_mesh.material = flash_material
+	for index in POOL_SIZE:
+		var flash := MeshInstance3D.new()
+		flash.mesh = flash_mesh
+		flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		flash.visible = false
+		add_child(flash)
+		_flashes.append(flash)
+		_flash_times.append(0.0)
 
 
 func apply_origin_shift(shift: Vector3) -> void:
@@ -51,6 +71,21 @@ func flash(world_position: WorldPos) -> void:
 	flare.position = world_position.to_local_vector3(render_origin)
 	flare.restart()
 	flare.emitting = true
+	var local := flare.position
+	for index in _flashes.size():
+		if _flash_times[index] <= 0.0:
+			var flash := _flashes[index]
+			flash.position = local
+			flash.visible = true
+			_flash_times[index] = 0.12
+			break
+
+
+func _process(delta: float) -> void:
+	for index in _flashes.size():
+		if _flash_times[index] > 0.0:
+			_flash_times[index] = maxf(0.0, _flash_times[index] - delta)
+			_flashes[index].visible = _flash_times[index] > 0.0
 
 
 func _square() -> QuadMesh:

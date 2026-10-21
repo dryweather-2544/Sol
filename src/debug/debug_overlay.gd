@@ -156,7 +156,7 @@ func _process(_delta: float) -> void:
 
 
 func _use_rodina_hud() -> bool:
-	return VisualStyle.is_rodina() and session != null and (session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING) and not get_tree().paused
+	return VisualStyle.is_rodina() and session != null and not get_tree().paused
 
 
 func _set_debug_hud_visible(visible: bool) -> void:
@@ -178,20 +178,32 @@ func _update_rodina_hud() -> void:
 	_telemetry_label.visible = true
 	_reticle.visible = true
 	_weapon_label.visible = true
-	var state := ship.state
-	var modes := ["PRECISION", "COMBAT SPEED", "CRUISE SPEED", "WARP"]
-	_mode_label.text = modes[state.gear]
-	if state.selected_gear != state.gear:
-		_mode_label.text += "   %s SELECTED" % modes[state.selected_gear]
 	var viewport := get_viewport().get_visible_rect().size
+	var mode := session.mode
+	var seated := mode == GameSession.Mode.SEATED or mode == GameSession.Mode.SITTING
+	if seated:
+		var state := ship.state
+		var modes := ["PRECISION", "COMBAT SPEED", "CRUISE SPEED", "WARP"]
+		_mode_label.text = modes[state.gear]
+		if state.selected_gear != state.gear:
+			_mode_label.text += "   %s SELECTED" % modes[state.selected_gear]
+		_telemetry_label.text = "HULL %d%%    FUEL %d%%    SPEED %s" % [
+			roundi(state.hull * 100.0), roundi(state.fuel * 100.0),
+			("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
+		_reticle.visible = true
+		_weapon_label.visible = true
+		_reticle.position = viewport * 0.5 - _reticle.size * 0.5
+		_weapon_label.text = "HULL BLASTER\nREADY"
+		_weapon_label.position = Vector2(viewport.x - _weapon_label.size.x - 16.0, 16.0)
+	else:
+		var suit := session.suit
+		_mode_label.text = "ON FOOT" if mode == GameSession.Mode.OUTSIDE else "INSIDE SHIP"
+		_telemetry_label.text = "O2 %d%%    JETPACK %d%%    HEALTH %d%%" % [
+			roundi(suit.oxygen * 100.0), roundi(suit.fuel * 100.0), roundi(suit.health * 100.0)]
+		_reticle.visible = false
+		_weapon_label.visible = false
 	_mode_label.position = Vector2(viewport.x * 0.5 - _mode_label.size.x * 0.5, 12.0)
-	_telemetry_label.text = "HULL %d%%    FUEL %d%%    SPEED %s" % [
-		roundi(state.hull * 100.0), roundi(state.fuel * 100.0),
-		("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
 	_telemetry_label.position = Vector2(viewport.x * 0.5 - _telemetry_label.size.x * 0.5, viewport.y - 38.0)
-	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
-	_weapon_label.text = "HULL BLASTER\nREADY"
-	_weapon_label.position = Vector2(viewport.x - _weapon_label.size.x - 16.0, 16.0)
 	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
 	_objective_label.add_theme_font_size_override("font_size", 14)
 	_objective_label.position = Vector2(14, viewport.y - 64.0)
@@ -199,7 +211,11 @@ func _update_rodina_hud() -> void:
 	_prompt_label.add_theme_constant_override("outline_size", 4)
 	_prompt_label.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
 	_prompt_label.position.y = viewport.y - 120.0
-	_update_target_brackets()
+	if seated:
+		_update_target_brackets()
+	else:
+		_reticle.target_positions = PackedVector2Array()
+		_reticle.queue_redraw()
 
 
 func _update_target_brackets() -> void:
