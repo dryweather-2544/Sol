@@ -51,7 +51,7 @@ func test_chase_camera_recomputes_its_transform_after_an_origin_rebase() -> void
 	camera.snap_to_target()
 	ship.position = Vector3.ZERO
 	camera.apply_origin_shift(Vector3(1200.0, 0.0, 0.0))
-	var expected := ship.position + Basis.IDENTITY * camera.offset_behind_up
+	var expected := ship.position + Basis.IDENTITY * camera.active_offset()
 	assert_near(camera.position.distance_to(expected), 0.0, 1e-5, "camera follows the rebased ship immediately")
 	camera.free()
 	ship.free()

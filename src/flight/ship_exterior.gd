@@ -319,6 +319,33 @@ func _build_canopy_nose(hull: HullMeshBuilder) -> void:
 	hull.add_bar(half_rings[1][0], half_rings[2][0], 0.06, Slot.STRUCTURE)
 	# Dash: fills the nose floor ahead of the cockpit, below the pilot's sight line.
 	hull.add_chamfer_box(Vector3(3.0, 0.8, 1.3), 0.08, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, -0.55, -7.65)))
+	# Cockpit console: the reference cockpit has a broad dark dash and two instrument clusters in
+	# front of the pilot, not a bare bright interior. This sits ahead of the pilot seat (z -5.4),
+	# below the sight line, so it frames the view without blocking the canopy.
+	hull.add_chamfer_box(Vector3(4.6, 0.65, 0.95), 0.10, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, -0.62, -6.7)))
+	# Cockpit floor/tub: the exterior hull's inner floor was catching a bright interior light and
+	# filling the lower half of the view. A dark, inset cockpit surface gives the pilot a readable
+	# dashboard/floor plane like the reference cockpit.
+	hull.add_chamfer_box(Vector3(4.2, 0.18, 2.6), 0.05, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, -0.58, -5.7)))
+	hull.add_chamfer_box(Vector3(4.35, 0.42, 0.35), 0.05, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, -0.17, -6.05)))
+	# Instrument fascia the new forward cockpit camera can see: thin cyan displays in a dark bezel.
+	hull.add_chamfer_box(Vector3(3.9, 0.52, 0.10), 0.03, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, -0.11, -6.58)))
+	for side in [-1.0, 0.0, 1.0]:
+		hull.add_chamfer_box(Vector3(0.95, 0.22, 0.03), 0.01, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(side * 1.12, -0.09, -6.64)))
+	# Raised dash housing visible through the forward pilot camera (the seat camera is at z -6.4).
+	hull.add_chamfer_box(Vector3(4.0, 0.55, 0.60), 0.07, Slot.GRAPHITE, Transform3D(Basis.IDENTITY, Vector3(0, 0.10, -7.25)))
+	hull.add_chamfer_box(Vector3(2.7, 0.26, 0.04), 0.02, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, 0.16, -6.93)))
+	hull.add_chamfer_box(Vector3(2.2, 0.055, 0.02), 0.005, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(0, 0.19, -6.90)))
+	for side in [-1.0, 1.0]:
+		var vent_x: float = side * 1.35
+		hull.add_cylinder(16, 0.30, 0.30, 0.04, 0.11, Slot.STRUCTURE, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(vent_x, 0.12, -6.94)))
+		hull.add_cylinder(16, 0.21, 0.21, 0.05, 0.12, Slot.RECESS, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(vent_x, 0.12, -6.94)))
+	hull.add_chamfer_box(Vector3(4.0, 0.22, 0.16), 0.04, Slot.STRUCTURE, Transform3D(Basis.IDENTITY, Vector3(0, -0.23, -6.95)))
+	for side in [-1.0, 1.0]:
+		# Recessed instrument screens and a few bright cyan tell-tales.
+		hull.add_chamfer_box(Vector3(1.15, 0.30, 0.04), 0.02, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(side * 1.05, -0.36, -7.17)))
+		hull.add_chamfer_box(Vector3(0.72, 0.055, 0.02), 0.005, Slot.LIGHT, Transform3D(Basis.IDENTITY, Vector3(side * 1.05, -0.30, -7.20)))
+		hull.add_chamfer_box(Vector3(0.16, 0.16, 0.10), 0.02, Slot.STRUCTURE, Transform3D(Basis.IDENTITY, Vector3(side * 1.65, -0.30, -7.05)))
 	# Nose tip: sensor aperture and the two landing lights.
 	var tip_y: float = (NOSE_STATIONS[2][6] + NOSE_STATIONS[2][8]) * 0.5
 	hull.add_chamfer_box(Vector3(0.9, 0.18, 0.05), 0.04, Slot.RECESS, Transform3D(Basis.IDENTITY, Vector3(0, tip_y, NOSE_TIP_Z - 0.01)))

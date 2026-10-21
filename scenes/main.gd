@@ -31,8 +31,11 @@ var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
 var _ambush_pending := false
 var audio: AudioService
+var speed_effects: SpeedEffects
+var entry_effects: EntryEffects
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
+var combat_effects: CombatEffects
 var _cockpit_view := false
 ## Rodina's warp and speed camera (FOV, chase distance and angle, shake); drives the ship cameras in the rodina style.
 var warp_view := LimnalWarpView.new()
@@ -94,6 +97,10 @@ func _ready() -> void:
 	projectile_view.sim = session.projectiles
 	projectile_view.render_origin = ship.render_origin.duplicate_position()
 	add_child(projectile_view)
+	combat_effects = CombatEffects.new()
+	combat_effects.render_origin = ship.render_origin.duplicate_position()
+	add_child(combat_effects)
+	session.projectiles.hit.connect(func(_projectile, _target): combat_effects.flash(_projectile.position))
 
 	on_foot = OnFootController.new()
 	on_foot.planet = planet
@@ -108,6 +115,12 @@ func _ready() -> void:
 	chase_camera.target = ship
 	add_child(chase_camera)
 	chase_camera.snap_to_target()
+	speed_effects = SpeedEffects.new()
+	speed_effects.ship = ship
+	add_child(speed_effects) # below the HUD overlay in CanvasLayer order
+	entry_effects = EntryEffects.new()
+	entry_effects.ship = ship
+	add_child(entry_effects)
 	overlay = DebugOverlay.new()
 	overlay.ship = ship
 	overlay.terrain = terrain

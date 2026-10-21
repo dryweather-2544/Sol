@@ -67,7 +67,9 @@ func apply_look(look: PlanetLook) -> void:
 		"sun_halo_gain": look.sun_halo_gain, "sun_disc_color": look.sun_disc_color, "sun_halo_color": look.sun_halo_color,
 		"sun_disc_radius": look.sun_disc_radius, "sun_halo_width": look.sun_halo_width, "sunset_halo_width": look.sunset_halo_width,
 		"sunset_color": look.sunset_color, "sunset_gain": look.sunset_gain,
-		"local_up_amount": 0.0 if look.family == &"sol" else 1.0}
+		"local_up_amount": 0.0 if look.family == &"sol" else 1.0,
+		"galaxy_amount": space.get("galaxy_amount", 0.0), "galaxy_color": space.get("galaxy_color", Color.BLACK),
+		"galaxy_normal": space.get("galaxy_normal", Vector3(0.35, 0.82, 0.25).normalized())}
 	parameters.merge(look.rodina_atmosphere)
 	for parameter in parameters:
 		var value: Variant = parameters[parameter]

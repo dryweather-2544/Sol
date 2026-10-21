@@ -17,6 +17,9 @@ uniform vec3 space_color = vec3(0.004, 0.005, 0.012);
 uniform float star_gain = 1.0;
 uniform vec3 star_tint = vec3(1.0);
 uniform float star_gamma = 1.0; // >1 darkens the dim (dusty) parts of the panorama more than the bright stars
+uniform float galaxy_amount = 0.0; // Rodina only: a broad dust/gas band across the black sky
+uniform vec3 galaxy_color = vec3(0.0);
+uniform vec3 galaxy_normal = vec3(0.35, 0.82, 0.25);
 uniform vec3 sky_zenith = vec3(0.15, 0.32, 0.65);
 uniform vec3 sky_horizon = vec3(0.55, 0.7, 0.9);
 uniform float gradient_scale = 0.5;
@@ -57,6 +60,14 @@ void sky() {
 		stars = textureLod(starfield, uv, 0.0).rgb;
 	}
 	stars = pow(max(stars, vec3(0.0)), vec3(star_gamma)) * star_gain * star_tint;
+	// A painted Milky-Way-like band, visible in Rodina's orbit frames but absent from Sol's
+	// hash-star sky. Keep it broad and low-contrast; it must not turn into a visible polygon.
+	float band = exp(-pow(dot(normalize(EYEDIR), normalize(galaxy_normal)), 2.0) / 0.050);
+	// Smooth, stretched structure: a hash-per-cell noise made visible stair-steps at 64 px.
+	// Keep the band soft and diffuse; fine procedural stripes read as geometry in the sky.
+	float dust = 0.85;
+	vec3 galaxy = galaxy_color * band * dust * galaxy_amount;
+	stars = stars * (1.0 + band * 0.35) + galaxy;
 	if (rodina_atmosphere) {
 		// Rodina: the atmosphere pass over space and stars (see rodina_atmosphere.gdshaderinc); thin airs let stars through.
 		vec3 eye_dir = normalize(EYEDIR);

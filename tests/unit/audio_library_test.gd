@@ -225,3 +225,21 @@ func test_engine_gain_follows_rodinas_rules() -> void:
 	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_WARP, 0.0, 0.9), 0.5 / 3.0, 1e-9, "spin-up: activation / 3")
 	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_WARP, 0.0, 2.0), 1.0, 1e-9, "active drive: full")
 	assert_true(AudioLibrary.stream("rod_ship_blaster_fire") != null, "the ship blaster sound loads")
+func test_paused_gameplay_audio_is_muted_but_ui_one_shots_remain_available() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var service := AudioService.new()
+	tree.root.add_child(service)
+	service._ready()
+	var loop := AudioStreamPlayer.new()
+	service.add_child(loop)
+	service._sample_loops["test_loop"] = loop
+	loop.volume_db = 0.0
+	service._engine_player.volume_db = 0.0
+	service._wind_player.volume_db = 0.0
+	service._mute_gameplay_loops_for_pause()
+	assert_eq(loop.volume_db, -80.0, "gameplay loop muted while paused")
+	assert_eq(service._engine_player.volume_db, -80.0, "engine loop muted while paused")
+	assert_eq(service._wind_player.volume_db, -80.0, "wind loop muted while paused")
+	assert_true(service.play_sample("rod_menu_highlight"), "UI one-shot still allowed while paused")
+	tree.root.remove_child(service)
+	service.free()

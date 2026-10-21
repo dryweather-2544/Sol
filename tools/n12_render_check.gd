@@ -20,12 +20,14 @@ var _last_screen := Vector2.ZERO
 var _worst_jump := 0.0
 var _worst_dot := 1.0
 var _rebases := 0
+var _tangent := false
 
 
 func _initialize() -> void:
 	_mode = OS.get_environment("N12_MODE")
 	if not MODES.has(_mode):
 		_mode = "cruise"
+	_tangent = OS.get_environment("N12_TANGENT") == "1"
 	_config = MODES[_mode]
 	_main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(_main)
@@ -55,7 +57,7 @@ func _setup() -> void:
 	var speed: float = _config["speed"]
 	if speed == 0.0:
 		ship.state.velocity = Vector3.ZERO
-	elif _mode == "warp":
+	elif _mode == "warp" or _tangent:
 		# WARP is an open-space/tangential mode. Diving at the surface from 300 km would hit the
 		# ground within the probe window, which is not a rendering test.
 		ship.state.velocity = ship.state.basis.x * speed
@@ -68,7 +70,7 @@ func _setup() -> void:
 	_main.chase_camera.snap_to_target()
 	_main.chase_camera.current = true
 	_main.floating_origin.anchor = ship
-	print("N12 %s setup speed=%s gear=%d" % [_mode, str(ship.state.velocity.length()), ship.state.gear])
+	print("N12 %s setup speed=%s gear=%d tangent=%s" % [_mode, str(ship.state.velocity.length()), ship.state.gear, str(_tangent)])
 
 
 func _sample() -> void:

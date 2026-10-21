@@ -50,9 +50,14 @@ func _physics_process(delta: float) -> void:
 	_apply(delta)
 
 
+## The Rodina-inspired style uses a wider composition; the Sol style keeps the original close camera.
+func active_offset() -> Vector3:
+	return VisualStyle.chase_camera_offset()
+
+
 func _apply(_delta: float) -> void:
 	var rig_basis := Basis(_smoothed_orientation)
-	var offset := offset_behind_up
+	var offset := active_offset()
 	if follow_distance > 0.0:
 		offset = Vector3(0.0, sin(follow_angle), cos(follow_angle)) * follow_distance
 	var camera_position := target.global_position + rig_basis * offset

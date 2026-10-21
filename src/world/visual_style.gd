@@ -77,8 +77,10 @@ static func space_parameters() -> Dictionary:
 		# thin air (Jarilo) it shows through the sky, so the earlier, brighter #0c0418 tinted the whole day sky violet.
 		# Stars over-bright and blue-shifted so they bloom; a contrast curve darkens the dim, dusty parts of the panorama
 		# (Rodina subtracts dust: same section). The star values are Sol's own.
-		return {"space_color": Color(0.025, 0.0, 0.05).srgb_to_linear(), "star_gain": 1.8, "star_tint": Vector3(0.85, 0.9, 1.25), "star_gamma": 1.35}
-	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0}
+		return {"space_color": Color(0.025, 0.0, 0.05).srgb_to_linear(), "star_gain": 1.8, "star_tint": Vector3(0.85, 0.9, 1.25), "star_gamma": 1.35,
+			"galaxy_amount": 0.50, "galaxy_color": Color("#5c466b").srgb_to_linear(), "galaxy_normal": Vector3(0.35, 0.82, 0.25).normalized()}
+	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0,
+		"galaxy_amount": 0.0, "galaxy_color": Color.BLACK, "galaxy_normal": Vector3(0.35, 0.82, 0.25).normalized()}
 
 
 ## Rodina's HUD fonts (Scripts/Render/MenuFonts.lua): face, size (pixels at 1080p) and colour per role. The faces are the
@@ -150,6 +152,12 @@ static func room_light(room_id: StringName) -> Dictionary:
 ## (EGSceneSolar.lua:28), so interiors are lit almost only by their lamps.
 static func interior_ambient_factor() -> float:
 	return 0.15 if is_rodina() else 1.0
+
+
+## Chase-camera offset for the Rodina-inspired presentation (from the N13 visual pass). The reference keeps the ship as a
+## small dark shape with negative space around it; 17 m fills too much of the frame.
+static func chase_camera_offset() -> Vector3:
+	return Vector3(0.0, 8.0, 85.0) if is_rodina() else Vector3(0.0, 3.4, 17.0)
 
 
 # --- the original Sol look: built from the existing data, so nothing changes --------------------------------------

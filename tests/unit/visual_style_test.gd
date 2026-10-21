@@ -42,6 +42,11 @@ func test_rodina_gives_each_world_its_own_family() -> void:
 			assert_near(fposmod(look.detail_tile_period, tile), 0.0, 1e-6, "%s: period %.1f is a multiple of tile %.1f" % [body_id, look.detail_tile_period, tile])
 	assert_eq(families.size(), 5)
 	assert_eq(VisualStyle.tonemap_mode(), Environment.TONE_MAPPER_LINEAR)
+	var params := VisualStyle.space_parameters()
+	assert_true(float(params["galaxy_amount"]) > 0.0, "Rodina has a galaxy/dust band")
+	assert_true((params["galaxy_normal"] as Vector3).is_normalized(), "galaxy band orientation is normalized")
+	VisualStyle.set_active(VisualStyle.SOL)
+	assert_near(float(VisualStyle.space_parameters()["galaxy_amount"]), 0.0, 1e-9, "Sol keeps its original star sky")
 	_after()
 
 
@@ -74,6 +79,13 @@ func test_rodina_feature_gates_pick_rock_on_cliffs_and_ice_at_the_poles() -> voi
 	var pole := look.surface_color(profile, 800.0, 0.0, 0.97, Vector3(1000, 0, 0))
 	assert_true(cliff.get_luminance() < flat_equator.get_luminance(), "cliffs are dark rock")
 	assert_true(pole.get_luminance() > flat_equator.get_luminance(), "poles are frosted")
+	_after()
+
+
+func test_rodina_high_speed_presentation_is_darker_and_wider() -> void:
+	VisualStyle.set_active(VisualStyle.RODINA)
+	assert_true(VisualStyle.hull_tint().get_luminance() < 0.5, "Rodina hull reads dark")
+	assert_true(VisualStyle.chase_camera_offset().z > 40.0, "Rodina chase framing leaves negative space")
 	_after()
 
 
@@ -124,3 +136,24 @@ func test_rodina_air_worlds_use_rodina_atmosphere_colours() -> void:
 	var cinder := VisualStyle.look_for(system.bodies[&"cinder"])
 	assert_true(cinder.sky_zenith.r > cinder.sky_zenith.g * 2.0)
 	VisualStyle.set_active(before)
+func test_speed_streaks_are_style_speed_and_gear_gated() -> void:
+	VisualStyle.set_active(VisualStyle.SOL)
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE), 0.0, 1e-9, "Sol style has no streak field")
+	VisualStyle.set_active(VisualStyle.RODINA)
+	assert_near(SpeedEffects.intensity_for(100.0, PilotCommand.GEAR_COMBAT), 0.0, 1e-9, "precision/slow flight has no streaks")
+	assert_near(SpeedEffects.intensity_for(500.0, PilotCommand.GEAR_DOCK), 0.0, 1e-9, "dock gear never streaks")
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE), 0.0, 1e-9, "cruise keeps trails, not the combat streak field")
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_WARP), 0.0, 1e-9, "WARP uses its own trail; no invented combat streaks")
+	assert_true(SpeedEffects.intensity_for(450.0, PilotCommand.GEAR_COMBAT) > 0.3, "combat-band streaks appear")
+	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_COMBAT) > 0.3, "high combat streaks appear")
+	_after()
+
+
+func test_entry_tint_is_rodina_only_and_tracks_resistance() -> void:
+	VisualStyle.set_active(VisualStyle.RODINA)
+	assert_near(EntryEffects.intensity_for(0.0), 0.0, 1e-9)
+	assert_true(EntryEffects.intensity_for(ShipDamage.ENTRY_DAMAGE_START * 0.5) > 0.4)
+	assert_near(EntryEffects.intensity_for(ShipDamage.ENTRY_DAMAGE_START * 2.0), 1.0, 1e-9)
+	VisualStyle.set_active(VisualStyle.SOL)
+	assert_near(EntryEffects.intensity_for(ShipDamage.ENTRY_DAMAGE_START), 0.0, 1e-9, "Sol entry has no purple wash")
+	_after()

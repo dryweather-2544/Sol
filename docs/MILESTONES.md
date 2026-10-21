@@ -264,7 +264,7 @@ and the commit is pushed.
 - [x] Copy all 62 shipped Rodina SFX into Sol's own asset tree without conversion, with hashes and inventory.
 - [x] Route engine/gear/warp, atmosphere/wind, RCS, guns/impacts, doors, UI and pickups through the existing audio service.
 - [x] Responsive gear engine crossfades, power-scaled gain, WARP transitions, 3D impact pool and lifecycle cleanup.
-- [x] Headless 320 tests / 97,109 assertions / 0 failures; live CoreAudio check 19/19 after removing footsteps and the RCS hiss.
+- [x] Headless 323 tests / 97,120 assertions / 0 failures; live CoreAudio check 19/19 after removing footsteps and the RCS hiss; gameplay loops mute behind menus.
 - [ ] Human listening/level/loop-seam pass; music integration remains blocked by proprietary `.egu`.
 
 
@@ -273,5 +273,26 @@ and the commit is pushed.
 - [x] Reproduced the high-speed fault in the real main scene and separated it from the planet-behind case.
 - [x] Fixed chase-camera interpolation after floating-origin rebases; anchor is shifted first.
 - [x] Regression test for camera transform after rebase.
-- [x] 322 tests / 97,116 assertions / 0 failures; graphical probes before/after recorded.
+- [x] 323 tests / 97,120 assertions / 0 failures; graphical probes before/after recorded.
 - [ ] Human long-session playtest at COMBAT/CRUISE/WARP against a planet.
+
+
+## N13 — visual reference and high-speed identity
+
+- [x] Indexed actual local Rodina trailer/gameplay videos and screenshots; extracted COMBAT/CRUISE sequences frame-by-frame.
+- [x] Added visual-reference spec and dated fidelity review; documented the missing unambiguous WARP reference.
+- [x] Rodina style: wider 85 m chase framing, dark hull silhouette and state-driven twin dotted exhaust trails.
+- [x] Soft Rodina-only galaxy/dust fallback tested against the official orbit frame; block/noise and stripe variants rejected.
+- [x] COMBAT-SPEED blue/white streak layer and blocky orange/purple entry fire with purple exposure.
+- [x] Compact seated flight HUD; combat-only streak field; blocky entry fire and purple exposure.
+- [x] 326 tests / 97,140 assertions / 0 failures.
+- [x] Central cyan reticle and basic weapon-ready panel.
+- [x] Hostile target brackets projected through the active camera.
+- [x] Pooled projectile impact flashes connected to the projectile simulation.
+- [x] Cockpit camera obstruction removed; dark cockpit tub/console geometry added.
+- [x] Compact Rodina HUD on foot and inside the ship (suit telemetry) in addition to the seated flight HUD.
+- [x] Emissive projectile bolts and a code-level muzzle flash (muzzle visual still unverified in capture).
+- [x] Raised cockpit dash housing/central screen added (vent detail still hard to read from the seat).
+- [x] HUD weapon panel switches to an amber HOSTILE/LOCKED state when a hostile is projected.
+- [x] Red centred warning strip for existing game alerts.
+- [ ] Human visual comparison; target/weapon detail panel and remaining WARP reference.
