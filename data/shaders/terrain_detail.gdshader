@@ -109,7 +109,10 @@ void fragment() {
 		shaded_normal = normalize(mix(geometric_normal, normalize(normal_mix), fade));
 	}
 
-	ALBEDO = mix(COLOR.rgb * detail_ratio, orbit_color, orbit_mix);
+	// Ice and snow (bright in every channel, unlike orange or salmon ground) keep their own colour from orbit, so the
+	// poles stay white under the orbit tint.
+	float bright = smoothstep(0.35, 0.6, min(COLOR.r, min(COLOR.g, COLOR.b)));
+	ALBEDO = mix(COLOR.rgb * detail_ratio, orbit_color, orbit_mix * (1.0 - bright));
 	ROUGHNESS = roughness;
 	METALLIC = 0.0;
 	AO = occlusion;

@@ -20,7 +20,8 @@ modules (`SetCameraVibrate`), and attaches named particle materials to named slo
 
 **Consequences.**
 - Rodina numbers and particle tables are in source files: owner-authorised local reference use, recorded in
-  ATTRIBUTION.md; like ADR 0010's audio they must not be published while the Sol repository is public.
+  ATTRIBUTION.md; like ADR 0010's audio they must not be published while the Sol repository is public. On 2026-10-20 the project owner chose to push the `n13-graphics-port` branch to the public
+  repository anyway (asked and answered in the N13 session).
 - In the `rodina` style the chase camera sits Rodina's (scaled) 54 m back instead of Sol's 17 m.
 - The emitter reading of Size/Yaw/Pitch/default blend and the sky colour roles need checking against real Rodina
   frames on the Mac.

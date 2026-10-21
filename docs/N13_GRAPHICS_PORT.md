@@ -184,8 +184,49 @@ transmittance 1 - saturate(D - 1) * alpha (stars show through Jarilo's thin air,
 StarHalo, SunsetStarHalo, SunsetStarAngleBuffer and SunsetHorizonLimit come from its PlanetDef.
 - Sky (`space_sky.gdshader`): replaces the Sol two-colour gradient in the rodina style when in a planet's air.
 - From space (`rodina_atmosphere_shell.gdshader`): the same maths on a sphere the size of the atmosphere, added over
-  the scene with Rodina's transmittance. Over the ground the scatter is scaled to 0.35 (inferred, calibrated on the
-  owner's orbit screenshot: full strength washed the planet out to a flat disc).
+  the scene with Rodina's transmittance. Over the ground the density is now GroundAtmosphereAt's (§10); the earlier
+  0.35 scale is gone.
 - Fog thins with altitude again (the shader does the high-altitude haze).
 Not in the audit, so inferred: EaseOutSin's input clamp, which factor the halo/sunset use as the horizon term, and the
 shade samples' range. Shots: `docs/n13_shots/v5` (first pass), `v6`, `v7` (orbit calibrated).
+
+## 10. Palette pass against DeepSeek's measured Rodina frames (rodina style)
+
+Measured with `tools/palette_compare.py` against `docs/rodina_reference/palette_report.csv` (31 Rodina frames
+DeepSeek measured; HSV of the mean colour, four dominant colours). Shots: `docs/n13_shots/v8`.
+
+| What | Source | Kind |
+|---|---|---|
+| Sky and atmosphere shell composite in display space, then convert to linear | rendering_notes §6.6 (no gamma pass) | data |
+| Space under the sky: skybox base colour (0.025, 0, 0.05) | RodinaSkybox.fx:33 via rendering_notes §6.4 | data |
+| No whole-screen bloom (glow_bloom 0) | Rodina blooms only its emit buffer, rendering_notes §6.5-6.6 | data |
+| Haze over terrain seen from space: GroundAtmosphereAt | rendering_notes §4.4; AtmosphereGroundDistance per PlanetDef (Zosia 1.5, Veles 2.0, Jarilo unset = 1) | data + inferred combination |
+| Aurelia ground colours: JariloTerrain DiffuseColor x PlanetFeatureColor1a/1b | EGEditorData.lua:1277-1600, EGDataPlanets.lua:548-551 | data; the product is inferred |
+| Ground hue turned 15 degrees toward red | measured ground hue 26 vs ~40 from the data | calibrated |
+| Orbit colour #b07428 at 85 % blend (ice keeps its own colour) | measured orbit #aa7d4e (steam06) | calibrated |
+| Dark hull (x0.24), dark interior (x0.42), interior ambient 0.15 | measured ship/interior frames; SetAmbientLight(.05) EGSceneSolar.lua:28 | calibrated / data |
+| Ceiling lights White/Soft/Green/Wide/Emergency | EGDataItems.lua:212-260 | data; room assignment is Sol's |
+| HUD fonts Orbitron / Audiowide / Michroma, sizes and colours | Render/MenuFonts.lua (fonts: OFL, Google Fonts) | data |
+| Camera FOV 60 while the setting is at Sol's default | EGOptions.lua:26 | data; vertical FOV inferred |
+
+Results (Sol render vs Rodina frame, mean colour):
+
+| Scene | Sol | Rodina |
+|---|---|---|
+| Ground by the landed ship vs steam01_salmon_sky_mountains | (121, 92, 85), value 0.48 | (123, 92, 83), value 0.48 |
+| Lit planet from orbit (pixels on the disc) vs the dominant #aa7d4e | about (169, 131, 92) | (170, 125, 78) |
+| Ship against space vs videoT90_19_ship_silhouette (render from before the bloom/space-colour change) | value 0.12, hue 260 | value 0.13, hue 256 |
+| Interior cabin vs four interior frames (same earlier render) | value 0.13 | value 0.11-0.20 |
+
+Still off: the day sky is brighter and redder than Rodina's sky pixels (ours about (197, 115, 90) high up against
+#ae7b70 / #ba9996). Rodina's screen-space filter pass (RodinaAtmosphereFilter.fx, 628 bytes) probably explains it, but
+its source is not in the recovered files, so it is not ported.
+
+## 11. Bigger on the inside (ADR 0012)
+
+Rodina keeps the hull model and the walkable interior in separate files (EGDataShipPlayer.lua:7-9) and parents the
+player into the interior entity (EGGame.lua:335-340). Sol's version: the cabin, engineering and cargo are 11 m wide and
+the turret room 8 m, inside a 7.6 m hull. Those pocket rooms are drawn only while the camera is inside the ship, and
+the hull is hidden while the camera is in one; the cockpit and airlock fit in the hull and are always drawn; crew in
+pocket rooms are hidden from outside. Tests: `tests/unit/bigger_inside_test.gd`. Shot: `v8/pocket_cabin_across.jpg`.
+
