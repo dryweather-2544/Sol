@@ -4,7 +4,12 @@ extends RefCounted
 ## can run on worker threads. Vertices are stored relative to the chunk's origin point so they
 ## stay small; the caller places the node at origin - render_origin.
 
-const GRID := 32 # quads per edge; vertices per edge = GRID + 1
+## Fine quads per edge. Coarse LODs use a much smaller grid because a whole cube face at a
+## 32x32 grid is both visually redundant and expensive to generate.
+const FINE_GRID := 32
+const GRID := FINE_GRID # compatibility alias for callers/tests that mean the fine grid
+## Level 0 is a whole cube face, level 6+ is near-ground detail.
+const GRID_BY_LEVEL := [4, 6, 8, 12, 16, 24, 32]
 ## Slope weight written into each vertex colour's alpha for the terrain detail shader: 0 = flat layer, 1 = steep (rock) layer.
 ## "Steepness" is 1 - cos(slope angle); the 0.5 point is at about 26 degrees. The plain material ignores alpha (it is opaque).
 const STEEP_WEIGHT_FROM := 0.04
@@ -12,7 +17,15 @@ const STEEP_WEIGHT_TO := 0.16
 
 
 ## Returns {origin: PackedFloat64Array(3), vertices, normals, colors, indices} for the key.
-static func build(key: int, planet: PlanetBody) -> Dictionary:
+static func grid_for_level(level: int) -> int:
+	if level <= 0:
+		return GRID_BY_LEVEL[0]
+	if level >= GRID_BY_LEVEL.size():
+		return FINE_GRID
+	return GRID_BY_LEVEL[level]
+
+
+static func build(key: int, planet: PlanetBody, grid_override: int = -1) -> Dictionary:
 	# A build runs on a worker thread. HeightFunction holds mutable noise caches, so each chunk
 	# gets its own instance; the shared planet height function is used only for test overrides.
 	var height_function: HeightFunction = null
@@ -20,10 +33,11 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 		height_function = HeightFunction.new(planet.profile_or_default())
 	var face := ChunkKey.face_of(key)
 	var level := ChunkKey.level_of(key)
+	var grid: int = grid_override if grid_override > 0 else grid_for_level(level)
 	var span := 2.0 / float(1 << level)
 	var face_u_start := -1.0 + ChunkKey.column_of(key) * span
 	var face_v_start := -1.0 + ChunkKey.row_of(key) * span
-	var step := span / GRID
+	var step := span / float(grid)
 	var edge_metres := (PI * 0.5 * planet.radius) / float(1 << level)
 
 	var center_direction := CubeSphere.direction_xyz(face, face_u_start + span * 0.5, face_v_start + span * 0.5)
@@ -31,8 +45,8 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 	var origin_y: float = center_direction[1] * planet.radius
 	var origin_z: float = center_direction[2] * planet.radius
 
-	# Positions on a (GRID+3)^2 lattice: one extra ring so edge normals use real neighbours.
-	var lattice := GRID + 3
+	# Positions on a (grid+3)^2 lattice: one extra ring so edge normals use real neighbours.
+	var lattice := grid + 3
 	var lattice_positions := PackedVector3Array()
 	lattice_positions.resize(lattice * lattice)
 	var lattice_heights := PackedFloat32Array()
@@ -45,7 +59,7 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			lattice_positions[row * lattice + column] = Vector3(direction[0] * distance - origin_x, direction[1] * distance - origin_y, direction[2] * distance - origin_z)
 			lattice_heights[row * lattice + column] = height
 
-	var vertices_per_edge := GRID + 1
+	var vertices_per_edge := grid + 1
 	var skirt_drop := maxf(2.0, edge_metres * 0.05)
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -56,7 +70,14 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			var position := lattice_positions[index]
 			var tangent_u := lattice_positions[index + 1] - lattice_positions[index - 1]
 			var tangent_v := lattice_positions[index + lattice] - lattice_positions[index - lattice]
-			var normal := tangent_u.cross(tangent_v).normalized() # cross(u,v) points outward on every face
+			var normal := tangent_u.cross(tangent_v)
+			if not normal.is_finite() or normal.length_squared() < 1e-12:
+				# Very coarse face chunks can have coincident or non-finite corner samples; use
+				# the radial direction rather than emitting a zero/NaN normal.
+				var radial := position + Vector3(origin_x, origin_y, origin_z)
+				normal = radial.normalized() if radial.length_squared() > 1e-12 else Vector3.UP
+			else:
+				normal = normal.normalized() # cross(u,v) points outward on every face
 			vertices.append(position)
 			normals.append(normal)
 			var outward := (position + Vector3(origin_x, origin_y, origin_z)).normalized()
@@ -69,8 +90,8 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			colors.append(Color(base_color.r * shade, base_color.g * shade, base_color.b * shade, steep_weight(1.0 - normal.dot(outward))))
 
 	var indices := PackedInt32Array()
-	for row in GRID:
-		for column in GRID:
+	for row in grid:
+		for column in grid:
 			var corner_a := row * vertices_per_edge + column
 			var corner_b := corner_a + 1
 			var corner_c := corner_a + vertices_per_edge
@@ -97,7 +118,7 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 			var skirt_b: int = skirt_a + 1
 			indices.append_array([top_a, skirt_a, top_b, top_b, skirt_a, skirt_b])
 
-	return {"origin": PackedFloat64Array([origin_x, origin_y, origin_z]), "vertices": vertices, "normals": normals, "colors": colors, "indices": indices}
+	return {"origin": PackedFloat64Array([origin_x, origin_y, origin_z]), "vertices": vertices, "normals": normals, "colors": colors, "indices": indices, "grid": grid, "level": level}
 
 
 static func steep_weight(steepness: float) -> float:

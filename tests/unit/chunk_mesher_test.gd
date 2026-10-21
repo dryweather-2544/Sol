@@ -9,7 +9,8 @@ func test_chunk_vertices_lie_on_the_height_function_and_arrays_are_consistent() 
 	var normals: PackedVector3Array = mesh_data["normals"]
 	var indices: PackedInt32Array = mesh_data["indices"]
 	var origin: PackedFloat64Array = mesh_data["origin"]
-	var surface_vertex_count := (ChunkMesher.GRID + 1) * (ChunkMesher.GRID + 1)
+	var grid: int = mesh_data["grid"]
+	var surface_vertex_count := (grid + 1) * (grid + 1)
 	assert_true(vertices.size() > surface_vertex_count, "skirt vertices exist")
 	assert_eq(normals.size(), vertices.size())
 	assert_eq((mesh_data["colors"] as PackedColorArray).size(), vertices.size())
@@ -62,3 +63,20 @@ func test_colour_masks_poles_snow_steepness_and_airless_palette() -> void:
 	assert_true(Vector3(cliff.r, cliff.g, cliff.b).distance_to(rock) < Vector3(flat.r, flat.g, flat.b).distance_to(rock), "steep ground shows bare rock")
 	var moon := StarSystem.default_system().bodies[&"selene"].terrain_profile as TerrainProfile
 	assert_true(ChunkMesher._color_for(moon, 5000.0, 0.0, 0.98).get_luminance() < 0.9, "the airless moon has no snow caps")
+
+
+func test_lod_grids_are_progressive_and_preserve_coarse_shape() -> void:
+	var planet := PlanetBody.new()
+	var previous_vertices := 0
+	for level in [0, 1, 2, 3, 6, 10]:
+		var mesh_data := ChunkMesher.build(ChunkKey.make(0, level, 0, 0), planet)
+		var grid: int = mesh_data["grid"]
+		assert_eq(grid, ChunkMesher.grid_for_level(level))
+		var vertices: PackedVector3Array = mesh_data["vertices"]
+		assert_true(vertices.size() > (grid + 1) * (grid + 1), "skirt vertices exist at level %d" % level)
+		if level >= 6:
+			assert_true(previous_vertices > 0 and vertices.size() >= previous_vertices, "fine grids do not get coarser")
+		previous_vertices = vertices.size()
+		var normals: PackedVector3Array = mesh_data["normals"]
+		for i in mini(vertices.size(), 64):
+			assert_true(normals[i].length() > 0.99 and normals[i].length() < 1.01, "coarse normal is unit length")

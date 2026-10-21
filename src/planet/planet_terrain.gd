@@ -16,13 +16,14 @@ class BuildState extends RefCounted:
 const CHUNKS_ADDED_PER_FRAME := 8
 const MAX_BUILDS_IN_FLIGHT := 8
 const PLAN_INTERVAL_SECONDS := 0.2
-## Hierarchical coarse coverage: six level-0 faces first, then 24 level-1 and 96 level-2 chunks.
-## Each level is removed once its children cover it, so a blank planet never has to wait for the
-## full fine set. This is what prevents the smooth empty blocks during a fast approach.
-## Level 0 alone already covers the whole sphere; building the level-1/2 fallbacks before the
-## fine chunks would delay the HD view the player is asking for, so they are added to the queue
-## after the desired chunks only when the level-0 coverage is already visible.
-const FALLBACK_LEVELS := [0]
+## Hierarchical coarse coverage: six level-0 faces, 24 level-1 and 96 level-2 chunks. With the
+## LOD-aware grid these coarse chunks are cheap (single-digit milliseconds), and each level is
+## removed only once its children cover it. This gives the planet a continuously improving
+## backing surface while the near-ground chunks are generated.
+const FALLBACK_LEVELS := [0, 1, 2]
+## Ready meshes are bounded. A 32x32 chunk is roughly 70 KB, so 32 MiB holds about 450 chunks.
+const READY_CACHE_BUDGET_BYTES := 32 * 1024 * 1024
+const READY_CACHE_MAX_ENTRIES := 512
 
 var planet: PlanetBody
 var planner: LodPlanner
@@ -32,8 +33,9 @@ var viewer := WorldPos.new(&"planet")
 ## Planet-frame velocity of the viewer, used to plan high-detail chunks ahead of the ship. The
 ## actual build is still worker-threaded; this only changes which chunks are requested.
 var viewer_velocity := Vector3.ZERO
-const PRELOAD_LOOKAHEAD_SECONDS := 2.5
-const PRELOAD_MAX_METRES := 25000.0
+const PRELOAD_LOOKAHEAD_SECONDS := 5.0
+const PRELOAD_MAX_METRES := 60000.0
+const PRELOAD_MIN_METRES := 2000.0
 
 var _material := StandardMaterial3D.new()
 var _detail_material: ShaderMaterial ## null = plain vertex-colour material (switch off, or an asset missing)
@@ -46,6 +48,26 @@ var _build_queue: Array[int] = [] # closest-first keys still to build
 var _build_state := BuildState.new()
 var _task_ids: Array[int] = []
 var _seconds_since_plan := PLAN_INTERVAL_SECONDS
+## Speculative completed meshes, evicted by a bounded LRU-ish policy. This stops a chunk built
+## just before the viewer moved from being thrown away.
+var _ready_cache := {}       # key -> {data, bytes, used}
+var _ready_cache_bytes := 0
+var _cache_tick := 0
+## Debug/measurement counters. They are intentionally cheap and read-only for tests/probes.
+var _stats := {
+	"desired_by_level": {},
+	"displayed_by_level": {},
+	"build_times_by_level": {},
+	"completed": 0,
+	"shown": 0,
+	"discarded": 0,
+	"peak_queue": 0,
+	"plan_count": 0,
+	"cache_stored": 0,
+	"cache_hits": 0,
+	"cache_evicted": 0,
+	"cache_peak_bytes": 0,
+}
 
 
 func _init(planet_body: PlanetBody = null) -> void:
@@ -101,40 +123,73 @@ func is_settled() -> bool:
 func _replan() -> void:
 	var preload_viewer := _preload_viewer()
 	_desired = planner.select_leaves(viewer, preload_viewer)
+	_stats["plan_count"] = int(_stats["plan_count"]) + 1
+	_count_desired_by_level()
 	_fallback = _fallback_ancestors(_desired)
+	_cache_tick += 1
+	_promote_cached_meshes()
 	var viewer_point := Vector3(viewer.x, viewer.y, viewer.z)
 	var preload_point := viewer_point
 	if preload_viewer != null:
 		preload_point = Vector3(preload_viewer.x, preload_viewer.y, preload_viewer.z)
-	var wanted: Array[int] = []
+	var current_wanted: Array[int] = []
+	var ahead_wanted: Array[int] = []
+	var other_wanted: Array[int] = []
+	var focus_distance := _current_focus_distance()
+	var ahead_distance := maxf(PRELOAD_MIN_METRES, preload_point.distance_to(viewer_point) + planner.chunk_edge_metres(planner.max_level))
 	for key in _desired:
-		if not _displayed.has(key) and not _pending.has(key):
-			wanted.append(key)
-	wanted.sort_custom(func(key_a: int, key_b: int) -> bool:
-		var center_a := planner.chunk_center(key_a)
-		var center_b := planner.chunk_center(key_b)
-		# While moving, fill the predicted view before the current one. The current view is covered
-		# by the level-0 fallback until its fine chunks are ready, so spending the build budget ahead
-		# is what removes the "stop to let it load" behaviour.
-		var distance_a := preload_point.distance_squared_to(center_a)
-		var distance_b := preload_point.distance_squared_to(center_b)
-		if is_equal_approx(distance_a, distance_b):
-			return viewer_point.distance_squared_to(center_a) < viewer_point.distance_squared_to(center_b)
-		return distance_a < distance_b)
+		if _displayed.has(key) or _pending.has(key) or _ready_cache.has(key):
+			continue
+		var center := planner.chunk_center(key)
+		if center.distance_to(viewer_point) <= focus_distance:
+			current_wanted.append(key)
+		elif preload_viewer != null and center.distance_to(preload_point) <= ahead_distance:
+			ahead_wanted.append(key)
+		else:
+			other_wanted.append(key)
+	current_wanted.sort_custom(func(a: int, b: int) -> bool:
+		return viewer_point.distance_squared_to(planner.chunk_center(a)) < viewer_point.distance_squared_to(planner.chunk_center(b)))
+	ahead_wanted.sort_custom(func(a: int, b: int) -> bool:
+		return preload_point.distance_squared_to(planner.chunk_center(a)) < preload_point.distance_squared_to(planner.chunk_center(b)))
+	other_wanted.sort_custom(func(a: int, b: int) -> bool:
+		return viewer_point.distance_squared_to(planner.chunk_center(a)) < viewer_point.distance_squared_to(planner.chunk_center(b)))
 	var fallback_wanted: Array[int] = []
 	for key in _fallback:
-		if not _displayed.has(key) and not _pending.has(key):
+		if not _displayed.has(key) and not _pending.has(key) and not _ready_cache.has(key):
 			fallback_wanted.append(key)
-	# Coarsest coverage first; within one level, nearest first.
-	fallback_wanted.sort_custom(func(key_a: int, key_b: int) -> bool:
-		var level_a := ChunkKey.level_of(key_a)
-		var level_b := ChunkKey.level_of(key_b)
+	fallback_wanted.sort_custom(func(a: int, b: int) -> bool:
+		var level_a := ChunkKey.level_of(a)
+		var level_b := ChunkKey.level_of(b)
 		if level_a != level_b:
 			return level_a < level_b
-		return viewer_point.distance_squared_to(planner.chunk_center(key_a)) < viewer_point.distance_squared_to(planner.chunk_center(key_b)))
-	_build_queue = fallback_wanted + wanted
+		return viewer_point.distance_squared_to(planner.chunk_center(a)) < viewer_point.distance_squared_to(planner.chunk_center(b)))
+	var fine_wanted := _interleave_priority(current_wanted, ahead_wanted)
+	_build_queue = fallback_wanted + fine_wanted + other_wanted
+	_stats["peak_queue"] = maxi(int(_stats["peak_queue"]), _build_queue.size())
 	_start_queued_builds()
 	_remove_obsolete_chunks()
+
+
+## Current-view work gets two slots for every speculative lookahead job, so preloading cannot
+## starve the terrain immediately around the ship.
+func _interleave_priority(current: Array[int], ahead: Array[int]) -> Array[int]:
+	var result: Array[int] = []
+	var current_index := 0
+	var ahead_index := 0
+	while current_index < current.size() or ahead_index < ahead.size():
+		for _i in 2:
+			if current_index < current.size():
+				result.append(current[current_index])
+				current_index += 1
+		if ahead_index < ahead.size():
+			result.append(ahead[ahead_index])
+			ahead_index += 1
+	return result
+
+
+func _current_focus_distance() -> float:
+	var altitude := maxf(0.0, planet.distance_from_center(viewer) - planet.radius)
+	return clampf(altitude * 2.0 + 3000.0, 5000.0, 30000.0)
 
 
 func _fallback_ancestors(leaves: Dictionary) -> Dictionary:
@@ -157,6 +212,114 @@ func _covers_any_desired(key: int) -> bool:
 	return false
 
 
+func _mesh_memory_bytes(mesh_data: Dictionary) -> int:
+	var vertices: PackedVector3Array = mesh_data.get("vertices", PackedVector3Array())
+	var normals: PackedVector3Array = mesh_data.get("normals", PackedVector3Array())
+	var colors: PackedColorArray = mesh_data.get("colors", PackedColorArray())
+	var indices: PackedInt32Array = mesh_data.get("indices", PackedInt32Array())
+	return vertices.size() * 12 + normals.size() * 12 + colors.size() * 16 + indices.size() * 4 + 64
+
+
+func _cache_mesh(key: int, mesh_data: Dictionary) -> void:
+	if _ready_cache.has(key):
+		return
+	var bytes := _mesh_memory_bytes(mesh_data)
+	if bytes > READY_CACHE_BUDGET_BYTES:
+		_stats["discarded"] = int(_stats["discarded"]) + 1
+		return
+	if _ready_cache_bytes + bytes > READY_CACHE_BUDGET_BYTES or _ready_cache.size() >= READY_CACHE_MAX_ENTRIES:
+		_evict_ready_cache(true)
+	if _ready_cache_bytes + bytes > READY_CACHE_BUDGET_BYTES or _ready_cache.size() >= READY_CACHE_MAX_ENTRIES:
+		_stats["discarded"] = int(_stats["discarded"]) + 1
+		return
+	_ready_cache[key] = {"data": mesh_data, "bytes": bytes, "used": _cache_tick}
+	_ready_cache_bytes += bytes
+	_stats["cache_stored"] = int(_stats["cache_stored"]) + 1
+	_evict_ready_cache()
+	_stats["cache_peak_bytes"] = maxi(int(_stats["cache_peak_bytes"]), _ready_cache_bytes)
+
+
+func _evict_ready_cache(make_room := false) -> void:
+	while _ready_cache_bytes > READY_CACHE_BUDGET_BYTES or _ready_cache.size() > READY_CACHE_MAX_ENTRIES or (make_room and _ready_cache.size() >= READY_CACHE_MAX_ENTRIES):
+		var oldest_key := -1
+		var oldest_used := 1 << 60
+		for key in _ready_cache:
+			if _desired.has(key) or _fallback.has(key) or _pending.has(key) or _displayed.has(key):
+				continue
+			var used: int = int(_ready_cache[key]["used"])
+			if used < oldest_used:
+				oldest_used = used
+				oldest_key = key
+		if oldest_key < 0:
+			return
+		_ready_cache_bytes -= int(_ready_cache[oldest_key]["bytes"])
+		_ready_cache.erase(oldest_key)
+		_stats["cache_evicted"] = int(_stats["cache_evicted"]) + 1
+
+
+func _promote_cached_meshes() -> void:
+	var promoted: Array[int] = []
+	for key in _ready_cache:
+		if (_desired.has(key) or _fallback.has(key)) and not _displayed.has(key):
+			promoted.append(key)
+	for key in promoted:
+		var entry: Dictionary = _ready_cache[key]
+		_ready_cache.erase(key)
+		_ready_cache_bytes -= int(entry["bytes"])
+		_show_chunk(key, entry["data"])
+		_stats["cache_hits"] = int(_stats["cache_hits"]) + 1
+		_stats["shown"] = int(_stats["shown"]) + 1
+
+
+func ready_cache_bytes() -> int:
+	return _ready_cache_bytes
+
+
+func ready_cache_entries() -> int:
+	return _ready_cache.size()
+
+
+## True when every root face is covered by a displayed chunk or fully displayed descendants.
+func displayed_coverage_is_complete() -> bool:
+	for face in 6:
+		if not _is_covered(ChunkKey.make(face, 0, 0, 0)):
+			return false
+	return true
+
+
+## Test/tool hook: keep completed speculative data without needing a scene-tree upload.
+func cache_mesh_for_test(key: int, mesh_data: Dictionary) -> void:
+	_cache_mesh(key, mesh_data)
+
+
+func _count_desired_by_level() -> void:
+	var counts := {}
+	for key in _desired:
+		var level := ChunkKey.level_of(key)
+		counts[level] = int(counts.get(level, 0)) + 1
+	_stats["desired_by_level"] = counts
+	var displayed_counts := {}
+	for key in _displayed:
+		var level := ChunkKey.level_of(key)
+		displayed_counts[level] = int(displayed_counts.get(level, 0)) + 1
+	_stats["displayed_by_level"] = displayed_counts
+
+
+## A copy of the streaming counters, safe to read from tests and tools.
+func stream_stats() -> Dictionary:
+	var copy := _stats.duplicate(true)
+	var displayed := {}
+	for key in _displayed:
+		var level := ChunkKey.level_of(key)
+		displayed[level] = int(displayed.get(level, 0)) + 1
+	copy["displayed_by_level"] = displayed
+	copy["desired_count"] = _desired.size()
+	copy["displayed_count"] = _displayed.size()
+	copy["pending_count"] = _pending.size()
+	copy["queued_count"] = _build_queue.size()
+	return copy
+
+
 ## The predicted viewer point is capped so a high orbit speed cannot flood the planner with
 ## thousands of fine chunks; the point is still far enough ahead to cover a normal approach.
 func _preload_viewer() -> WorldPos:
@@ -173,7 +336,7 @@ func _preload_viewer() -> WorldPos:
 func _start_queued_builds() -> void:
 	while _pending.size() < MAX_BUILDS_IN_FLIGHT and not _build_queue.is_empty():
 		var key: int = _build_queue.pop_front()
-		if _pending.has(key) or _displayed.has(key) or (not _desired.has(key) and not _fallback.has(key)):
+		if _pending.has(key) or _displayed.has(key) or _ready_cache.has(key) or (not _desired.has(key) and not _fallback.has(key)):
 			continue
 		_pending[key] = true
 		_task_ids.append(WorkerThreadPool.add_task(PlanetTerrain._build_in_background.bind(key, planet, _build_state)))
@@ -182,8 +345,11 @@ func _start_queued_builds() -> void:
 static func _build_in_background(key: int, planet_body: PlanetBody, state: BuildState) -> void:
 	if state.cancelled:
 		return
+	var started := Time.get_ticks_usec()
 	var mesh_data := ChunkMesher.build(key, planet_body)
 	mesh_data["key"] = key
+	mesh_data["level"] = ChunkKey.level_of(key)
+	mesh_data["build_microseconds"] = Time.get_ticks_usec() - started
 	state.mutex.lock()
 	state.results.append(mesh_data)
 	state.mutex.unlock()
@@ -206,8 +372,20 @@ func _collect_finished_builds() -> void:
 	for mesh_data in finished:
 		var key: int = mesh_data["key"]
 		_pending.erase(key)
+		_stats["completed"] = int(_stats["completed"]) + 1
+		var level: int = int(mesh_data.get("level", ChunkKey.level_of(key)))
+		var times: Array = _stats["build_times_by_level"].get(level, [])
+		times.append(float(mesh_data.get("build_microseconds", 0)) / 1000.0)
+		if times.size() > 256:
+			times.pop_front()
+		_stats["build_times_by_level"][level] = times
 		if (_desired.has(key) or _fallback.has(key)) and not _displayed.has(key):
 			_show_chunk(key, mesh_data)
+			_stats["shown"] = int(_stats["shown"]) + 1
+		elif not _displayed.has(key):
+			# The viewer moved while this chunk was building. Keep it for a possible return
+			# instead of discarding finished work immediately.
+			_cache_mesh(key, mesh_data)
 	if not finished.is_empty():
 		_remove_obsolete_chunks()
 	_start_queued_builds()
@@ -232,7 +410,12 @@ func _show_chunk(key: int, mesh_data: Dictionary) -> void:
 		instance.material_override = _material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
-	var record := {"node": instance, "origin": WorldPos.new(planet.frame_id, origin_components[0], origin_components[1], origin_components[2])}
+	var is_fallback := _fallback.has(key) and not _desired.has(key)
+	var record := {
+		"node": instance,
+		"origin": WorldPos.new(planet.frame_id, origin_components[0], origin_components[1], origin_components[2]),
+		"fallback": is_fallback,
+	}
 	_displayed[key] = record
 	_place(record)
 	var ancestor := key
@@ -243,7 +426,12 @@ func _show_chunk(key: int, mesh_data: Dictionary) -> void:
 
 func _place(chunk_record: Dictionary) -> void:
 	var instance: MeshInstance3D = chunk_record["node"]
-	instance.position = (chunk_record["origin"] as WorldPos).to_local_vector3(render_origin)
+	var position := (chunk_record["origin"] as WorldPos).to_local_vector3(render_origin)
+	# A fallback face can overlap its finer children. Sink it a little below the surface so the
+	# finer mesh wins the depth test instead of z-fighting; gaps still show the fallback, not space.
+	if bool(chunk_record.get("fallback", false)) and position.length_squared() > 1.0:
+		position -= position.normalized() * 50.0
+	instance.position = position
 	instance.reset_physics_interpolation()
 
 
@@ -254,11 +442,18 @@ func _remove_obsolete_chunks() -> void:
 	for key in _displayed:
 		if _desired.has(key):
 			continue
-		if not _covers_any_desired(key):
-			removable.append(key) # stale fallback outside the current desired area
-		elif _has_displayed_ancestor(key) or _children_covered(key):
+		# A desired ancestor is a request for coverage, not proof that coverage exists. Keep this
+		# chunk until another displayed chunk or fully displayed descendants replace its area.
+		if _has_displayed_ancestor(key) or _children_covered(key):
 			removable.append(key)
+	# Deepest first, and re-check right before freeing. Otherwise a parent and all of its
+	# children can be marked removable in the same pass and then both disappear, leaving a hole.
+	removable.sort_custom(func(a: int, b: int) -> bool: return ChunkKey.level_of(a) > ChunkKey.level_of(b))
 	for key in removable:
+		if not _displayed.has(key) or _desired.has(key):
+			continue
+		if not _has_displayed_ancestor(key) and not _children_covered(key):
+			continue
 		var record: Dictionary = _displayed[key]
 		(record["node"] as Node).queue_free()
 		_displayed.erase(key)
