@@ -162,6 +162,8 @@ func _update_flames(delta: float) -> void:
 		flame.visible = _flame_strength > 0.01
 		_flame_glows[index].visible = flame.visible
 		if not flame.visible:
+			if index < _pixel_plumes.size():
+				_pixel_plumes[index].emitting = false
 			continue
 		var lengths: Array = FLAME_LENGTH[_flame_gear]
 		var length: float = lengths[0] + lengths[1] * _flame_strength
