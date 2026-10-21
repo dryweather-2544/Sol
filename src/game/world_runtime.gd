@@ -36,6 +36,8 @@ func advance(delta: float) -> void:
 	time_seconds += delta
 	navigator.time_seconds = time_seconds
 	navigator.warp_factor = session.progress.warp_speed_factor()
+	if session.planet != null:
+		session.planet.warp_allowed = session.progress.warp_installed
 	session.progress.update(session, active_frame)
 
 

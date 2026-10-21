@@ -22,6 +22,8 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	environment.cruise_speed_limit = clampf(distance * 0.3, 500.0, 2.0e7) * warp_factor
 	environment.atmosphere_ratio = INF
 	environment.atmosphere_friction = 0.0
+	var speed := ship_state.velocity.length()
+	environment.warp_clearance = system.distance_to_atmosphere_along(ship_state.position, ship_state.velocity / speed, time_seconds) if speed > 1e-6 else INF
 	ship_state.altitude_above_ground = distance
 	ship_state.atmosphere_ratio = INF
 	ship_state.regime = FlightRegime.SPACE

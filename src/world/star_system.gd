@@ -229,6 +229,17 @@ func frame_for(position: WorldPos, time_seconds: float, current_frame: StringNam
 	return best
 
 
+## Distance along a system-frame direction to the first atmosphere top (surface of airless bodies and stars) it hits;
+## INF if it misses every body. For the warp viability check.
+func distance_to_atmosphere_along(system_position: WorldPos, direction: Vector3, time_seconds: float) -> float:
+	var nearest := INF
+	for body_id in bodies:
+		var body: BodyDef = bodies[body_id]
+		var center := body_position(body_id, time_seconds)
+		nearest = minf(nearest, FlightEnvironment.ray_to_sphere(system_position.x, system_position.y, system_position.z, direction, center.x, center.y, center.z, body.radius + maxf(body.atmosphere_height, 0.0)))
+	return nearest
+
+
 ## Distance from a system-frame point to the nearest body surface (stars included), for travel speed.
 func distance_to_nearest_surface(system_position: WorldPos, time_seconds: float) -> float:
 	var nearest := INF

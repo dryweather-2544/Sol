@@ -12,7 +12,7 @@ extends Resource
 ## (Sol's choice) gives the same few-ship-lengths-per-second feel near the ground.
 @export var gear_max_speed := PackedFloat64Array([30.0, 500.0, 2.0e7, 1.0e8])
 ## Rodina Acceleration: velocity change per second, as a fraction of MoveSpeed (dock 66 m/s^2, combat 1000 m/s^2).
-@export var gear_acceleration := PackedFloat64Array([0.66, 2.0, 0.5, 0.2])
+@export var gear_acceleration := PackedFloat64Array([0.66, 2.0, 0.5, 1.0]) # warp: Rodina gear 4 Acceleration 1
 ## Rodina Deceleration: braking above MoveSpeed (fraction of current speed per second) and drag above DragSpeed.
 @export var gear_deceleration := PackedFloat64Array([0.9, 0.75, 0.0, 0.0])
 ## Rodina DragSpeed as a multiple of MoveSpeed (1500 m/s for dock and combat, 1.25 x MoveSpeed in cruise).
@@ -20,9 +20,10 @@ extends Resource
 ## Rodina MoveStrengths, mapped to Sol axes: sideways (x), up/down (y) and backwards (+z). Forward is always full.
 ## They apply only while not braking (input with the motion, or none), so the ship can always stop.
 ## Precision vertical is 0.4 (Rodina dock: 1.0) so full down thrust (12 m/s) touches down under the 15 m/s damage limit.
-@export var gear_lateral_strength := PackedFloat64Array([0.3, 0.3, 0.3, 0.3])
-@export var gear_vertical_strength := PackedFloat64Array([0.4, 0.3, 0.3, 0.3])
-@export var gear_reverse_strength := PackedFloat64Array([0.3, 0.6, 0.6, 0.6])
+## Warp: Rodina gear 4 MoveStrengths (0, 0, 0) and a fixed forward drive (EGDataShipPlayer.lua:211-220, EGVehicle.lua:1437-1441).
+@export var gear_lateral_strength := PackedFloat64Array([0.3, 0.3, 0.3, 0.0])
+@export var gear_vertical_strength := PackedFloat64Array([0.4, 0.3, 0.3, 0.0])
+@export var gear_reverse_strength := PackedFloat64Array([0.3, 0.6, 0.6, 0.0])
 ## Station keeping (Sol's, for the precision gear): with no input the velocity is driven to zero at the gear's
 ## acceleration instead of coasting, and the engines hold the ship against gravity up to hover_thrust_limit m/s^2.
 ## It is Rodina's MoveLock idea (match a target velocity, which Rodina's AI uses) given to the pilot in one gear.
@@ -43,6 +44,10 @@ extends Resource
 ## Warp gear's multiplier over the distance-scaled cruise cap. Sol's cruise is already
 ## distance-scaled, so the native 209.7 relative-time value is not applied directly.
 @export var warp_speed_multiplier := 6.7
+## Rodina gear 4: RotationFriction 2 everywhere (EGDataShipPlayer.lua:228), and LimnalStartTime 1.8 s before the drive's
+## relative time applies (:45, :213-219): until then warp moves at the cruise limit.
+@export var warp_rotation_friction := 2.0
+@export var warp_start_time := 1.8
 
 
 func gear_count() -> int:

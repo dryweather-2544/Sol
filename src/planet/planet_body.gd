@@ -25,6 +25,8 @@ var radius: float
 var surface_gravity := 12.0
 ## Atmosphere thickness above radius, metres (research: 200 km).
 var atmosphere_height := 200000.0
+## The warp drive is installed (set by WorldRuntime each tick): warp is then allowed above the air.
+var warp_allowed := false
 ## Rodina AtmosphereFriction: how strongly the air damps a coasting ship's spin (1 on most worlds, 1.5 on Veles).
 var atmosphere_friction := 1.0
 ## Can a person breathe at the surface without a suit tank?
@@ -121,8 +123,12 @@ func fill_environment(ship_state: ShipState, environment: FlightEnvironment) -> 
 	var ratio := atmosphere_ratio(ship_state.position)
 	ship_state.altitude_above_ground = altitude_above_ground(ship_state.position)
 	environment.gravity = Vector3.ZERO if ship_state.landed else ship_gravity_at(ship_state.position)
-	# Cruise is allowed at any height, as in Rodina (gated only by the story there, EGDataShipPlayer.lua:52-81).
-	environment.max_gear = PilotCommand.GEAR_CRUISE
+	# Cruise is allowed at any height, as in Rodina (gated only by the story there, EGDataShipPlayer.lua:52-81). Warp, once
+	# the drive is installed, anywhere above the air (Rodina CheckLimnalViability: not inside the atmosphere,
+	# EGVehicle.lua:1586-1589), as long as the path does not hit the air soon (warp_clearance, ray to the air's top).
+	environment.max_gear = PilotCommand.GEAR_WARP if warp_allowed and ratio >= 1.0 else PilotCommand.GEAR_CRUISE
+	var speed := ship_state.velocity.length()
+	environment.warp_clearance = FlightEnvironment.ray_to_sphere(ship_state.position.x, ship_state.position.y, ship_state.position.z, ship_state.velocity / speed, 0.0, 0.0, 0.0, radius + maxf(atmosphere_height, 0.0)) if speed > 1e-6 else INF
 	environment.cruise_speed_limit = cruise_speed_limit(ship_state.altitude_above_ground, ratio, ship_state.in_atmosphere)
 	environment.level_up = up_at(ship_state.position)
 	environment.atmosphere_ratio = ratio

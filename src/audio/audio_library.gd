@@ -69,8 +69,9 @@ const SOUNDS := {
 	# original names; see docs/N11_RODINA_AUDIO_INVENTORY.csv and ATTRIBUTION.md.
 	"rod_engine_dock_loop": {"folder": "rodina", "file": "DockEngine.wav", "bus": &"Interior", "db": 0.0},
 	"rod_engine_combat_loop": {"folder": "rodina", "file": "rodina_engine_combat.wav", "bus": &"Interior", "db": 0.0},
-	"rod_engine_cruise_loop": {"folder": "rodina", "file": "rod_cruise1_v2.wav", "bus": &"Interior", "db": -3.0},
-	"rod_engine_warp_loop": {"folder": "rodina", "file": "rod_warp1_v1.wav", "bus": &"Interior", "db": -2.0},
+	# Engine levels are set by AudioService.RODINA_ENGINE_SOUNDS (Rodina's LoadSound volumes), so these rows are 0 dB.
+	"rod_engine_cruise_loop": {"folder": "rodina", "file": "rod_cruise1_v2.wav", "bus": &"Interior", "db": 0.0},
+	"rod_engine_warp_loop": {"folder": "rodina", "file": "rod_warp1_v1.wav", "bus": &"Interior", "db": 0.0},
 	"rod_atmos_entry_loop": {"folder": "rodina", "file": "rod_atmosentry.wav", "bus": &"Interior", "db": -3.0},
 	"rod_fire_loop": {"folder": "rodina", "file": "rod_atmosentry.wav", "bus": &"Ship", "db": -4.0},
 	"rod_wind_light_loop": {"folder": "rodina", "file": "rod_wind_light.wav", "bus": &"Ambience", "db": -4.0},
@@ -84,6 +85,7 @@ const SOUNDS := {
 	"rod_gear_up": {"folder": "rodina", "file": "rod_gear_up.wav", "bus": &"UI", "db": 0.0},
 	"rod_gear_down": {"folder": "rodina", "file": "rod_gear_down.wav", "bus": &"UI", "db": 0.0},
 	"rod_gear_grind": {"folder": "rodina", "file": "rod_gear_grind.wav", "bus": &"UI", "db": 0.0},
+	"rod_ship_blaster_fire": {"folder": "rodina", "file": "rod_blaster_fire_v2_1.wav", "bus": &"Interior", "db": -12.0}, # Rodina "Blaster", Volume .25
 	"rod_gun_fire": {"folder": "rodina", "file": "Blaster/Single Shot 1.wav", "bus": &"Interior", "db": -1.0},
 	"rod_gun_hit": {"folder": "rodina", "file": "Blaster/Player Weapon Hit 2.wav", "bus": &"SFX", "db": 0.0},
 	"rod_gun_miss": {"folder": "rodina", "file": "Blaster/Player - Weapon Miss 3.wav", "bus": &"SFX", "db": 0.0},

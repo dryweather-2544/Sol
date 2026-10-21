@@ -18,3 +18,23 @@ var atmosphere_friction := 0.0
 var surface_gravity_g := 1.0
 ## Strength of the roll levelling, 0..1 (Rodina ShipHorizonRollStrength; the player's setting, 1 for other ships).
 var horizon_levelling := 1.0
+## Distance along the ship's velocity to the first atmosphere top it would hit (the surface of airless bodies and
+## stars), metres; INF when its path misses every body. Warp is refused when the ship would get there within
+## FlightModel.WARP_LOOKAHEAD_SECONDS (Rodina CheckLimnalViability / CheckLimnalAtmosphereCollision ray-sphere test).
+var warp_clearance := INF
+
+
+## Distance from origin along unit direction to where the ray enters the sphere (centre, radius); INF if it misses or
+## points away. Scalars, so system-frame positions keep their double precision.
+static func ray_to_sphere(ox: float, oy: float, oz: float, direction: Vector3, cx: float, cy: float, cz: float, radius: float) -> float:
+	var rx := ox - cx
+	var ry := oy - cy
+	var rz := oz - cz
+	var b := rx * direction.x + ry * direction.y + rz * direction.z
+	var c := rx * rx + ry * ry + rz * rz - radius * radius
+	if c <= 0.0:
+		return 0.0 # already inside
+	var h := b * b - c
+	if b >= 0.0 or h < 0.0:
+		return INF
+	return -b - sqrt(h)

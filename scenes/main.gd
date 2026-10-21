@@ -352,7 +352,9 @@ func _load_from(slot: String) -> void:
 	var saved_frame := StringName(String(saved_data["ship"]["position"]["frame_id"]))
 	if saved_frame != runtime.active_frame:
 		runtime.force_frame(saved_frame)
+	audio.begin_state_restore()
 	var error := SaveGame.restore(session, saved_data)
+	audio.resync_from_state()
 	if error != "":
 		session.say("Load failed: " + error)
 		return

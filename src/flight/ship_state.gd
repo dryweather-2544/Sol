@@ -43,6 +43,11 @@ var atmosphere_resistance := 0.0
 ## (Rodina AutoLevelBlock, 0..1). Transient.
 var barrel_roll_factor := 0.0
 var auto_level_block := 0.0
+## Seconds the warp gear has been engaged (Rodina EGShipPlayer.LimnalTimer); 0 outside warp. Transient, like Rodina's.
+var limnal_timer := 0.0
+## Rodina CancelLimnalDrive moves the pilot's gear down to cruise; Sol keeps the pilot's selection, so a cancelled warp
+## stays off (this latch) until the pilot selects a lower gear and shifts up again. Transient.
+var warp_cancelled := false
 
 
 func speed() -> float:

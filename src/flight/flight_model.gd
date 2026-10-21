@@ -43,15 +43,38 @@ const LEVEL_BLOCK_FULL_INPUT := 0.4
 const LEVEL_BLOCK_DECAY := 1.0
 ## AI facing: within this angle the turn rate eases off so the ship settles (Sol's own; Rodina eases within 0.1 rad/s).
 const FACE_SLOWDOWN_ANGLE := 0.5
+## Rodina refuses the limnal drive when this frame's movement would cross the atmosphere (CheckLimnalViability /
+## CheckLimnalAtmosphereCollision, EGVehicle.lua:1576-1653). Rodina's relative time snaps back on cancel; Sol's warp
+## speed decays more slowly, so Sol looks half a second ahead instead of one frame.
+const WARP_LOOKAHEAD_SECONDS := 0.5
 
 
 static func step(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
+	var previous_gear := ship_state.gear
 	ship_state.selected_gear = clampi(command.gear, 0, tuning.gear_count() - 1)
+	if ship_state.selected_gear < PilotCommand.GEAR_WARP:
+		ship_state.warp_cancelled = false # the pilot shifted down: warp may be selected again
 	ship_state.gear = mini(ship_state.selected_gear, environment.max_gear)
+	if ship_state.gear == PilotCommand.GEAR_WARP and (ship_state.warp_cancelled or ship_state.velocity.length() * WARP_LOOKAHEAD_SECONDS >= environment.warp_clearance):
+		ship_state.gear = PilotCommand.GEAR_CRUISE
+	if previous_gear == PilotCommand.GEAR_WARP and ship_state.gear != PilotCommand.GEAR_WARP:
+		_cancel_limnal(ship_state, tuning, environment)
+		ship_state.warp_cancelled = ship_state.selected_gear == PilotCommand.GEAR_WARP
+	ship_state.limnal_timer = ship_state.limnal_timer + delta if ship_state.gear == PilotCommand.GEAR_WARP else 0.0
 	_update_atmosphere_state(ship_state, environment, delta)
 	_step_linear(ship_state, command, tuning, environment, delta)
 	_step_angular(ship_state, command, tuning, environment, delta)
 	_entry_push(ship_state, environment, delta)
+
+
+## Rodina CancelLimnalDrive (EGVehicle.lua:1611-1636): leaving warp for any reason (shifting down, a forced drop at a
+## sphere of influence, the viability check) sets the relative time back to its target at once, so the ship is at most
+## at the new gear's speed limit from this tick on.
+static func _cancel_limnal(ship_state: ShipState, tuning: ShipTuning, environment: FlightEnvironment) -> void:
+	var limit: float = tuning.gear_max_speed[ship_state.gear]
+	if ship_state.gear == PilotCommand.GEAR_CRUISE:
+		limit = minf(limit, environment.cruise_speed_limit)
+	ship_state.velocity = ship_state.velocity.limit_length(limit)
 
 
 ## Rodina EGVehicle:UpdateInAtmosphereState (977-1037).
@@ -82,7 +105,9 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 	if gear == PilotCommand.GEAR_CRUISE:
 		move_speed = minf(move_speed, environment.cruise_speed_limit)
 	elif gear == PilotCommand.GEAR_WARP:
-		move_speed = minf(move_speed, environment.cruise_speed_limit * tuning.warp_speed_multiplier)
+		# The drive's relative time applies only once LimnalActivation reaches 1 (EGDataShipPlayer.lua:213-219).
+		var spun_up := ship_state.limnal_timer >= tuning.warp_start_time
+		move_speed = minf(move_speed, environment.cruise_speed_limit * (tuning.warp_speed_multiplier if spun_up else 1.0))
 	var acceleration_factor: float = tuning.gear_acceleration[gear]
 	var deceleration_factor: float = tuning.gear_deceleration[gear]
 	var velocity := ship_state.basis.transposed() * ship_state.velocity # ship-local
@@ -93,6 +118,8 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 		if speed > tuning.gear_drag_speed_ratio[gear] * move_speed:
 			velocity *= maxf(0.0, 1.0 - DRAG_APPLICATIONS * minf(1.0, deceleration_factor) * delta)
 		var wish := command.thrust.limit_length(1.0)
+		if gear == PilotCommand.GEAR_WARP:
+			wish = Vector3(0, 0, -1) # "Limnal Drive is not controllable": full forward always (EGVehicle.lua:1437-1441)
 		var braking := 0.0
 		var target := Vector3.ZERO
 		var strength := 0.0
@@ -175,7 +202,10 @@ static func _entry_push(ship_state: ShipState, environment: FlightEnvironment, d
 static func rotation_friction(tuning: ShipTuning, gear: int, environment: FlightEnvironment) -> float:
 	var full_ratio: float = tuning.gear_full_friction_ratio[gear]
 	var fade := clampf((environment.atmosphere_ratio - full_ratio) / (1.0 - full_ratio), 0.0, 1.0)
-	return environment.atmosphere_friction * (1.0 - fade)
+	var friction := environment.atmosphere_friction * (1.0 - fade)
+	if gear == PilotCommand.GEAR_WARP:
+		friction = maxf(friction, tuning.warp_rotation_friction)
+	return friction
 
 
 ## Player turn input as angular acceleration with inertia (EGVehicle:SetDesiredRotation).

@@ -13,13 +13,20 @@ const TURRET_SOUND_SECONDS_BETWEEN_SHOTS := 0.2
 const HULL_ALARM_BELOW := 0.25
 const SUBSYSTEM_FAIL_BELOW := 0.25
 const SUBSYSTEM_RESTORED_ABOVE := 0.75
-## Reference audio is selected by the gear in effect. One player per loop is created lazily and
-## faded, so changing gear does not create a new player every frame.
+## Reference audio is selected by the gear in effect, as Rodina's EGShipPlayer:SetMovementEffects does
+## (EGDataShipPlayer.lua:419-430): DockEngine in gear 1, CruiseEngine in gears 2 and 3, WarpEngine in gear 4. One player
+## per loop is created lazily and faded, so changing gear does not create a new player every frame.
 const RODINA_ENGINE_LOOPS := {
 	PilotCommand.GEAR_DOCK: "rod_engine_dock_loop",
-	PilotCommand.GEAR_COMBAT: "rod_engine_combat_loop",
+	PilotCommand.GEAR_COMBAT: "rod_engine_cruise_loop",
 	PilotCommand.GEAR_CRUISE: "rod_engine_cruise_loop",
 	PilotCommand.GEAR_WARP: "rod_engine_warp_loop",
+}
+## Rodina's LoadSound Volume and UpSpeed/DownSpeed (gain per second) for the engine loops (Gameplay/EGAudio.lua:16-49).
+const RODINA_ENGINE_SOUNDS := {
+	"rod_engine_dock_loop": {"volume": 1.0, "up": 20.0, "down": 20.0},
+	"rod_engine_cruise_loop": {"volume": 0.25, "up": 5.0, "down": 5.0},
+	"rod_engine_warp_loop": {"volume": 1.0, "up": 5.0, "down": 1.0},
 }
 const ENGINE_FADE_PER_SECOND := 4.0
 const WORLD_VOICES := 8
@@ -62,6 +69,7 @@ var _previous_walkway_moving := false
 var _previous_outer_open_factor := 0.0
 var _engine_layer_gains := {}
 var _previous_selected_gear := -1
+var _restoring := false
 var _world_players: Array[AudioStreamPlayer3D] = []
 
 
@@ -237,19 +245,28 @@ static func engine_loop_for_gear(gear: int) -> String:
 	return RODINA_ENGINE_LOOPS.get(gear, "rod_engine_combat_loop")
 
 
+## Rodina's rule: the engine plays at the movement strength (the pilot's thrust input; silent when coasting), the warp
+## engine at 1 once the drive is active and LimnalActivation / 3 while it spins up; each at its LoadSound volume.
+static func rodina_engine_gain(gear: int, thrust_strength: float, limnal_timer: float) -> float:
+	var sound_id := engine_loop_for_gear(gear)
+	var volume: float = RODINA_ENGINE_SOUNDS[sound_id]["volume"]
+	if gear == PilotCommand.GEAR_WARP:
+		var activation := clampf(limnal_timer / LimnalWarpView.LIMNAL_START_TIME, 0.0, 1.0)
+		return volume * (1.0 if activation >= 1.0 else activation / 3.0)
+	return volume * clampf(thrust_strength, 0.0, 1.0)
+
+
 func _update_engine_loops(engine_bus: StringName, engine_running: bool, delta: float) -> bool:
 	var selected := engine_loop_for_gear(ship.state.gear)
-	var max_speed := maxf(ship.tuning.gear_max_speed[ship.state.gear], 1.0)
-	var speed_load := clampf(ship.state.speed() / max_speed, 0.0, 1.0)
-	var load := maxf(_smoothed_throttle, speed_load * 0.7)
 	var engine_factor := 1.0
 	if session.systems != null:
 		engine_factor = clampf(session.systems.engine_factor(), 0.15, 1.0)
+	var selected_gain := rodina_engine_gain(ship.state.gear, ship.last_command.thrust.length(), ship.state.limnal_timer) * engine_factor
 	var selected_ok := true
-	for gear in RODINA_ENGINE_LOOPS:
-		var sound_id: String = RODINA_ENGINE_LOOPS[gear]
-		var target := (0.18 + 0.82 * load) * engine_factor if engine_running and sound_id == selected else 0.0
-		if not _fade_loop(sound_id, target, engine_bus, delta):
+	for sound_id: String in RODINA_ENGINE_SOUNDS:
+		var target := selected_gain if engine_running and sound_id == selected else 0.0
+		var sound: Dictionary = RODINA_ENGINE_SOUNDS[sound_id]
+		if not _fade_loop(sound_id, target, engine_bus, delta, sound["up"], sound["down"]):
 			if sound_id == selected:
 				selected_ok = false
 	return selected_ok
@@ -257,9 +274,9 @@ func _update_engine_loops(engine_bus: StringName, engine_running: bool, delta: f
 
 ## Moves one loop's gain toward `target` without ever creating a silent player. False means the
 ## loop's file is unavailable, so the caller can use the synthesised fallback.
-func _fade_loop(sound_id: String, target: float, bus: StringName, delta: float) -> bool:
+func _fade_loop(sound_id: String, target: float, bus: StringName, delta: float, up_per_second: float = ENGINE_FADE_PER_SECOND, down_per_second: float = ENGINE_FADE_PER_SECOND) -> bool:
 	var current := float(_engine_layer_gains.get(sound_id, 0.0))
-	var next := move_toward(current, target, ENGINE_FADE_PER_SECOND * delta)
+	var next := move_toward(current, target, (up_per_second if target > current else down_per_second) * delta)
 	_engine_layer_gains[sound_id] = next
 	if next <= 0.0001 and not _sample_loops.has(sound_id):
 		return true
@@ -404,39 +421,28 @@ func _play_ship_control_cues(delta: float) -> void:
 	if command.boost and not _previous_boost:
 		play_sample("sfx_ship_boost_start")
 	_previous_boost = command.boost
-	if ship.state.gear != _previous_gear:
-		if _previous_gear != -1:
-			if ship.state.gear > _previous_gear:
-				play_sample("rod_gear_up")
-			else:
-				play_sample("rod_gear_down")
-			if ship.state.selected_gear != ship.state.gear:
-				play_sample("rod_gear_grind", 1)
-		_previous_gear = ship.state.gear
+	# Rodina EGBehaviorPlayer:UpdateShiftGears (127-147): a shift the pilot asks for plays ShiftUp/ShiftDown, a refused
+	# one ShiftGrind; a gear the game drops by itself (CancelLimnalDrive, an empty tank) plays nothing.
+	var selected := ship.state.selected_gear
+	if _previous_selected_gear != -1 and selected != _previous_selected_gear:
+		if selected != ship.state.gear:
+			play_sample("rod_gear_grind", 1)
+		elif selected > _previous_selected_gear:
+			play_sample("rod_gear_up")
+		else:
+			play_sample("rod_gear_down")
+	_previous_selected_gear = selected
+	_previous_gear = ship.state.gear
 	var shots_fired := ship.weapon.shots_fired
+	# The ship's guns are Rodina's EGWeaponBlaster, SoundName "Blaster" (EGDataWeapons.lua:16, EGAudio.lua:245).
 	if shots_fired > _previous_shots_fired:
-		play_sample("rod_gun_fire")
+		play_sample("rod_ship_blaster_fire")
 	_previous_shots_fired = shots_fired
 	var turret_firing := session.systems.turret_firing
 	if turret_firing and (not _previous_turret_firing or _turret_clock <= 0.0):
-		play_sample("rod_gun_fire")
+		play_sample("rod_ship_blaster_fire")
 		_turret_clock = TURRET_SOUND_SECONDS_BETWEEN_SHOTS
 	_previous_turret_firing = turret_firing
-
-
-## Gear shift sounds are one file per gear (_01 dock, _02 combat, _03 cruise), not interchangeable variants.
-func _play_gear_shift(gear: int) -> void:
-	var stream := AudioLibrary.variant_stream("sfx_ship_gear_shift", gear + 1)
-	var player := _free_voice(0)
-	if stream == null or player == null:
-		return
-	player.stream = stream
-	player.bus = AudioLibrary.bus_for("sfx_ship_gear_shift")
-	player.volume_db = AudioLibrary.volume_db_for("sfx_ship_gear_shift")
-	player.pitch_scale = 1.0
-	player.play()
-	_one_shot_priorities[_sfx_players.find(player)] = 0
-	cue_started.emit("sfx_ship_gear_shift_%02d" % (gear + 1), player.bus)
 
 
 ## Positional one-shot for world events. The service is a plain Node under the main scene, so
@@ -479,8 +485,39 @@ func _inventory_total() -> int:
 	return total
 
 
+## Before a save is restored: mute the state-change cues (the restore itself changes inventory, doors, gear...).
+func begin_state_restore() -> void:
+	_restoring = true
+
+
+## After a save is restored: take the loaded state as the new "previous" state, so nothing is announced for it.
+func resync_from_state() -> void:
+	_restoring = false
+	if session == null:
+		return
+	_previous_shots_fired = ship.weapon.shots_fired
+	_previous_gear = ship.state.gear
+	_previous_selected_gear = ship.state.selected_gear
+	_previous_pickup_total = _inventory_total()
+	_previous_landed = ship.state.landed
+	_previous_mode = session.mode
+	_previous_walkway_state = session.systems.walkway.state
+	_previous_door_targets.clear()
+	_previous_power_down = session.systems.power.is_shut_down()
+	_previous_airlock_pressure = session.systems.airlock_pressure
+	_previous_airlock_trend = 0
+	_previous_engine_stopped = ship.controller.is_parked() or ship.state.landed
+	_previous_boost = ship.last_command.boost
+	_previous_outer_open_factor = session.systems.airlock.outer.open_factor
+	for subsystem_id in [ShipSubsystems.Id.ENGINES, ShipSubsystems.Id.WEAPONS, ShipSubsystems.Id.REACTOR, ShipSubsystems.Id.LIFE_SUPPORT]:
+		_subsystem_low[subsystem_id] = session.systems.subsystems.value(subsystem_id) < SUBSYSTEM_FAIL_BELOW
+
+
 func _on_inventory_changed() -> void:
 	var total := _inventory_total()
+	if _restoring:
+		_previous_pickup_total = total
+		return
 	if _previous_pickup_total != -1 and total > _previous_pickup_total:
 		play_sample("rod_item_pickup")
 	_previous_pickup_total = total

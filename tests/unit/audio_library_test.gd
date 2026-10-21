@@ -203,7 +203,7 @@ func test_reference_samples_play_through_the_service_and_loop_players_restart() 
 
 func test_reference_engine_loops_follow_the_gear_table() -> void:
 	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_DOCK), "rod_engine_dock_loop")
-	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_COMBAT), "rod_engine_combat_loop")
+	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_COMBAT), "rod_engine_cruise_loop", "Rodina plays CruiseEngine in gears 2 and 3")
 	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_CRUISE), "rod_engine_cruise_loop")
 	assert_eq(AudioService.engine_loop_for_gear(PilotCommand.GEAR_WARP), "rod_engine_warp_loop")
 	for gear in [PilotCommand.GEAR_DOCK, PilotCommand.GEAR_COMBAT, PilotCommand.GEAR_CRUISE, PilotCommand.GEAR_WARP]:
@@ -214,3 +214,14 @@ func test_reference_engine_loops_follow_the_gear_table() -> void:
 	assert_true(AudioLibrary.stream("rod_atmos_entry_loop") is AudioStreamWAV, "atmosphere entry loop loads")
 	assert_true(AudioLibrary.stream("rod_gun_hit") != null, "reference impact loads")
 	assert_true(AudioLibrary.stream("rod_menu_highlight") != null, "reference UI highlight loads")
+
+
+func test_engine_gain_follows_rodinas_rules() -> void:
+	# EGDataShipPlayer.lua:419-430 and EGAudio.lua: volume = movement strength x LoadSound Volume; warp 1 once active.
+	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_DOCK, 1.0, 0.0), 1.0, 1e-9)
+	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_COMBAT, 0.0, 0.0), 0.0, 1e-9, "coasting is silent")
+	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_CRUISE, 1.0, 0.0), 0.25, 1e-9, "CruiseEngine Volume 0.25")
+	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_COMBAT, 0.5, 0.0), 0.125, 1e-9)
+	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_WARP, 0.0, 0.9), 0.5 / 3.0, 1e-9, "spin-up: activation / 3")
+	assert_near(AudioService.rodina_engine_gain(PilotCommand.GEAR_WARP, 0.0, 2.0), 1.0, 1e-9, "active drive: full")
+	assert_true(AudioLibrary.stream("rod_ship_blaster_fire") != null, "the ship blaster sound loads")
