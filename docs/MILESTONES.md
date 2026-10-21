@@ -289,4 +289,5 @@ and the commit is pushed.
 - [x] Central cyan reticle and basic weapon-ready panel.
 - [x] Hostile target brackets projected through the active camera.
 - [x] Pooled projectile impact flashes connected to the projectile simulation.
-- [ ] Human visual comparison; weapon/target detail panel and remaining WARP reference.
+- [x] Cockpit camera obstruction removed; dark cockpit tub/console geometry added.
+- [ ] Human visual comparison; cockpit dashboard detail, weapon/target panel and remaining WARP reference.

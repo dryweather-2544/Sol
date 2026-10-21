@@ -7,4 +7,4 @@ func _init() -> void:
 	name = "CockpitCamera"
 	near = 0.05
 	far = 3.0e7
-	position = Vector3(0, -0.9 + 1.5, -5.3)
+	position = Vector3(0, -0.9 + 1.4, -6.4)

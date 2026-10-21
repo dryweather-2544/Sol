@@ -142,3 +142,15 @@ triggered. A live target-bracket capture (`/tmp/n13_target_probe/target.png`) sh
 the flare was too small/occluded in that probe, so the impact quads were enlarged. The effect still
 needs a clean live combat capture before being called visually matched.
 - HUD prompt text reduced to 18 px in the Rodina view; debug-view typography is restored when leaving it.
+
+
+### Eighth iteration — cockpit view (2026-10-21)
+
+The cockpit capture (`/tmp/n13_cockpit_probe/cockpit.png`) was dominated by a bright interior plane
+and a bare hull, unlike the reference's dark dashboard and windshield frame. Moving the fixed pilot
+camera forward to `z=-6.4` removes that interior obstruction and exposes the faceted canopy, dark
+dash and planet. Added a dark cockpit floor/tub and console/instrument geometry to the ship mesh.
+
+Capture after the change: `/tmp/n13_cockpit_probe/cockpit4.png`. It is much closer to the reference
+cockpit composition, but still lacks the reference's detailed vents, dashboard screens and framing;
+those remain open. No flight or camera-transform logic changed.
