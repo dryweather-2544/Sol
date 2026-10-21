@@ -101,6 +101,9 @@ func _smooth_noise(noise: FastNoiseLite, x: float, y: float, z: float) -> float:
 ## an analytic derivative for domain warping; _warp below uses a finite-difference direction,
 ## which is the same idea with an explicit epsilon.
 func _grammar_noise(seed_value: int, frequency: float, octaves: int, gain: float, lacunarity: float, cellular := false) -> FastNoiseLite:
+	# Keyed by the formatted parameters (5 decimals). Fixed-parameter call sites go through
+	# _slot_noise instead, which calls this once per slot; only call sites with a per-sample gain
+	# (Perun/asteroid roughness) still pay for this lookup on every sample.
 	var key := "%d/%.5f/%d/%.5f/%.5f/%s" % [seed_value, frequency, octaves, gain, lacunarity, str(cellular)]
 	if _grammar_noises.has(key):
 		return _grammar_noises[key]
@@ -122,35 +125,60 @@ func _grammar_noise(seed_value: int, frequency: float, octaves: int, gain: float
 	return noise
 
 
-func _fractal(seed_value: int, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int) -> float:
-	var noise := _grammar_noise(seed_value, octave_base, octaves, mult_change, octave_change)
+## N14 perf: each grammar call site passes a fixed slot so its FastNoiseLite is fetched by array
+## index instead of a dictionary lookup. slot < 0 keeps the keyed lookup. Same noise object
+## parameters and seed either way, so the height is bit-identical.
+const SLOT_COUNT := 64
+var _slot_noises: Array = []
+
+
+func _slot_noise(slot: int, seed_value: int, frequency: float, octaves: int, gain: float, lacunarity: float, cellular := false) -> FastNoiseLite:
+	if slot < 0:
+		return _grammar_noise(seed_value, frequency, octaves, gain, lacunarity, cellular)
+	if _slot_noises.is_empty():
+		_slot_noises.resize(SLOT_COUNT * 2)
+	var noise: FastNoiseLite = _slot_noises[slot]
+	if noise == null:
+		noise = _grammar_noise(seed_value, frequency, octaves, gain, lacunarity, cellular)
+		_slot_noises[slot] = noise
+	return noise
+
+
+func _fractal(seed_value: int, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int, slot := -1) -> float:
+	var noise := _slot_noise(slot, seed_value, octave_base, octaves, mult_change, octave_change)
 	return (noise.get_noise_3d(p.x, p.y, p.z) + 1.0) * 0.5
 
 
-func _special(seed_value: int, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int) -> float:
+func _special(seed_value: int, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int, slot := -1) -> float:
 	# SpecialPerlin suppresses octaves where the derivative is large. A second fractal is a cheap
 	# faithful-enough stand-in for the derivative weighting used by Rodina's terrain bake.
-	var base := _fractal(seed_value, p, mult_change, octave_base, octave_change, octaves)
-	var rough := _fractal(seed_value + 7, p, mult_change, octave_base * 1.7, octave_change, maxi(2, octaves - 1))
+	var base := _fractal(seed_value, p, mult_change, octave_base, octave_change, octaves, slot)
+	var rough := _fractal(seed_value + 7, p, mult_change, octave_base * 1.7, octave_change, maxi(2, octaves - 1), slot + SLOT_COUNT if slot >= 0 else -1)
 	return clampf(base * (0.65 + 0.35 * (1.0 - rough)), 0.0, 1.0)
 
 
-func _warp(seed_value: int, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int) -> Vector3:
+func _warp(seed_value: int, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int, slot := -1) -> Vector3:
 	# FractalPerlinDerivative(...).xyz in PlanetPerun/Jarilo. The finite difference is evaluated
-	# in the same direction space and is normalized by the caller.
+	# in the same direction space and is normalized by the caller. One noise fetch serves all four
+	# samples (the same noise _fractal would return for each).
 	var e := 0.01
-	var base := _fractal(seed_value, p, mult_change, octave_base, octave_change, octaves)
-	var dx := _fractal(seed_value, p + Vector3(e, 0, 0), mult_change, octave_base, octave_change, octaves) - base
-	var dy := _fractal(seed_value, p + Vector3(0, e, 0), mult_change, octave_base, octave_change, octaves) - base
-	var dz := _fractal(seed_value, p + Vector3(0, 0, e), mult_change, octave_base, octave_change, octaves) - base
+	var noise := _slot_noise(slot, seed_value, octave_base, octaves, mult_change, octave_change)
+	var base := (noise.get_noise_3d(p.x, p.y, p.z) + 1.0) * 0.5
+	var px := p + Vector3(e, 0, 0)
+	var py := p + Vector3(0, e, 0)
+	var pz := p + Vector3(0, 0, e)
+	var dx := (noise.get_noise_3d(px.x, px.y, px.z) + 1.0) * 0.5 - base
+	var dy := (noise.get_noise_3d(py.x, py.y, py.z) + 1.0) * 0.5 - base
+	var dz := (noise.get_noise_3d(pz.x, pz.y, pz.z) + 1.0) * 0.5 - base
 	return Vector3(dx, dy, dz) / e
 
 
-func _voronoi_base(p: Vector3, scale: float, jitter: float, max_distance: float) -> float:
+func _voronoi_base(p: Vector3, scale: float, jitter: float, max_distance: float, slot := -1) -> float:
 	# Voronoi2(VoronoiPoints, scale/jitter, maxDistance). Rodina's original points come from a GPU
 	# constant buffer; FastNoiseLite's cellular field is the equivalent deterministic 3D cell field.
-	var noise := _grammar_noise(0, maxf(scale, 0.0001), 1, 1.0, 2.0, true)
-	noise.cellular_jitter = jitter
+	var noise := _slot_noise(slot, 0, maxf(scale, 0.0001), 1, 1.0, 2.0, true)
+	if noise.cellular_jitter != jitter:
+		noise.cellular_jitter = jitter
 	var distance := absf(noise.get_noise_3d(p.x, p.y, p.z))
 	return analog(distance, 0.0, max_distance, 1.0, 0.0)
 
@@ -177,19 +205,19 @@ func _holes(value: float, thresholds: Vector4) -> float:
 
 func _perun_height(p: Vector3) -> float:
 	# GenerationVars[1..17] for Perun (EGDataPlanets.lua:286-324). Seed groups are 10/0.
-	var mask_distort := _warp(10, p, 1.0, 1.0, 2.0, 2)
-	var distort := _warp(0, p, 1.0, 1.0, 2.0, 9)
+	var mask_distort := _warp(10, p, 1.0, 1.0, 2.0, 2, 0)
+	var distort := _warp(0, p, 1.0, 1.0, 2.0, 9, 1)
 	var mask_coord := (p + mask_distort * 0.05 + distort * 0.005).normalized()
 	var base_coords := (p + distort * 0.02).normalized()
-	var mountain_distort := _warp(10, mask_coord, 1.0, 2.0, 2.0, 2)
+	var mountain_distort := _warp(10, mask_coord, 1.0, 2.0, 2.0, 2, 2)
 	var mountain_coord1 := (mask_coord + mountain_distort * 0.2).normalized()
 	var mountain_coords := (p + distort * 0.001).normalized()
-	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25)
-	var holes := _holes(_fractal(0, mountain_coords, 1.0, 128.0, 2.0, 4), Vector4(0.275, 0.375, 0.375, 0.55))
-	var plateau := analog(_fractal(10, mask_coord, 3.0, 0.56, 2.0, 12), 0.5, 0.675, 0.0, 1.0)
-	var mountain_perlin := _fractal(10, mountain_coord1, 3.0, 0.6, 2.0, 5)
+	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25, 3)
+	var holes := _holes(_fractal(0, mountain_coords, 1.0, 128.0, 2.0, 4, 4), Vector4(0.275, 0.375, 0.375, 0.55))
+	var plateau := analog(_fractal(10, mask_coord, 3.0, 0.56, 2.0, 12, 5), 0.5, 0.675, 0.0, 1.0)
+	var mountain_perlin := _fractal(10, mountain_coord1, 3.0, 0.6, 2.0, 5, 6)
 	var mountain_mask := analog(mountain_perlin, 0.45, 0.6, 0.0, 1.0)
-	var mountains := analog(_fractal(0, mountain_coords, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0)
+	var mountains := analog(_fractal(0, mountain_coords, 1.0, 1.0, 2.0, 9, 7), 0.4, 0.7, 0.0, 1.0)
 	mountains = analog(mountain_mask * mountains, 0.0, 0.5, 0.0, 1.0)
 	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)
 	mountains = mountains * mountains
@@ -200,40 +228,40 @@ func _perun_height(p: Vector3) -> float:
 	mountains = lerpf(mountains, 0.0, holes)
 	var height := 0.0
 	height += mountains * (20000.0 * _fractal(0, p, roughness, 500.0, 2.0, 12))
-	height += plateau * (12000.0 + 5000.0 * _fractal(0, p, 0.5, 300.0, 2.0, 10))
-	height += base * (500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7))
+	height += plateau * (12000.0 + 5000.0 * _fractal(0, p, 0.5, 300.0, 2.0, 10, 9))
+	height += base * (500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7, 10))
 	return height
 
 
 func _jarilo_height(p: Vector3) -> float:
 	# GenerationVars[1..17,100..114] for Jarilo (EGDataPlanets.lua:567-615).
-	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2)
-	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9)
+	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2, 11)
+	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9, 12)
 	var base_coords := (p + map_distort * 0.06 + feature_distort * 0.02).normalized()
 	var plateau_coord := (p + map_distort * 0.05 + feature_distort * 0.0).normalized()
-	var dunes := _voronoi_base(base_coords, 0.5, 0.5, 0.25)
-	var plateau := analog(_fractal(10, plateau_coord, 2.0, 0.5, 2.0, 16), 0.4, 0.8, 0.0, 1.0)
-	var mountain_distort := _warp(10, plateau_coord, 1.0, 2.0, 2.0, 2)
+	var dunes := _voronoi_base(base_coords, 0.5, 0.5, 0.25, 13)
+	var plateau := analog(_fractal(10, plateau_coord, 2.0, 0.5, 2.0, 16, 14), 0.4, 0.8, 0.0, 1.0)
+	var mountain_distort := _warp(10, plateau_coord, 1.0, 2.0, 2.0, 2, 15)
 	var mountain_coord1 := (plateau_coord + mountain_distort * 0.0).normalized()
 	var mountain_coords := (p + feature_distort * 0.001).normalized()
-	var mountain_perlin := _fractal(10, mountain_coord1, 1.0, 1.0, 2.0, 9)
+	var mountain_perlin := _fractal(10, mountain_coord1, 1.0, 1.0, 2.0, 9, 16)
 	var mountain_mask := analog(mountain_perlin, 0.45, 0.8, 0.0, 1.0)
-	var mountains := analog(_fractal(0, mountain_coords, 1.0, 2.0, 2.0, 2), 0.0, 0.5, 0.0, 1.0)
+	var mountains := analog(_fractal(0, mountain_coords, 1.0, 2.0, 2.0, 2, 17), 0.0, 0.5, 0.0, 1.0)
 	mountains = analog(mountain_mask * mountains, 0.0, 0.5, 0.0, 1.0)
 	mountains = mountains * mountains
-	var holes := _holes(_fractal(0, p, 1.0, 2500.0, 2.0, 4), Vector4(0.0, 0.0, 0.375, 0.5))
+	var holes := _holes(_fractal(0, p, 1.0, 2500.0, 2.0, 4, 18), Vector4(0.0, 0.0, 0.375, 0.5))
 	plateau = ease_out_in_sin2(analog(plateau, 0.4, 0.8, 0.0, 1.0))
 	dunes = ease_out_in_sin2(analog(dunes, 0.4, 0.7, 0.0, 1.0))
 	dunes = analog(plateau, 0.0, 0.15, dunes, 0.0)
 	dunes = analog(mountains, 0.05, 0.1, dunes, 0.0)
 	var height := 0.0
-	height += mountains * (50000.0 * _special(0, p, 0.0, 500.0, 2.0, 12))
-	var plateau_hills := _special(153, p, 0.5, 4000.0, 2.0, 9)
+	height += mountains * (50000.0 * _special(0, p, 0.0, 500.0, 2.0, 12, 19))
+	var plateau_hills := _special(153, p, 0.5, 4000.0, 2.0, 9, 20)
 	plateau_hills = lerpf(plateau_hills, 0.45, holes)
 	height += plateau * (2000.0 + 2000.0 * plateau_hills)
 	var dune_mask := dunes
 	if dune_mask > 0.0:
-		var dune_distort := _warp(12, p, 1.0, 0.5, 2.0, 3)
+		var dune_distort := _warp(12, p, 1.0, 0.5, 2.0, 3, 21)
 		var dune_coord := (p + dune_distort * 0.001).normalized()
 		var dune_control := sin(dune_coord.dot(Vector3(1, -1, -1)) * 1000.0)
 		var x1 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 800.0, 1.0)
@@ -259,13 +287,13 @@ static func ease_out_in_sin(value: float) -> float:
 func _veles_height(p: Vector3) -> float:
 	# PlanetVeles.h constants. Deliberately kept short until this grammar is calibrated against
 	# a Veles screenshot; it is still much closer than the generic Sol noise stack.
-	var base := _voronoi_base(p, 0.25, 0.5, 0.25)
-	var plate_cracks := _fractal(10, p, 1.0, 10.0, 2.0, 10)
+	var base := _voronoi_base(p, 0.25, 0.5, 0.25, 22)
+	var plate_cracks := _fractal(10, p, 1.0, 10.0, 2.0, 10, 23)
 	plate_cracks = analog(absf(0.5 - plate_cracks), 0.0, 0.025, 1.0, 0.25)
-	var plate_mask := _fractal(10, p, 1.0, 1.0, 2.0, 10) * analog(p.x, -0.9, 0.0, 0.3, 2.0)
+	var plate_mask := _fractal(10, p, 1.0, 1.0, 2.0, 10, 24) * analog(p.x, -0.9, 0.0, 0.3, 2.0)
 	var plateau := analog(plate_mask, 0.4, 0.41, 0.0, 1.0) - plate_cracks
 	var mountain_mask := analog(plate_mask, 0.375, 0.45, 0.0, 1.0)
-	var mountains := analog(_fractal(0, p, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0)
+	var mountains := analog(_fractal(0, p, 1.0, 1.0, 2.0, 9, 25), 0.4, 0.7, 0.0, 1.0)
 	mountains = analog(mountain_mask * mountains, 0.0, 0.5, 0.0, 1.0)
 	mountains = mountains * mountains
 	plateau = ease_out_in_sin2(plateau)
@@ -276,23 +304,23 @@ func _veles_height(p: Vector3) -> float:
 	base = ease_out_in_sin2(analog(base, 0.4, 0.7, 0.3, 1.0))
 	mountains = lerpf(mountains, 0.0, _holes(0.0, Vector4(0.275, 0.375, 0.375, 0.55)))
 	var height := 0.0
-	height += mountains * (20000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12))
-	height += plateau * (15000.0 + 5000.0 * _fractal(0, p, 0.5, 300.0, 2.0, 10))
-	height += (base * 8000.0 + volcano * 5000.0) * _fractal(0, p, 0.5, 500.0, 2.0, 12)
+	height += mountains * (20000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12, 26))
+	height += plateau * (15000.0 + 5000.0 * _fractal(0, p, 0.5, 300.0, 2.0, 10, 27))
+	height += (base * 8000.0 + volcano * 5000.0) * _fractal(0, p, 0.5, 500.0, 2.0, 12, 28)
 	height += volcano * 30000.0
 	return height
 
 
 func _morena_height(p: Vector3) -> float:
 	# PlanetMorena.h: a hand-written cracked-plate grammar, not a GenerationVars world.
-	var crack_distort_big := _warp(12, p, 0.5, 0.5, 2.0, 8)
-	var crack_distort := _warp(10, p, 0.5, 2.0, 2.0, 8)
+	var crack_distort_big := _warp(12, p, 0.5, 0.5, 2.0, 8, 29)
+	var crack_distort := _warp(10, p, 0.5, 2.0, 2.0, 8, 30)
 	var crack_coord := (p + crack_distort_big * 0.05 + crack_distort * 0.075).normalized()
-	var plate_perlin := _fractal(10, p, 0.6, 60.0, 2.0, 7)
+	var plate_perlin := _fractal(10, p, 0.6, 60.0, 2.0, 7, 31)
 	var big_mask_1 := plate_perlin - cos(clampf(30.0 * (0.9 * crack_coord.z + 0.3 * crack_coord.y), -8.0 * PI, 8.0 * PI))
 	var big_mask_2 := plate_perlin - cos(clampf(30.0 * crack_coord.z, -8.0 * PI, 8.0 * PI))
 	var plate_cracks := minf(absf(big_mask_1), absf(big_mask_2))
-	var small_cracks := _fractal(0, p, 0.56, 25.0, 2.0, 10)
+	var small_cracks := _fractal(0, p, 0.56, 25.0, 2.0, 10, 32)
 	small_cracks = minf(absf(0.46 - small_cracks), minf(absf(0.5 - small_cracks), absf(0.54 - small_cracks)))
 	small_cracks = smoothstep(0.0, 1.0, analog(small_cracks, 0.003, 0.010, 1.0, 0.0))
 	var hills := 0.0
@@ -308,13 +336,13 @@ func _morena_height(p: Vector3) -> float:
 	var plateau := lerpf(1.0, 0.0, analog(dunes, 0.0, 0.15, 0.0, 1.0))
 	var mountains := lerpf(hills, 0.0, cracks)
 	var height := 14000.0
-	height += plateau * (-1000.0 + 2000.0 * _fractal(0, p, 0.48, 300.0, 2.0, 6))
+	height += plateau * (-1000.0 + 2000.0 * _fractal(0, p, 0.48, 300.0, 2.0, 6, 33))
 	height += cracks * -15000.0
 	if mountains > 0.0:
-		height += mountains * 30000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12)
+		height += mountains * 30000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12, 34)
 	var dune_mask := analog(dunes, 0.0, 0.15, 0.0, 1.0)
 	if dune_mask > 0.0:
-		var dune_distort := _warp(12, p, 0.5, 100.0, 2.0, 3)
+		var dune_distort := _warp(12, p, 0.5, 100.0, 2.0, 3, 35)
 		var dune_coord := (p + dune_distort * 0.001).normalized()
 		var control := sin(dune_coord.dot(Vector3(1, -1, -1)) * 1000.0)
 		var x1 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 400.0, 1.0)
@@ -332,16 +360,16 @@ func _asteroid_height(p: Vector3) -> float:
 	# radius offset. The small Asteroid GenerationVars are used (plateau 3 km, mountains 0.5 km);
 	# the amplitude is scaled down for a tiny body like Pebble and kept for Selene.
 	var scale := clampf(profile.radius / 1700000.0, 0.1, 1.0)
-	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2)
-	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9)
+	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2, 36)
+	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9, 37)
 	var base_coords := (p + map_distort * 0.1 + feature_distort * 0.005).normalized()
 	var plateau_coord := (p + map_distort * 0.0 + feature_distort * 0.0).normalized()
-	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25)
-	var plateau := analog(_fractal(10, plateau_coord, 0.5, 2.0, 2.0, 9), 0.0, 1.0, 0.0, 1.0)
-	var mountain_perlin := _fractal(10, plateau_coord, 0.5, 1.0, 2.0, 3)
+	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25, 38)
+	var plateau := analog(_fractal(10, plateau_coord, 0.5, 2.0, 2.0, 9, 39), 0.0, 1.0, 0.0, 1.0)
+	var mountain_perlin := _fractal(10, plateau_coord, 0.5, 1.0, 2.0, 3, 40)
 	var mountain_mask := analog(mountain_perlin, 0.5, 1.0, 0.0, 1.0)
-	var mountains := analog(_fractal(0, p, 0.5, 2.0, 2.0, 9), 0.4, 1.0, 0.0, 1.0)
-	var holes := _holes(_fractal(0, p, 0.5, 40.0, 2.0, 4), Vector4(0.1, 0.39, 0.4, 0.65))
+	var mountains := analog(_fractal(0, p, 0.5, 2.0, 2.0, 9, 41), 0.4, 1.0, 0.0, 1.0)
+	var holes := _holes(_fractal(0, p, 0.5, 40.0, 2.0, 4, 42), Vector4(0.1, 0.39, 0.4, 0.65))
 	mountains = analog(mountain_mask * mountains, 0.0, 0.35, 0.0, 1.0)
 	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)
 	mountains = mountains * mountains
@@ -353,7 +381,7 @@ func _asteroid_height(p: Vector3) -> float:
 	var height := -1000.0 * scale
 	height += mountains * (250.0 + 150.0 * _fractal(0, p, roughness, 80.0, 2.0, 10)) * scale
 	height += plateau * 3000.0 * scale
-	height += base * 500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7) * scale
+	height += base * 500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7, 44) * scale
 	return height
 
 

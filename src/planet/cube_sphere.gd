@@ -23,6 +23,15 @@ static func direction_xyz(face: int, face_u: float, face_v: float) -> PackedFloa
 	var cube_x := normal.x + u_axis.x * face_u + v_axis.x * face_v
 	var cube_y := normal.y + u_axis.y * face_u + v_axis.y * face_v
 	var cube_z := normal.z + u_axis.z * face_u + v_axis.z * face_v
+	# Points past the face edge (the chunk mesher's normal ring at coarse grids reaches u = -1.5)
+	# are projected back onto the cube surface, i.e. onto the neighbouring face, before
+	# spherifying. Without this the square roots below go negative and the direction is NaN.
+	# On-face points have a largest component of exactly 1 and are left bit-identical.
+	var largest := maxf(absf(cube_x), maxf(absf(cube_y), absf(cube_z)))
+	if largest > 1.0:
+		cube_x /= largest
+		cube_y /= largest
+		cube_z /= largest
 	# "Spherified cube": spreads chunks more evenly than plain normalising.
 	var x_squared := cube_x * cube_x
 	var y_squared := cube_y * cube_y
