@@ -79,6 +79,7 @@ func _ready() -> void:
 	session.crew.add_member(session.systems, &"kit", &"gunner", &"gunner_seat")
 	var crew_view := CrewView.new()
 	crew_view.crew = session.crew
+	crew_view.layout = session.systems.layout
 	ship.add_child(crew_view)
 
 	terrain = PlanetTerrain.new(planet)
@@ -493,6 +494,7 @@ func _restyle() -> void:
 		_build_terrain()
 		overlay.terrain = terrain
 	impostors.restyle()
+	overlay.restyle()
 	for child in ship.get_children():
 		if child is ShipVisuals:
 			(child as ShipVisuals).restyle()
@@ -570,6 +572,7 @@ func _update_warp_view(delta: float) -> void:
 		effects.limnal_activation = warp_view.activation
 		var in_ship_view := session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
 		effects.camera_inside = session.mode == GameSession.Mode.INSIDE or (in_ship_view and _cockpit_view)
+		_update_camera_place(effects.camera_inside)
 
 
 ## The star's angular radius seen from a body (radians), for Rodina's halo and sunset maths. In the rodina style the star
@@ -585,6 +588,21 @@ func _star_radius_angle(body_id: StringName) -> float:
 	var here := system.body_position(body_id, runtime.time_seconds)
 	var distance := sqrt(here.x * here.x + here.y * here.y + here.z * here.z)
 	return clampf(asin(clampf(star.radius / maxf(distance, star.radius * 1.01), 0.0, 1.0)), 0.001, 0.2)
+
+
+## Bigger on the inside (ADR 0012): tell the ship and the crew view where the camera is, so the larger pocket rooms are
+## drawn only from inside and the hull only from outside them.
+func _update_camera_place(camera_inside: bool) -> void:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return
+	var local := ship.global_transform.affine_inverse() * camera.global_position
+	var room_id := session.systems.layout.room_at(local.x, local.z) if camera_inside else &""
+	for child in ship.get_children():
+		if child is ShipVisuals:
+			(child as ShipVisuals).set_camera_place(camera_inside, room_id)
+		elif child is CrewView:
+			(child as CrewView).pocket_visible = camera_inside
 
 
 func _ship_effects() -> ShipEffects:

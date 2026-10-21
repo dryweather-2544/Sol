@@ -14,14 +14,14 @@ func _build_visuals() -> ShipVisuals:
 
 func _meshes_using(visuals: ShipVisuals, material: Material) -> Array[MeshInstance3D]:
 	var found: Array[MeshInstance3D] = []
-	for child in visuals.get_children():
+	for child in visuals.get_children() + visuals.pocket.get_children(): # the pocket holds the larger rooms (ADR 0012)
 		if child is MeshInstance3D and (child as MeshInstance3D).material_override == material:
 			found.append(child as MeshInstance3D)
 	return found
 
 
 func _has_probe(visuals: ShipVisuals) -> bool:
-	for child in visuals.get_children():
+	for child in visuals.get_children() + visuals.pocket.get_children(): # the pocket holds the larger rooms (ADR 0012)
 		if child is ReflectionProbe:
 			return true
 	return false

@@ -352,6 +352,12 @@ legal state with no softlock (scenario test).
   as a child of the ship with ship-relative kinematic movement and shape queries (Starfall's
   approach per `08` §0). Decide by the spike, record in `docs/decisions/`.
 
+- **Bigger on the inside (ADR 0012).** Rooms listed in `InteriorLayout.pocket_rooms` may be larger than the hull.
+  `ShipVisuals` builds them under a `pocket` node; `main.gd` reports where the camera is each frame
+  (`set_camera_place`): the pocket is drawn only with the camera inside the ship, and the hull is hidden while the
+  camera is in a pocket room. The cockpit and airlock (the threshold) fit in the hull and are always drawn; the
+  airlock interlock means nobody outside can see past them.
+
 ### 7.2 Layout and state
 
 - `InteriorLayout` (Resource): rooms (`room_id`, bounds, volume), portals (`portal_id`,

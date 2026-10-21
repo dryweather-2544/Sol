@@ -13,7 +13,7 @@ func _build_visuals() -> ShipVisuals:
 
 func _decals(visuals: ShipVisuals) -> Array[Decal]:
 	var found: Array[Decal] = []
-	for child in visuals.get_children():
+	for child in visuals.get_children() + visuals.pocket.get_children(): # the pocket holds the larger rooms (ADR 0012)
 		if child is Decal:
 			found.append(child as Decal)
 	return found
@@ -62,7 +62,11 @@ func test_decals_sit_inside_the_ship() -> void:
 	var layout := visuals.ship.systems.layout
 	for decal in _decals(visuals):
 		var position := decal.position
-		assert_true(position.x >= -3.2 and position.x <= 3.2, "%s x=%.2f within the hull" % [decal.name, position.x])
+		# The pocket rooms are wider than the hull (ADR 0012): a decal past the hull must be drawn with the pocket.
+		var limit := InteriorLayout.POCKET_HALF_WIDTH + 0.01
+		assert_true(position.x >= -limit and position.x <= limit, "%s x=%.2f within the rooms" % [decal.name, position.x])
+		if absf(position.x) > 3.2:
+			assert_true(decal.get_parent() == visuals.pocket, "%s x=%.2f is past the hull, so it is in the pocket" % [decal.name, position.x])
 		assert_true(position.z >= -7.2 and position.z <= 10.7, "%s z=%.2f within the hull" % [decal.name, position.z])
 		assert_true(position.y >= layout.floor_y - 0.01 and position.y <= layout.ceiling_y + 0.01, "%s y=%.2f between floor and ceiling" % [decal.name, position.y])
 	visuals.free()
@@ -116,13 +120,17 @@ func test_screens_keep_their_tint_contract_and_stand_proud_of_the_wall() -> void
 	assert_true(reactor.albedo_color.is_equal_approx(reactor.emission), "albedo_color and emission carry the same state colour")
 	assert_true(reactor.emission.g > reactor.emission.r, "a cold reactor reads green")
 	assert_true(reactor != visuals._station_screens[&"engine_station"], "reactor and generic screens are separate copies")
-	# Wall inner faces are at +-3.0 (rooms are 6 m wide); the screen box is 0.06 thick, centred 0.27 m off the panel point at x = -+2.7.
+	# Wall inner faces are the room's sides; the screen box is 0.06 thick, centred 0.27 m off the panel point, which stands
+	# InteriorLayout.PANEL_INSET in from the wall.
 	var layout := visuals.ship.systems.layout
 	for point in layout.interact_points:
 		if point["id"] in [&"reactor_panel", &"engine_station"]:
 			var wall_side := 1.0 if point["position"].x > 0.0 else -1.0
+			var room: Rect2 = layout.rooms[layout.room_at(point["position"].x, point["position"].z)]
+			var wall_face := room.end.x if wall_side > 0.0 else -room.position.x
 			var front_face := absf(point["position"].x + wall_side * 0.27) - 0.03
-			assert_true(front_face < 3.0, "%s screen front face (|x|=%.3f) is not inside the wall" % [point["id"], front_face])
+			assert_true(front_face < wall_face, "%s screen front face (|x|=%.3f) is not inside the wall (%.3f)" % [point["id"], front_face, wall_face])
+			assert_true(front_face > wall_face - 0.1, "%s screen sits on the wall, not floating in the room" % point["id"])
 	visuals.free()
 	settings.asset_materials = original
 

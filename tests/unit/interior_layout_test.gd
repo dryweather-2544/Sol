@@ -29,7 +29,9 @@ func test_walkers_stay_inside_the_rooms_and_slide_along_walls() -> void:
 	var body := InteriorBody.new()
 	body.place(Vector3(0, layout.floor_y, 0), 0.0)
 	_walk(body, layout, Vector2(1, 0), 300) # strafe right into the side wall
-	assert_true(body.position.x <= 3.0 - InteriorBody.RADIUS + 1e-3, "stopped by the wall: x=%f" % body.position.x)
+	var wall_x: float = (layout.rooms[&"engineering"] as Rect2).end.x
+	assert_true(body.position.x <= wall_x - InteriorBody.RADIUS + 1e-3, "stopped by the wall: x=%f" % body.position.x)
+	assert_true(body.position.x > wall_x - InteriorBody.RADIUS - 0.1, "and walked all the way to it: x=%f" % body.position.x)
 	assert_near(body.position.y, layout.floor_y, 1e-6)
 
 

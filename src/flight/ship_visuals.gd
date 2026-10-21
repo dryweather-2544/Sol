@@ -19,6 +19,11 @@ var effects := ShipEffects.new()
 const DOOR_SLIDE := 1.45
 ## Photo tools only (tools/ship_shots.gd): show the flight pose (pods level) while parked.
 var force_pods_level := false
+## Bigger on the inside (ADR 0012): everything drawn in the layout's pocket rooms lives under `pocket`, the exterior's
+## hull pieces in `_hull_nodes`. set_camera_place() shows one or both.
+var pocket := Node3D.new()
+var _hull_nodes: Array[Node3D] = []
+var _build_target: Node3D = self # where the builders below put what they make
 
 var _hull_material := _material(Color(0.55, 0.6, 0.68), 0.55, 0.35)
 var _floor_material := _material(Color(0.25, 0.27, 0.3), 0.8, 0.1)
@@ -39,12 +44,17 @@ var _nozzle_material: Material = AssetLibrary.material_or("mat_hull_nozzle", _gl
 
 func _ready() -> void:
 	var layout := ship.systems.layout
+	pocket.name = "Pocket"
+	add_child(pocket)
 	_build_floors_and_ceilings(layout)
 	_build_walls(layout)
 	_build_doors(layout)
 	_build_seat_and_console(layout)
 	_build_panels(layout)
+	var before := get_child_count()
 	exterior.build(self, layout, ship.systems.turret.muzzle_offset, _nozzle_material, _exhaust_disc)
+	for index in range(before, get_child_count()):
+		_hull_nodes.append(get_child(index) as Node3D)
 	add_child(effects)
 	effects.setup(exterior.nacelles())
 	_build_lights(layout)
@@ -109,15 +119,53 @@ func restyle() -> void:
 		light.omni_range = spec["range"]
 
 
+## Where the camera is, for bigger-on-the-inside drawing (ADR 0012): `inside_ship` = the camera is in the interior
+## (walking inside, or the cockpit view); `room_id` = the room it is in (&"" if none). In a pocket room only the interior
+## is drawn; outside only the hull and the threshold rooms; in the cockpit or airlock both.
+func set_camera_place(inside_ship: bool, room_id: StringName) -> void:
+	var in_pocket := inside_ship and ship.systems.layout.is_pocket(room_id)
+	pocket.visible = inside_ship
+	for node in _hull_nodes:
+		node.visible = not in_pocket
+
+
+func is_hull_visible() -> bool:
+	return _hull_nodes.is_empty() or _hull_nodes[0].visible
+
+
+func _target_for_room(layout: InteriorLayout, room_id: StringName) -> Node3D:
+	return pocket if layout.is_pocket(room_id) else self
+
+
+## A portal belongs to the pocket when every room it joins does (a door between two pocket rooms).
+func _target_for_portal(layout: InteriorLayout, portal_id: StringName) -> Node3D:
+	for room_id in layout.portal_rooms(portal_id):
+		if not layout.is_pocket(room_id):
+			return self
+	return pocket
+
+
+## The pocket when the ship-local point lies in a pocket room (or its wall skin), else the ship itself.
+func _target_for_point(layout: InteriorLayout, point: Vector3) -> Node3D:
+	for room_id in layout.rooms:
+		if (layout.rooms[room_id] as Rect2).grow(0.25).has_point(Vector2(point.x, point.z)):
+			return _target_for_room(layout, room_id)
+	return self
+
+
 func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
+		_build_target = _target_for_room(layout, room_id)
 		var rubber_floor: bool = room_id == &"airlock" or room_id == &"cargo"
 		_slab(room, layout.floor_y - 0.12, layout.floor_y, _rubber_floor_material if rubber_floor else _floor_slab_material)
 		_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
-	for portal in layout.portals.values():
-		_slab((portal as Portal).opening, layout.floor_y - 0.12, layout.floor_y, _floor_slab_material)
-		_slab((portal as Portal).opening, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
+	for portal_id in layout.portals:
+		var portal: Portal = layout.portals[portal_id]
+		_build_target = _target_for_portal(layout, portal_id)
+		_slab(portal.opening, layout.floor_y - 0.12, layout.floor_y, _floor_slab_material)
+		_slab(portal.opening, layout.ceiling_y, layout.ceiling_y + 0.12, _wall_material)
+	_build_target = self
 
 
 ## Walls are the 0.2 m skin just outside each room rectangle, with gaps where a portal opening crosses it.
@@ -128,6 +176,7 @@ func _build_walls(layout: InteriorLayout) -> void:
 	var thickness := 0.2
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
+		_build_target = _target_for_room(layout, room_id)
 		var walls := {
 			"nose": [Rect2(room.position.x - thickness, room.position.y - thickness, room.size.x + 2.0 * thickness, thickness), true],
 			"tail": [Rect2(room.position.x - thickness, room.end.y, room.size.x + 2.0 * thickness, thickness), true],
@@ -139,6 +188,7 @@ func _build_walls(layout: InteriorLayout) -> void:
 			if room_id == &"cockpit" and side == "nose":
 				continue # the exterior's canopy nose closes the cockpit (ShipExterior._build_canopy_nose)
 			_wall_with_portal_gaps(layout, wall, runs_along_x, bottom, top)
+	_build_target = self
 
 
 func _wall_with_portal_gaps(layout: InteriorLayout, wall: Rect2, runs_along_x: bool, bottom: float, top: float) -> void:
@@ -175,7 +225,7 @@ func _build_doors(layout: InteriorLayout) -> void:
 		var base_y := layout.floor_y + door_height * 0.5
 		var instance := _box_instance(Vector3(opening.size.x, door_height, opening.size.y * 0.9), _door_material)
 		instance.position = Vector3(opening.position.x + opening.size.x * 0.5, base_y, opening.position.y + opening.size.y * 0.5)
-		add_child(instance)
+		_target_for_portal(layout, portal_id).add_child(instance)
 		_door_nodes[portal_id] = {"node": instance, "base_x": instance.position.x}
 
 
@@ -185,10 +235,10 @@ func _build_seat_and_console(layout: InteriorLayout) -> void:
 		var behind := Vector3(0, 0, 0.38) if absf(layout.seats[seat_id]["facing_yaw"]) < 1.0 else Vector3(0, 0, -0.38)
 		var seat := _box_instance(Vector3(0.7, 0.5, 0.7), _accent_material)
 		seat.position = seat_position + Vector3(0, 0.25, 0)
-		add_child(seat)
+		_target_for_point(layout, seat_position).add_child(seat)
 		var back := _box_instance(Vector3(0.7, 1.0, 0.12), _accent_material)
 		back.position = seat_position + Vector3(0, 0.75, 0) + behind
-		add_child(back)
+		_target_for_point(layout, seat_position).add_child(back)
 	var console := _box_instance(Vector3(2.4, 0.9, 0.6), _console_material)
 	console.position = Vector3(0, layout.floor_y + 0.45, -6.5)
 	add_child(console)
@@ -218,12 +268,12 @@ func _build_panels(layout: InteriorLayout) -> void:
 			# The wall skin is 0.2 m thick with its inner face 0.3 m behind the panel point, so the old offset of 0.42 put this 0.06 m box
 			# inside the wall (hidden). 0.27 puts its back flush with the wall face and its front 0.06 m proud of it.
 			screen.position = point["position"] + Vector3(wall_side * 0.27, 1.1, 0)
-			add_child(screen)
+			_target_for_point(layout, point["position"]).add_child(screen)
 			_station_screens[point["id"]] = screen_material
 			continue
 		var panel := _box_instance(Vector3(0.25, 0.35, 0.08), _panel_material)
 		panel.position = point["position"] + Vector3(0, 1.1, 0)
-		add_child(panel)
+		_target_for_point(layout, point["position"]).add_child(panel)
 
 
 ## Station screens: reactor green -> red with core heat (dark when tripped); engine screen red -> green with engine health.
@@ -247,13 +297,13 @@ func _build_lights(layout: InteriorLayout) -> void:
 		var light := OmniLight3D.new()
 		light.position = Vector3(rect.get_center().x, 1.3, rect.get_center().y)
 		light.shadow_enabled = false
-		add_child(light)
+		_target_for_room(layout, room_id).add_child(light)
 		_room_lights[room_id] = light
 		if ship.systems.hazards.has_room(room_id):
 			var flames := _box_instance(Vector3(0.9, 1.0, 0.9), _emissive(Color(1.0, 0.45, 0.1), 4.0))
 			flames.position = Vector3((rect as Rect2).get_center().x, layout.floor_y + 0.5, (rect as Rect2).get_center().y)
 			flames.visible = false
-			add_child(flames)
+			_target_for_room(layout, room_id).add_child(flames)
 			_fire_nodes[room_id] = flames
 			var smoke := CPUParticles3D.new()
 			smoke.position = flames.position + Vector3(0, 0.4, 0)
@@ -270,7 +320,7 @@ func _build_lights(layout: InteriorLayout) -> void:
 			smoke.mesh = puff
 			smoke.material_override = _emissive(Color(1.0, 0.55, 0.15), 3.0)
 			smoke.emitting = false
-			add_child(smoke)
+			_target_for_room(layout, room_id).add_child(smoke)
 			_smoke_nodes[room_id] = smoke
 
 
@@ -346,7 +396,7 @@ func _add_decal(set_id: String, decal_name: String, center: Vector3, orientation
 	decal.modulate = Color.html(entry["modulate"])
 	decal.albedo_mix = entry["albedo_mix"]
 	decal.transform = Transform3D(orientation, center)
-	add_child(decal)
+	_target_for_point(ship.systems.layout, center).add_child(decal)
 	return decal
 
 
@@ -372,7 +422,7 @@ func _exhaust_disc(cap_y: float, radius: float) -> MeshInstance3D:
 func _build_reflection_probe(layout: InteriorLayout) -> void:
 	var height := layout.ceiling_y - layout.floor_y
 	var probe := ReflectionProbe.new()
-	probe.size = Vector3(8.0, height + 0.5, 20.0)
+	probe.size = Vector3(InteriorLayout.POCKET_HALF_WIDTH * 2.0 + 1.0, height + 0.5, 20.0)
 	probe.position = Vector3(0.0, layout.floor_y + height * 0.5, 1.8)
 	probe.interior = true
 	probe.box_projection = true
@@ -384,7 +434,7 @@ func _build_reflection_probe(layout: InteriorLayout) -> void:
 func _slab(area: Rect2, bottom_y: float, top_y: float, material: Material) -> void:
 	var instance := _box_instance(Vector3(area.size.x, top_y - bottom_y, area.size.y), material)
 	instance.position = Vector3(area.position.x + area.size.x * 0.5, (bottom_y + top_y) * 0.5, area.position.y + area.size.y * 0.5)
-	add_child(instance)
+	_build_target.add_child(instance)
 
 
 func _wall_box(x_min: float, x_max: float, z_min: float, z_max: float, y_min: float, y_max: float, material: Material = null) -> void:
@@ -392,7 +442,7 @@ func _wall_box(x_min: float, x_max: float, z_min: float, z_max: float, y_min: fl
 	var last_z := maxf(z_min, z_max)
 	var instance := _box_instance(Vector3(x_max - x_min, y_max - y_min, last_z - first_z), material if material != null else _wall_material)
 	instance.position = Vector3((x_min + x_max) * 0.5, (y_min + y_max) * 0.5, (first_z + last_z) * 0.5)
-	add_child(instance)
+	_build_target.add_child(instance)
 
 
 func _box_instance(size: Vector3, material: Material) -> MeshInstance3D:

@@ -70,7 +70,8 @@ func test_repair_panel_restores_the_hull_only_when_landed() -> void:
 	var session := _session_on_ground(_flat_planet())
 	session.ship.state.hull = 0.4
 	session.interact() # stand up
-	session.interior_body.place(Vector3(-2.0, -0.9, -1.0), 0.0)
+	var panel := session.systems.layout.standing_spot_for(&"repair_panel")
+	session.interior_body.place(Vector3(panel.x, -0.9, panel.y), 0.0)
 	session.interact()
 	assert_true(session.repairing, "repair started")
 	for tick in 60 * 6:

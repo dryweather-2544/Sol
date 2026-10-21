@@ -12,6 +12,7 @@ var _prompt_label := Label.new()
 var _signal_label := Label.new()
 var _objective_label := Label.new()
 var _alert_label := Label.new()
+var _sol_looks := {} # label -> its sol colour and size (restyle)
 
 
 func _ready() -> void:
@@ -44,6 +45,30 @@ func _ready() -> void:
 	_alert_label.add_theme_constant_override("outline_size", 6)
 	_alert_label.visible = false
 	add_child(_alert_label)
+	_sol_looks = {}
+	for label in [_label, _prompt_label, _signal_label, _objective_label, _alert_label]:
+		_sol_looks[label] = {"color": label.get_theme_color("font_color"), "size": label.get_theme_font_size("font_size")}
+	restyle()
+
+
+## Rodina's HUD fonts in the rodina style (VisualStyle.hud_font: Orbitron info and prompts, Audiowide warnings), the
+## labels' own look in sol. Called once built and again on a style switch.
+func restyle() -> void:
+	var roles := {_label: &"info", _prompt_label: &"notification", _signal_label: &"info", _objective_label: &"info", _alert_label: &"warning"}
+	for label: Label in roles:
+		var spec := VisualStyle.hud_font(roles[label])
+		if spec.is_empty():
+			label.remove_theme_font_override("font")
+			label.add_theme_color_override("font_color", _sol_looks[label]["color"])
+			label.add_theme_font_size_override("font_size", _sol_looks[label]["size"])
+			continue
+		if spec["font"] != null:
+			label.add_theme_font_override("font", spec["font"])
+		label.add_theme_font_size_override("font_size", spec["size"])
+		# The info lines keep their own tints (green status, gold signals) so they stay distinguishable; prompts and
+		# warnings take Rodina's colours.
+		if roles[label] != &"info":
+			label.add_theme_color_override("font_color", spec["color"])
 
 
 func _process(_delta: float) -> void:

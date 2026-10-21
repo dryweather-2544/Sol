@@ -12,6 +12,9 @@ var seats := {}    # StringName -> {position: Vector3, exit_position: Vector3, f
 var interact_points := [] # {id, position: Vector3, radius: float}
 ## interact point id -> {role, room} for the points a crew member works at (seats, panels, lockers).
 var stations := {}
+## Rooms that may be larger than the exterior hull (ADR 0012, "bigger on the inside"): drawn only while the camera is
+## inside the ship. The others (cockpit, airlock) are the threshold: they fit in the hull and are always drawn.
+var pocket_rooms: Array[StringName] = []
 ## Walkway (ramp) footprint behind the outer door; only walkable while the walkway is deployed.
 var ramp_rect := Rect2()
 var ramp_walkable := false
@@ -21,15 +24,24 @@ var ramp_end_y := -2.0
 
 ## The player ship used by the game, nose at -z, six rooms in a line (about 18 m long):
 ## cockpit - cabin - engineering - turret room - cargo - airlock, a door between each pair.
+## Bigger on the inside (ADR 0012): the cabin, engineering and cargo are 11 m wide and the turret room 8 m, in a hull
+## 7.6 m wide (ShipHullCollision.HULL_HALF_WIDTH); the cockpit and airlock fit inside the hull.
 ## Numbers are placeholder-scale.
+const POCKET_HALF_WIDTH := 5.5
+## Wall panels stand this far in from a side wall's inner face.
+const PANEL_INSET := 0.3
+
 static func player_ship() -> InteriorLayout:
 	var layout := InteriorLayout.new()
+	var wide := POCKET_HALF_WIDTH
 	layout.rooms[&"cockpit"] = Rect2(-2.0, -7.0, 4.0, 3.4)
-	layout.rooms[&"cabin"] = Rect2(-3.0, -3.4, 6.0, 3.2)
-	layout.rooms[&"engineering"] = Rect2(-3.0, 0.0, 6.0, 3.2)
-	layout.rooms[&"turret_room"] = Rect2(-2.0, 3.4, 4.0, 2.2)
-	layout.rooms[&"cargo"] = Rect2(-3.0, 5.8, 6.0, 2.2)
+	layout.rooms[&"cabin"] = Rect2(-wide, -3.4, wide * 2.0, 3.2)
+	layout.rooms[&"engineering"] = Rect2(-wide, 0.0, wide * 2.0, 3.2)
+	layout.rooms[&"turret_room"] = Rect2(-4.0, 3.4, 8.0, 2.2)
+	layout.rooms[&"cargo"] = Rect2(-wide, 5.8, wide * 2.0, 2.2)
 	layout.rooms[&"airlock"] = Rect2(-1.4, 8.2, 2.8, 2.4)
+	layout.pocket_rooms = [&"cabin", &"engineering", &"turret_room", &"cargo"]
+	var panel_x := wide - PANEL_INSET
 	layout.portals[&"cockpit_door"] = Portal.new(&"cockpit_door", Portal.Kind.DOOR, Rect2(-0.7, -3.6, 1.4, 0.2))
 	layout.portals[&"engineering_door"] = Portal.new(&"engineering_door", Portal.Kind.DOOR, Rect2(-0.7, -0.2, 1.4, 0.2))
 	layout.portals[&"turret_door"] = Portal.new(&"turret_door", Portal.Kind.DOOR, Rect2(-0.7, 3.2, 1.4, 0.2))
@@ -53,11 +65,11 @@ static func player_ship() -> InteriorLayout:
 		{"id": &"airlock_inner", "position": Vector3(1.0, floor_level, 7.6), "radius": 1.0},
 		{"id": &"airlock_inner", "position": Vector3(1.2, floor_level, 8.5), "radius": 0.7},
 		{"id": &"airlock_outer", "position": Vector3(1.2, floor_level, 10.0), "radius": 0.9},
-		{"id": &"repair_panel", "position": Vector3(-2.7, floor_level, -1.0), "radius": 1.0},
-		{"id": &"workbench", "position": Vector3(-2.7, floor_level, -2.5), "radius": 0.9},
-		{"id": &"reactor_panel", "position": Vector3(-2.7, floor_level, 1.2), "radius": 1.1},
-		{"id": &"engine_station", "position": Vector3(2.7, floor_level, 1.2), "radius": 1.1},
-		{"id": &"extinguisher_locker", "position": Vector3(-2.7, floor_level, 2.7), "radius": 0.9},
+		{"id": &"repair_panel", "position": Vector3(-panel_x, floor_level, -1.0), "radius": 1.0},
+		{"id": &"workbench", "position": Vector3(-panel_x, floor_level, -2.5), "radius": 0.9},
+		{"id": &"reactor_panel", "position": Vector3(-panel_x, floor_level, 1.2), "radius": 1.1},
+		{"id": &"engine_station", "position": Vector3(panel_x, floor_level, 1.2), "radius": 1.1},
+		{"id": &"extinguisher_locker", "position": Vector3(-panel_x, floor_level, 2.7), "radius": 0.9},
 		{"id": &"gunner_seat", "position": Vector3(0, floor_level, 4.7), "radius": 1.0},
 		{"id": &"pilot_seat", "position": Vector3(0, floor_level, -5.4), "radius": 1.2}]
 	# Who works where (research PULSAR 06: roles own stations). Crew AI and the HUD read this.
@@ -133,6 +145,10 @@ func floor_height_at(x: float, z: float) -> float:
 ## Height (ship-local y) of the ramp surface at distance z along it, whether or not (x, z) is on the ramp itself.
 func ramp_height_at(z: float) -> float:
 	return lerpf(floor_y, ramp_end_y, clampf((z - ramp_rect.position.y) / ramp_rect.size.y, 0.0, 1.0))
+
+
+func is_pocket(room_id: StringName) -> bool:
+	return room_id in pocket_rooms
 
 
 func room_at(x: float, z: float) -> StringName:

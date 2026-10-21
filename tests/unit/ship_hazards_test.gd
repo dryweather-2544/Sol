@@ -155,7 +155,8 @@ func test_player_takes_the_extinguisher_and_fights_a_fire_in_their_room() -> voi
 	var session := _session()
 	session.interact() # stand up
 	_open(session.systems.layout, &"engineering_door")
-	session.interior_body.place(Vector3(-2.7, -0.9, 2.5), 0.0) # at the locker in engineering
+	var locker := session.systems.layout.standing_spot_for(&"extinguisher_locker")
+	session.interior_body.place(Vector3(locker.x, -0.9, locker.y), 0.0) # at the locker in engineering
 	assert_eq(session.systems.layout.nearest_interaction(session.interior_body.position), &"extinguisher_locker")
 	session.interact()
 	assert_eq(session.extinguisher_charges, GameSession.EXTINGUISHER_CHARGES)
