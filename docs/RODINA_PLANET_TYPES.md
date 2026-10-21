@@ -50,10 +50,9 @@ detail-texture scale and contrast, sky zenith / horizon / sunset colours, fog co
 back-light colour and strength, ambient colour, atmosphere rim colour. Values live in
 `src/world/visual_style.gd` (one function per family, so a new family is one function and one table entry).
 
-## 4. Landforms (not changed by the style switch)
+## 4. Landforms (N14 changes this)
 
-The height grammars above are the strongest planet-identity evidence available, but in Sol terrain height is
-gameplay data (mesh, ground contact, walking, POIs, saved positions). Recreating them means new
-`TerrainProfile` shapes per world, which changes collision for everyone and invalidates the seed goldens. That is a
-world-generation decision, recommended as follow-up work with its own POI and landing re-validation, and kept out
-of the reversible visual style on purpose.
+N14 has now implemented the Perun/Jarilo/Veles and airless asteroid grammars as `TerrainProfile.Grammar` values.
+They intentionally change collision and saved surface positions; the generation revision and ship re-seat policy
+are in `N14_TERRAIN_SAVE_MIGRATION.md`. Morena's cracked-plate grammar is still a placeholder, and the Voronoi
+point buffer is an explicit ADAPT because the GPU constant buffer was not recovered.

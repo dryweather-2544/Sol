@@ -45,7 +45,7 @@ const GOLDEN_HASH := 619230855
 
 
 func test_rodina_height_grammars_are_deterministic_finite_and_not_flat() -> void:
-	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES]:
+	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES, TerrainProfile.Grammar.ASTEROID]:
 		var profile := TerrainProfile.new()
 		profile.grammar = grammar
 		var a := HeightFunction.new(profile)
@@ -69,10 +69,12 @@ func test_world_resources_choose_the_recovered_grammars() -> void:
 	assert_eq(system.bodies[&"planet"].terrain_profile.grammar, TerrainProfile.Grammar.JARILO, "Aurelia maps to Jarilo")
 	assert_eq(system.bodies[&"cinder"].terrain_profile.grammar, TerrainProfile.Grammar.PERUN, "Cinder maps to Perun")
 	assert_eq(system.bodies[&"verdant"].terrain_profile.grammar, TerrainProfile.Grammar.VELES, "Verdant maps to Veles")
+	assert_eq(system.bodies[&"selene"].terrain_profile.grammar, TerrainProfile.Grammar.ASTEROID, "Selene uses the airless asteroid grammar")
+	assert_eq(system.bodies[&"pebble"].terrain_profile.grammar, TerrainProfile.Grammar.ASTEROID, "Pebble uses the airless asteroid grammar")
 
 
 func test_grammar_heights_are_continuous_at_small_offsets() -> void:
-	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES]:
+	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES, TerrainProfile.Grammar.ASTEROID]:
 		var profile := TerrainProfile.new()
 		profile.grammar = grammar
 		var function := HeightFunction.new(profile)

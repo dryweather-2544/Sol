@@ -7,8 +7,9 @@ failures before the terrain changes; current suite must be re-run after every co
 
 1. Validate the new Perun/Jarilo/Veles terrain against reference framing: add a camera-matched capture at a
    lowland/ridge boundary, verify collision/landing/POI placement and add a terrain-revision save policy.
-2. Port the remaining terrain grammars (Morena cracked plates and the asteroid grammar) or explicitly leave
-   their Sol profiles on LEGACY; do not ship placeholder heights.
+2. Morena's cracked-plate grammar is still a typed placeholder and no Sol world is mapped to it; airless
+   Selene/Pebble now use the asteroid feature grammar. Add the remaining crater/material work before claiming
+   complete airless parity.
 3. ~~Implement Rodina hull restitution 0.8 and the `SetVelocityControl` authority ramp with tests.~~ Done in the N14 physics pass; the exact Havok meaning of `SetVelocityControl` is still an explicit ADAPT.
 4. WARP steering drift is ported; coasting Wing trails still depend on Rodina's unimplemented clutch. Audit the
    N13 particle/camera port against `EGDataParticles.lua` and supplied frames; the N13 shader uses

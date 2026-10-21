@@ -131,6 +131,10 @@ func test_two_worlds_save_and_load_between_them() -> void:
 		assert_eq(frame, body_id)
 		if frame != runtime.active_frame:
 			runtime.force_frame(frame)
+		# This test is about save/frame continuity; keep the target patch flat after a forced frame
+		# builds its own PlanetBody. The real grammar is exercised by height_function_test.
+		runtime.session.planet.height_override = func(_dx: float, _dy: float, _dz: float) -> float: return 0.0
+		runtime.session.ship.planet = runtime.session.planet
 		assert_eq(SaveGame.restore(session, data), "")
 		runtime.recentre_ship_after_restore()
 		assert_eq(session.planet.frame_id, body_id, "the session now uses that world")

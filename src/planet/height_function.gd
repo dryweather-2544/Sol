@@ -295,9 +295,33 @@ func _morena_height(_p: Vector3) -> float:
 
 
 func _asteroid_height(p: Vector3) -> float:
-	# PlanetAsteroid.h: radius offset plus additive mountains, enough to break the sphere.
-	var mountains := analog(_fractal(10, p, 0.2, 1.0, 2.0, 3), 0.2, 1.0, 0.0, 1.0)
-	return -profile.radius * 0.35 + 250.0 * mountains * _fractal(0, p, 0.5, 2.5, 2.0, 10)
+	# PlanetAsteroid.h: the same base/plateau/mountain/hole feature grammar as Perun, with a flat
+	# radius offset. The small Asteroid GenerationVars are used (plateau 3 km, mountains 0.5 km);
+	# the amplitude is scaled down for a tiny body like Pebble and kept for Selene.
+	var scale := clampf(profile.radius / 1700000.0, 0.1, 1.0)
+	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2)
+	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9)
+	var base_coords := (p + map_distort * 0.1 + feature_distort * 0.005).normalized()
+	var plateau_coord := (p + map_distort * 0.0 + feature_distort * 0.0).normalized()
+	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25)
+	var plateau := analog(_fractal(10, plateau_coord, 0.5, 2.0, 2.0, 9), 0.0, 1.0, 0.0, 1.0)
+	var mountain_perlin := _fractal(10, plateau_coord, 0.5, 1.0, 2.0, 3)
+	var mountain_mask := analog(mountain_perlin, 0.5, 1.0, 0.0, 1.0)
+	var mountains := analog(_fractal(0, p, 0.5, 2.0, 2.0, 9), 0.4, 1.0, 0.0, 1.0)
+	var holes := _holes(_fractal(0, p, 0.5, 40.0, 2.0, 4), Vector4(0.1, 0.39, 0.4, 0.65))
+	mountains = analog(mountain_mask * mountains, 0.0, 0.35, 0.0, 1.0)
+	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)
+	mountains = mountains * mountains
+	plateau = analog(plateau, 0.4, 0.8, 0.0, 1.0)
+	base = ease_out_in_sin2(analog(base, 0.4, 0.7, 0.3, 1.0))
+	base = lerpf(base, 0.0, plateau)
+	base = lerpf(base, 0.0, mountains)
+	mountains = lerpf(mountains, 0.0, holes)
+	var height := -1000.0 * scale
+	height += mountains * (250.0 + 150.0 * _fractal(0, p, roughness, 80.0, 2.0, 10)) * scale
+	height += plateau * 3000.0 * scale
+	height += base * 500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7) * scale
+	return height
 
 
 func height(direction: Vector3) -> float:
