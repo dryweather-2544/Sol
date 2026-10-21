@@ -14,6 +14,8 @@ var _sun := DirectionalLight3D.new()
 ## Rodina-style "backside" fill: a weak, shadowless light from the side away from the sun (energy 0 in the Sol style).
 var _back_light := DirectionalLight3D.new()
 var _look := PlanetLook.new()
+## Scales the ambient light (VisualStyle.interior_ambient_factor while the player walks the ship's interior).
+var ambient_scale := 1.0
 
 
 func _ready() -> void:
@@ -48,7 +50,8 @@ func apply_look(look: PlanetLook) -> void:
 	_environment.tonemap_mode = VisualStyle.tonemap_mode()
 	_environment.glow_enabled = VisualStyle.glow_enabled()
 	_environment.glow_intensity = 0.7
-	_environment.glow_bloom = 0.06
+	# Rodina blooms only its emit buffer (rendering_notes §6.5-6.6), so the lit scene and sky add no bloom of their own.
+	_environment.glow_bloom = 0.0 if VisualStyle.is_rodina() else 0.06
 	_environment.glow_hdr_threshold = 0.95
 	_environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	_sun.light_color = look.sun_color
@@ -84,7 +87,7 @@ func set_daylight(daylight: float, up_direction: Vector3, altitude_metres: float
 	_environment.fog_density = _look.fog_density * daylight * thinning
 	_environment.fog_aerial_perspective = _look.fog_aerial_perspective
 	_environment.fog_sky_affect = 0.0
-	_environment.ambient_light_energy = lerpf(_look.ambient_energy_space, _look.ambient_energy_day, daylight)
+	_environment.ambient_light_energy = lerpf(_look.ambient_energy_space, _look.ambient_energy_day, daylight) * ambient_scale
 	_environment.ambient_light_color = _look.ambient_space.lerp(_look.ambient_day, daylight)
 
 

@@ -8,6 +8,7 @@ var ship: Ship
 var _door_nodes := {}   # portal id -> {node: MeshInstance3D, base_x: float}
 var _room_lights := {} # room id -> OmniLight3D
 var _fire_nodes := {}   # room id -> MeshInstance3D
+var _interior_base := {} # interior material -> untinted albedo (restyle)
 var _station_screens := {} # station id -> StandardMaterial3D (emission shows the station's state)
 var _smoke_nodes := {}    # room id -> CPUParticles3D
 var _scorch_decals := {}  # room id -> Decal, hidden until the room has had a fire this session (not saved: saves may not change in N9)
@@ -47,6 +48,7 @@ func _ready() -> void:
 	add_child(effects)
 	effects.setup(exterior.nacelles())
 	_build_lights(layout)
+	restyle()
 	if _wall_material != _hull_material:
 		_build_reflection_probe(layout)
 	_build_decals(layout)
@@ -71,8 +73,9 @@ func _process(delta: float) -> void:
 		(_smoke_nodes[room_id] as CPUParticles3D).emitting = intensity > 0.0
 		(_fire_nodes[room_id] as Node3D).scale = Vector3.ONE * (0.4 + 0.8 * intensity) * (0.9 + 0.2 * flicker)
 		var light: OmniLight3D = _room_lights[room_id]
-		light.light_color = Color(1.0, 0.35 + 0.2 * flicker, 0.2) if intensity > 0.0 else Color.WHITE
-		light.light_energy = 1.6 + 2.0 * intensity if intensity > 0.0 else 1.6
+		var base := VisualStyle.room_light(room_id)
+		light.light_color = Color(1.0, 0.35 + 0.2 * flicker, 0.2) if intensity > 0.0 else base["color"]
+		light.light_energy = base["energy"] + 2.0 * intensity if intensity > 0.0 else base["energy"]
 	_update_screens()
 	var drop := layout.floor_y - layout.ramp_end_y
 	var low_and_slow := ship.planet != null and (ship.state.landed or (ship.state.altitude_above_ground < 80.0 and ship.state.speed() < 30.0))
@@ -85,6 +88,25 @@ func _process(delta: float) -> void:
 	exterior.update_exhaust(demand, delta)
 	effects.update_effects(ship, delta)
 	exterior.update_ramp(ship.systems.walkway.progress, asin(clampf(drop / layout.ramp_rect.size.y, -0.9, 0.9)))
+
+
+## Applies the visual style to the interior (materials tinted in place from their stored base colour, room lights) and
+## the exterior. Called once built and again on a style switch.
+func restyle() -> void:
+	exterior.restyle()
+	var tint := VisualStyle.interior_tint()
+	for material in [_wall_material, _floor_slab_material, _rubber_floor_material, _console_material, _metal_material, _door_material, _floor_material]:
+		if material is BaseMaterial3D:
+			var base_material := material as BaseMaterial3D
+			if not _interior_base.has(base_material):
+				_interior_base[base_material] = base_material.albedo_color
+			base_material.albedo_color = (_interior_base[base_material] as Color) * tint
+	for room_id in _room_lights:
+		var light: OmniLight3D = _room_lights[room_id]
+		var spec := VisualStyle.room_light(room_id)
+		light.light_color = spec["color"]
+		light.light_energy = spec["energy"]
+		light.omni_range = spec["range"]
 
 
 func _build_floors_and_ceilings(layout: InteriorLayout) -> void:
@@ -224,8 +246,6 @@ func _build_lights(layout: InteriorLayout) -> void:
 		var rect: Rect2 = layout.rooms[room_id]
 		var light := OmniLight3D.new()
 		light.position = Vector3(rect.get_center().x, 1.3, rect.get_center().y)
-		light.omni_range = 5.5
-		light.light_energy = 1.6
 		light.shadow_enabled = false
 		add_child(light)
 		_room_lights[room_id] = light

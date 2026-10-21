@@ -15,6 +15,9 @@
 // Inferred (not stated in the audit): EaseOutSin's input is clamped to 0..1; the halo/sunset "horizon factor" is color;
 // the shade samples run over the part of the ray inside the atmosphere, up to the surface.
 
+// Colours are Rodina's own values, i.e. display (sRGB) values: Rodina has no gamma pass and blends in display space
+// (rendering_notes §6.6). The sky and shell shaders composite in display space and convert to linear at the end, which
+// is what made Jarilo's measured sky (#ae7b70 / #ba9996, DeepSeek's palette_report) come out as ScatterColor x 0.75.
 uniform bool rodina_atmosphere = false;
 uniform vec3 atm_scatter1 = vec3(1.0);
 uniform vec3 atm_scatter2 = vec3(1.0);
@@ -27,6 +30,16 @@ uniform float atm_sunset_star_halo = 0.2; // SunsetStarHalo
 uniform float atm_sunset_star_buffer = 0.2; // SunsetStarAngleBuffer
 uniform float atm_sunset_horizon_limit = -1.0; // SunsetHorizonLimit
 uniform float atm_star_radius_angle = 0.01; // the star's angular radius, radians
+
+vec3 rodina_to_linear(vec3 c) {
+	c = max(c, vec3(0.0));
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+vec3 rodina_to_display(vec3 c) {
+	c = max(c, vec3(0.0));
+	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
+}
 
 float rodina_analogue(float value, float from_low, float from_high, float to_low, float to_high) {
 	float ratio = clamp((value - from_low) / (from_high - from_low), 0.0, 1.0);
@@ -96,4 +109,20 @@ vec4 rodina_atmosphere_at(vec3 eye, vec3 dir, vec3 star, float depth, out float 
 	}
 	vec3 rgb = mix(scatter, filter_color, filter_amount) * brightness;
 	return vec4(rgb, density_factor * clamp(atm_density, 0.0, 1.0));
+}
+
+// GroundAtmosphereAt (_atmosphere.h 169-194, rendering_notes §4.4): the density over terrain. Grazing ground is denser,
+// edge = pow(1 - saturate(dot(planetToWorld, worldToCamera)), 1.5) remapped into [Analogue(thickness, 0, 1, .4, .635), 1];
+// the depth goes through Approach(depth, 1, AtmosphereGroundDistance) with a floor of Analogue(thickness, 0, 1, 0, .25).
+// Inferred (not stated in the audit): thickness is saturate(AtmosphereDensity); the depth is the path inside the air, in atmosphere
+// heights as in the sky term; the two factors multiply; AtmosphereGroundDistance is 1 when a PlanetDef leaves it out
+// (Jarilo does; Zosia and Perun set 1.5, Veles 2.0: EGDataPlanets.lua:118, 238, 393).
+uniform float atm_ground_distance = 1.0;
+
+float rodina_ground_density(vec3 ground_point, vec3 eye, float depth) {
+	float thickness = clamp(atm_density, 0.0, 1.0);
+	float edge = 1.0 - clamp(dot(normalize(ground_point), normalize(eye - ground_point)), 0.0, 1.0);
+	edge = rodina_analogue(pow(edge, 1.5), 0.0, 1.0, rodina_analogue(thickness, 0.0, 1.0, 0.4, 0.635), 1.0);
+	float depth_factor = max(rodina_approach(depth / atm_height, 1.0, atm_ground_distance), rodina_analogue(thickness, 0.0, 1.0, 0.0, 0.25));
+	return edge * depth_factor;
 }

@@ -73,15 +73,51 @@ static func glow_enabled() -> bool:
 ## Sky shader parameters that do not depend on the planet: space colour and how the star panorama is treated.
 static func space_parameters() -> Dictionary:
 	if is_rodina():
-		# Near-black violet base; stars over-bright and blue-shifted so they bloom; a contrast curve darkens the dim,
-		# dusty parts of the panorama (Rodina subtracts dust: rendering_notes §6.4). Values are Sol's own.
-		return {"space_color": _hex("#0c0418"), "star_gain": 1.8, "star_tint": Vector3(0.85, 0.9, 1.25), "star_gamma": 1.35}
+		# Rodina's skybox base colour (0.025, 0, 0.05) (RodinaSkybox.fx:33, rendering_notes §6.4), a display value; under a
+		# thin air (Jarilo) it shows through the sky, so the earlier, brighter #0c0418 tinted the whole day sky violet.
+		# Stars over-bright and blue-shifted so they bloom; a contrast curve darkens the dim, dusty parts of the panorama
+		# (Rodina subtracts dust: same section). The star values are Sol's own.
+		return {"space_color": Color(0.025, 0.0, 0.05).srgb_to_linear(), "star_gain": 1.8, "star_tint": Vector3(0.85, 0.9, 1.25), "star_gamma": 1.35}
 	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0}
 
 
-## Multiplier on the ship's painted hull materials (Sol: none).
+## Multiplier on the ship's painted hull materials (Sol: none). Rodina's ships read as near-black silhouettes in every
+## measured frame (DeepSeek's palette_report.csv: #05030d, #0d0916, #171221); the textured hull's base is ~0.7, so a
+## 0.25 tint gives an albedo of ~0.17 (N13 palette pass, measured on Sol renders).
 static func hull_tint() -> Color:
-	return Color(0.74, 0.77, 0.84) if is_rodina() else Color.WHITE
+	return Color(0.24, 0.24, 0.27) if is_rodina() else Color.WHITE
+
+
+## Multiplier on the ship's interior materials (Sol: none). Rodina interiors measure dark grey/green, HSV value
+## 0.11-0.26 (palette_report.csv: #1a1818, #3e3e3e, #0f180f, #1d1c1e).
+static func interior_tint() -> Color:
+	return Color(0.42, 0.42, 0.42) if is_rodina() else Color.WHITE
+
+
+## Rodina's ceiling lights (Scripts/DataGameplay/EGDataItems.lua:212-260): White (1, 1, 1) radius 8, Soft (.7, .6, .6),
+## Green (.5, .75, .6), Wide (1, 1, 1) radius 16, Emergency (.9, .2, .2). Which room gets which is Sol's choice.
+const RODINA_ROOM_LIGHTS := {
+	&"cockpit": {"color": Color(0.7, 0.6, 0.6), "range": 8.0},
+	&"cabin": {"color": Color(1.0, 1.0, 1.0), "range": 8.0},
+	&"engineering": {"color": Color(0.5, 0.75, 0.6), "range": 8.0},
+	&"turret_room": {"color": Color(0.7, 0.6, 0.6), "range": 8.0},
+	&"cargo": {"color": Color(1.0, 1.0, 1.0), "range": 16.0},
+	&"airlock": {"color": Color(0.9, 0.2, 0.2), "range": 8.0},
+}
+
+
+## Colour, energy and range of one room's ceiling light under the active style.
+static func room_light(room_id: StringName) -> Dictionary:
+	if is_rodina():
+		var light: Dictionary = RODINA_ROOM_LIGHTS.get(room_id, RODINA_ROOM_LIGHTS[&"cabin"])
+		return {"color": (light["color"] as Color).srgb_to_linear(), "energy": 1.0, "range": light["range"]}
+	return {"color": Color.WHITE, "energy": 1.6, "range": 5.5}
+
+
+## Ambient light inside the ship as a fraction of the outside ambient: Rodina's scenes use SetAmbientLight(.05, .05, .05)
+## (EGSceneSolar.lua:28), so interiors are lit almost only by their lamps.
+static func interior_ambient_factor() -> float:
+	return 0.15 if is_rodina() else 1.0
 
 
 # --- the original Sol look: built from the existing data, so nothing changes --------------------------------------
@@ -141,19 +177,23 @@ static func _rodina_base(family: StringName) -> PlanetLook:
 	return look
 
 
-## Aurelia (home world; Jarilo-like orbit and atmosphere): salmon and ochre plains, pale sandstone uplands, dark rock on
-## slopes, frosted poles; a blue-violet sky with a warm, peachy horizon.
+## Aurelia (home world; Jarilo-like orbit and atmosphere): ochre-brown plains and dunes, darker rock on slopes and
+## uplands, grey-white poles. Colours are Jarilo's own: each JariloTerrain layer's DiffuseColor (EGEditorData.lua:1277-1600:
+## PolarIceCaps .89 grey, Mountains (.577, .539, .461), Dunes (.788, .717, .606), BaseB (.714, .635, .516)) times Jarilo's
+## PlanetFeatureColor1a HSV(45, .5, .61) or 1b HSV(30, .5, 1) (EGDataPlanets.lua:548-551; the later lines win in Lua).
+## Inferred: that the shader multiplies the two (PlanetJarilo.fx is not available) and which layer each Sol feature
+## takes. Measured Rodina ground is this dark: #4c3422 and #2b1808 (palette_report.csv, steam01_salmon_sky_mountains).
 static func _ochre_steppe() -> PlanetLook:
 	var look := _rodina_base(&"ochre_steppe")
 	look.features = [
-		{"color": _hex("#d9d4cc"), "latitude_min": 0.88, "latitude_fade": 0.03, "slope_max": 0.12},
-		{"color": _hex("#5a4436"), "slope_min": 0.1, "slope_fade": 0.03},
-		{"color": _hex("#c9a27a"), "height_min": 2600.0, "height_fade": 500.0},
-		{"color": _hex("#c07a5c"), "mask_scale": 9000.0, "mask_min": 0.25, "mask_fade": 0.12, "mask_seed": 1},
-		{"color": _hex("#96643f"), "height_max": 300.0, "height_fade": 350.0},
+		{"color": _hex("#e3e3e3"), "latitude_min": 0.88, "latitude_fade": 0.03, "slope_max": 0.12}, # PolarIceCaps
+		{"color": _hex("#5a4924"), "slope_min": 0.1, "slope_fade": 0.03}, # Mountains x 1a
+		{"color": _hex("#93673b"), "height_min": 2600.0, "height_fade": 500.0}, # Mountains x 1b
+		{"color": _hex("#b67942"), "mask_scale": 9000.0, "mask_min": 0.25, "mask_fade": 0.12, "mask_seed": 1}, # BaseB x 1b
+		{"color": _hex("#7b622f"), "height_max": 300.0, "height_fade": 350.0}, # Dunes x 1a
 	]
-	look.base_color = _hex("#b8854f")
-	look.orbit_color = _hex("#c79a6c")
+	look.base_color = _hex("#6f5628") # BaseB x 1a
+	look.orbit_color = _hex("#6f5628")
 	look.sky_zenith = _hex("#5f6fb3")
 	look.sky_horizon = _hex("#e8c3a6")
 	look.sunset_color = _hex("#ff8a4a")
@@ -231,8 +271,8 @@ static func _teal_alien() -> PlanetLook:
 ## palettes are unchanged.
 const RODINA_ATMOSPHERES := {
 	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0], "halo": [0.02, 0.02, 0.2, 0.0],  "terminator": [0.2, -0.2], "surface_ambient": [32.0, 0.2, 0.25]},
-	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7], "halo": [0.1, 0.1, 0.2, 0.0],  "terminator": [0.2, -0.5]},
-	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0], "halo": [0.05, 0.2, 0.2, -1.0],  "terminator": [0.2, -0.5]},
+	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7], "halo": [0.1, 0.1, 0.2, 0.0],  "terminator": [0.2, -0.5], "ground_distance": 2.0},
+	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0], "halo": [0.05, 0.2, 0.2, -1.0],  "terminator": [0.2, -0.5], "ground_distance": 1.5},
 }
 
 
@@ -241,6 +281,11 @@ const RODINA_ATMOSPHERES := {
 static func rodina_atmosphere_color(body_id: StringName, key: String) -> Color:
 	var hsv: Array = RODINA_ATMOSPHERES[body_id][key]
 	return RodinaMath.hue_saturate_value(hsv[0], hsv[1], hsv[2]).srgb_to_linear()
+
+
+static func _raw_atmosphere_color(body_id: StringName, key: String) -> Color:
+	var hsv: Array = RODINA_ATMOSPHERES[body_id][key]
+	return RodinaMath.hue_saturate_value(hsv[0], hsv[1], hsv[2])
 
 
 ## Sky, sunset, limb and haze from the Rodina world's atmosphere colours. Rodina's horizon shader blends between
@@ -295,14 +340,17 @@ static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> P
 	look.terminator_end = data["terminator"][1]
 	# StarHalo, SunsetStarHalo, SunsetStarAngleBuffer, SunsetHorizonLimit from the same PlanetDef.
 	var halo: Array = data["halo"]
+	# Raw (display-space) colours: the atmosphere shaders composite in display space as Rodina does.
 	look.rodina_atmosphere = {
-		"atm_scatter1": rodina_atmosphere_color(body_id, "scatter1"), "atm_scatter2": rodina_atmosphere_color(body_id, "scatter2"),
-		"atm_filter1": rodina_atmosphere_color(body_id, "filter1"), "atm_filter2": rodina_atmosphere_color(body_id, "filter2"),
+		"atm_scatter1": _raw_atmosphere_color(body_id, "scatter1"), "atm_scatter2": _raw_atmosphere_color(body_id, "scatter2"),
+		"atm_filter1": _raw_atmosphere_color(body_id, "filter1"), "atm_filter2": _raw_atmosphere_color(body_id, "filter2"),
 		"atm_density": float(data["density"]), "atm_star_halo": halo[0], "atm_sunset_star_halo": halo[1],
-		"atm_sunset_star_buffer": halo[2], "atm_sunset_horizon_limit": halo[3]}
+		"atm_sunset_star_buffer": halo[2], "atm_sunset_horizon_limit": halo[3],
+		"atm_ground_distance": float(data.get("ground_distance", 1.0))} # AtmosphereGroundDistance; Jarilo leaves it out
 	look.rim_power = 2.5
 	look.rim_haze = 0.15
-	look.orbit_color = look.orbit_color.lerp(look.rim_color, 0.25) # the terrain's far colour leans to the air's tint
+	if body_id != &"planet": # Aurelia's colours are Jarilo's own; the others keep their far colour leaning to the air's tint
+		look.orbit_color = look.orbit_color.lerp(look.rim_color, 0.25)
 	return look
 
 

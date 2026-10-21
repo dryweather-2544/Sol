@@ -24,10 +24,10 @@ void fragment() {
 	vec4 air = rodina_atmosphere_at(eye, dir, -normalize(sun_direction), depth, filter_amount);
 	// RodinaAtmosphereScatter: the scatter colour is added, and what lies behind is kept by the transmittance
 	// 1 - saturate(AtmosphereDensity - 1) * alpha, so a thin air (Jarilo) tints the ground and a thick one (Veles) hides it.
-	// Over the ground the full additive scatter washed Jarilo out to a flat pale disc; the owner's orbit screenshot keeps a
-	// tan surface with a soft glow at the limb, so the scatter is scaled down where the ray reaches the ground (inferred:
-	// the audit does not give the exact compositing of the scatter and filter passes over terrain).
-	float over_ground = ground.x > 0.0 ? 0.35 : 1.0;
-	ALBEDO = air.rgb * air.a * over_ground;
+	// Over the ground the density is GroundAtmosphereAt's (rodina_ground_density) instead of the sky's path-length term.
+	if (ground.x > 0.0) {
+		air.a = rodina_ground_density(eye + dir * ground.x, eye, max(ground.x - max(rodina_sphere_hits(eye, dir, 1.0 + atm_height).x, 0.0), 0.0)) * clamp(atm_density, 0.0, 1.0);
+	}
+	ALBEDO = rodina_to_linear(air.rgb * air.a); // display-space colour added over the scene
 	ALPHA = clamp(clamp(atm_density - 1.0, 0.0, 1.0) * air.a, 0.0, 1.0);
 }

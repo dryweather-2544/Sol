@@ -234,6 +234,7 @@ func _process(_delta: float) -> void:
 		var shell_centre := WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO
 		if not atmosphere_shell.update_rodina(planet.radius, planet.atmosphere_height, shell_centre, sun_direction, _star_radius_angle(runtime.active_frame), home_look.rodina_atmosphere if VisualStyle.is_rodina() else {}):
 			atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, shell_centre, sun_direction, home_look.rim_color, home_look.rim_power, home_look.rim_haze)
+	space_environment.ambient_scale = VisualStyle.interior_ambient_factor() if session.mode == GameSession.Mode.INSIDE else 1.0
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
@@ -494,7 +495,7 @@ func _restyle() -> void:
 	impostors.restyle()
 	for child in ship.get_children():
 		if child is ShipVisuals:
-			(child as ShipVisuals).exterior.restyle()
+			(child as ShipVisuals).restyle()
 	_applied_look = null
 
 
@@ -571,8 +572,13 @@ func _update_warp_view(delta: float) -> void:
 		effects.camera_inside = session.mode == GameSession.Mode.INSIDE or (in_ship_view and _cockpit_view)
 
 
-## The star's angular radius seen from a body (radians), for Rodina's halo and sunset maths.
+## The star's angular radius seen from a body (radians), for Rodina's halo and sunset maths. In the rodina style the star
+## is drawn at the look's disc size (as large as in Rodina's screenshots), and the halo is measured from that disc.
 func _star_radius_angle(body_id: StringName) -> float:
+	if VisualStyle.is_rodina() and system.bodies.has(body_id):
+		var look := VisualStyle.look_for(system.bodies[body_id])
+		if not look.rodina_atmosphere.is_empty():
+			return look.sun_disc_radius
 	var star: BodyDef = system.bodies[system.star_id]
 	if body_id == StarSystem.SYSTEM_FRAME or not system.bodies.has(body_id):
 		return 0.01

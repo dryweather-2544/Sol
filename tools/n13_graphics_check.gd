@@ -1,7 +1,8 @@
 extends SceneTree
 ## N13 in-game check of the Rodina graphics port. Needs a display and the rodina style:
 ##   SOL_VISUAL_STYLE=rodina N13_SCENE=<scene> N13_OUT=<dir> godot --path . -s res://tools/n13_graphics_check.gd
-## Scenes: combat (engine exhaust, 300 km over Aurelia), cruise (cruise engine + inertia streaks), warp (open space:
+## Scenes: interior (standing in the cabin, then facing the cockpit), ship (the ship against open space),
+## combat (engine exhaust, 300 km over Aurelia), cruise (cruise engine + inertia streaks), warp (open space:
 ## warp entry, sustained warp, then back to cruise), entry (atmospheric entry at 4 km/s), low (900 m over Aurelia).
 ## Boots the real main scene and flies the ship with a scripted pilot through the real flight model; shots and one
 ## log line per shot record game time, gear, speed, FOV, warp blend, chase distance factor, shake and live effects.
@@ -112,6 +113,16 @@ func _setup() -> void:
 			_pilot.gear = PilotCommand.GEAR_COMBAT
 			_pilot.thrust = Vector3(0, 0, -0.5)
 			_shots = [[1.0, "low_900m", null], [3.0, "low_900m_3s", null]]
+		"interior":
+			# Walk out of the pilot seat into the cockpit/cabin (Rodina interiors: dark rooms, coloured ceiling lights).
+			_place_over_planet(300000.0, up, Basis.looking_at(up.cross(Vector3.RIGHT).normalized(), up), Vector3.ZERO)
+			_pilot.gear = PilotCommand.GEAR_DOCK
+			_shots = [[0.3, "", func(): _main.session._stand_up(); _main._on_mode_changed()], [1.5, "interior_cabin", null],
+				[1.6, "", func(): _main.session.interior_body.yaw += PI], [2.5, "interior_cockpit", null]]
+		"ship":
+			_place_in_open_space()
+			_pilot.gear = PilotCommand.GEAR_COMBAT
+			_shots = [[1.0, "ship_space", null]]
 		_:
 			_place_in_open_space()
 			_pilot.gear = PilotCommand.GEAR_CRUISE

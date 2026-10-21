@@ -63,13 +63,14 @@ void sky() {
 		float filter_amount;
 		vec4 air = rodina_atmosphere_at(atm_eye, eye_dir, sun_direction, 1.0e6, filter_amount);
 		float transmit = 1.0 - clamp(atm_density - 1.0, 0.0, 1.0) * air.a;
-		vec3 sky_color = (space_color + stars) * transmit + air.rgb * air.a;
+		// Composite in display space, as Rodina does, then back to linear for Godot.
+		vec3 sky_color = rodina_to_display(space_color + stars) * transmit + air.rgb * air.a;
 		// The star seen through the air (RodinaStar: filter-tinted), large as in the screenshots.
 		float sun_angle = acos(clamp(dot(eye_dir, sun_direction), -1.0, 1.0));
 		float star_disc = 1.0 - smoothstep(sun_disc_radius - 0.002, sun_disc_radius + 0.002, sun_angle);
-		vec3 disc_tint = sun_disc_color.r < 0.0 ? sun_color : sun_disc_color;
+		vec3 disc_tint = rodina_to_display(sun_disc_color.r < 0.0 ? sun_color : sun_disc_color);
 		sky_color = mix(sky_color, disc_tint, star_disc * smoothstep(0.02, 0.2, air.a) * sun_disc_gain);
-		COLOR = sky_color;
+		COLOR = rodina_to_linear(sky_color);
 	} else {
 	vec3 space = space_color + stars * (1.0 - daylight);
 
