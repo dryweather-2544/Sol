@@ -29,7 +29,9 @@ static func intensity_for(speed: float, gear: int) -> float:
 	# blue-white field, so do not leave the two effects layered together.
 	if not VisualStyle.is_rodina() or gear != PilotCommand.GEAR_COMBAT:
 		return 0.0
-	return smoothstep(MIN_SPEED, FULL_SPEED, speed) * 0.58
+	# COMBAT is the labelled reference mode and tops out around 500 m/s. Use that real band rather
+	# than a cruise/warp-scale fade that would leave the field invisible in actual combat.
+	return smoothstep(180.0, 500.0, speed) * 0.58
 
 
 func _process(delta: float) -> void:

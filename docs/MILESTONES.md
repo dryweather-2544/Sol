@@ -285,7 +285,7 @@ and the commit is pushed.
 - [x] Soft Rodina-only galaxy/dust fallback tested against the official orbit frame; block/noise and stripe variants rejected.
 - [x] COMBAT-SPEED blue/white streak layer and blocky orange/purple entry fire with purple exposure.
 - [x] Compact seated flight HUD; combat-only streak field; blocky entry fire and purple exposure.
-- [x] 326 tests / 97,139 assertions / 0 failures.
+- [x] 326 tests / 97,140 assertions / 0 failures.
 - [x] Central cyan reticle and basic weapon-ready panel.
 - [x] Hostile target brackets projected through the active camera.
 - [x] Pooled projectile impact flashes connected to the projectile simulation.

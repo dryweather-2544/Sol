@@ -167,3 +167,11 @@ the green developer wall from those views while keeping the debug overlay for So
 The impact flare now also has a short billboard quad to make the hit visible even when the particle
 sparks are small. A direct flash capture still did not show it cleanly, so it remains test-verified
 but visually unconfirmed. Tests: 326 tests / 97,139 assertions / 0 failures.
+
+
+### Tenth iteration — real COMBAT speed gate (2026-10-21)
+
+The first streak implementation used a cruise-scale 300–6000 m/s fade, so at COMBAT's actual
+~450 m/s it was effectively invisible. Corrected the gate to the real combat band (180–500 m/s).
+Capture: `/tmp/n13_combat_streak.png`; the field and olive trail are visible with the COMBAT SPEED
+tab. Tests: 326 tests / 97,140 assertions / 0 failures.
