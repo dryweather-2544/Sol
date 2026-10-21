@@ -11,3 +11,6 @@ normal contact resolver can settle it.
 This is a **ship position migration**, not a complete world-state migration: POIs/outposts have not been
 re-mapped, and the save is still version 11 because the new key is optional. A full POI migration is
 required before claiming save compatibility for every surface location.
+
+Test: `tests/unit/save_roundtrip_test.gd::test_old_terrain_revision_reseats_a_landed_ship`. The test uses a
+flat patch and accepts a 0.3 m tolerance because the ship's support plane is resolved after restore.

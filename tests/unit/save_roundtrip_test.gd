@@ -143,3 +143,24 @@ func test_warp_gear_survives_a_save_round_trip() -> void:
 	assert_eq(restored.ship.state.selected_gear, PilotCommand.GEAR_WARP, "warp selection is saved")
 	original.ship.free()
 	restored.ship.free()
+
+
+func test_old_terrain_revision_reseats_a_landed_ship() -> void:
+	var original := _new_session(2.1, Vector3.ZERO)
+	original.planet.height_override = func(_dx: float, _dy: float, _dz: float) -> float: return 0.0
+	original.planet.height_function.profile.generation_revision = 1
+	original.ship.state.landed = true
+	var data := SaveGame.capture(original, 42)
+	data["world"]["terrain_revision"] = 0
+	# The load target is already on the newer grammar revision and uses the same flat test patch.
+	var fresh := _new_session(5000.0, Vector3.ZERO)
+	fresh.planet.height_override = func(_dx: float, _dy: float, _dz: float) -> float: return 0.0
+	fresh.planet.height_function.profile.generation_revision = 1
+	assert_eq(SaveGame.restore(fresh, data), "")
+	var direction := fresh.ship.state.position.duplicate_position()
+	var radius := sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
+	var ground := fresh.planet.surface_radius_xyz(direction.x / radius, direction.y / radius, direction.z / radius)
+	assert_near(radius - ground, 2.1, 0.3, "old terrain save is re-seated above the new surface")
+	assert_true(not fresh.ship.state.landed, "re-seated ship falls onto the new terrain")
+	original.ship.free()
+	fresh.ship.free()
