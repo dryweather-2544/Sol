@@ -34,3 +34,10 @@ authority for composition; source data is the authority for formulae.
 the owner-requested hard-edged pixel particle layer. The layer uses the same stepped language as the entry
 fire; the cone and transcribed particle defs remain underneath. This is a visual-design overlay, not a
 claim that Rodina's own engine material is a pixel emitter.
+
+
+## N14 compact HUD capture
+
+`/tmp/n14_hud_check/cruise_1s.jpg` — real main scene, Rodina style, N13 HUD fonts with the compact
+top gear tab and bottom telemetry replacing the developer overlay. The same frame shows the pixel engine
+layer over the N13 flame cone.

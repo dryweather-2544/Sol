@@ -12,6 +12,8 @@ var _prompt_label := Label.new()
 var _signal_label := Label.new()
 var _objective_label := Label.new()
 var _alert_label := Label.new()
+var _mode_label := Label.new()
+var _telemetry_label := Label.new()
 var _sol_looks := {} # label -> its sol colour and size (restyle)
 
 
@@ -45,8 +47,35 @@ func _ready() -> void:
 	_alert_label.add_theme_constant_override("outline_size", 6)
 	_alert_label.visible = false
 	add_child(_alert_label)
+	# Compact Rodina flight HUD; the developer overlay remains for Sol and paused states.
+	_mode_label.visible = false
+	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mode_label.add_theme_font_size_override("font_size", 18)
+	_mode_label.add_theme_color_override("font_color", Color(0.65, 0.9, 1.0))
+	_mode_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_mode_label.add_theme_constant_override("outline_size", 3)
+	var mode_style := StyleBoxFlat.new()
+	mode_style.bg_color = Color(0.025, 0.10, 0.15, 0.72)
+	mode_style.border_color = Color(0.25, 0.75, 0.95, 0.9)
+	mode_style.border_width_left = 1
+	mode_style.border_width_right = 1
+	mode_style.border_width_top = 1
+	mode_style.border_width_bottom = 1
+	mode_style.content_margin_left = 18
+	mode_style.content_margin_right = 18
+	mode_style.content_margin_top = 3
+	mode_style.content_margin_bottom = 3
+	_mode_label.add_theme_stylebox_override("normal", mode_style)
+	add_child(_mode_label)
+	_telemetry_label.visible = false
+	_telemetry_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_telemetry_label.add_theme_font_size_override("font_size", 15)
+	_telemetry_label.add_theme_color_override("font_color", Color(0.55, 0.86, 0.96))
+	_telemetry_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_telemetry_label.add_theme_constant_override("outline_size", 3)
+	add_child(_telemetry_label)
 	_sol_looks = {}
-	for label in [_label, _prompt_label, _signal_label, _objective_label, _alert_label]:
+	for label in [_label, _prompt_label, _signal_label, _objective_label, _alert_label, _mode_label, _telemetry_label]:
 		_sol_looks[label] = {"color": label.get_theme_color("font_color"), "size": label.get_theme_font_size("font_size")}
 	restyle()
 
@@ -54,7 +83,7 @@ func _ready() -> void:
 ## Rodina's HUD fonts in the rodina style (VisualStyle.hud_font: Orbitron info and prompts, Audiowide warnings), the
 ## labels' own look in sol. Called once built and again on a style switch.
 func restyle() -> void:
-	var roles := {_label: &"info", _prompt_label: &"notification", _signal_label: &"info", _objective_label: &"info", _alert_label: &"warning"}
+	var roles := {_label: &"info", _prompt_label: &"notification", _signal_label: &"info", _objective_label: &"info", _alert_label: &"warning", _mode_label: &"info", _telemetry_label: &"info"}
 	for label: Label in roles:
 		var spec := VisualStyle.hud_font(roles[label])
 		if spec.is_empty():
@@ -81,6 +110,10 @@ func _process(_delta: float) -> void:
 	_objective_label.text = "Objective: " + session.progress.current_text() if session != null else ""
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
+	if _use_rodina_hud():
+		_update_rodina_hud()
+		return
+	_set_debug_hud_visible(true)
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:
 		var body := session.exterior_body
 		_label.text = "fps %d   chunks %d\nOUTSIDE   speed %.1f m/s   %s\nheight above ground %.2f m%s\nWASD move  Shift run  Space jump  mouse look  click/Ctrl fire\nwalk up the ramp to board  Esc menu" % [
@@ -124,6 +157,57 @@ func _process(_delta: float) -> void:
 		gear_text, source_text, state.status_message]
 	_label.text += "\nfuel %d%%   hull %d%%%s   Tab inventory" % [state.fuel * 100.0, state.hull * 100.0, "   STEEP REENTRY" if ShipDamage.entry_damage_rate(state.atmosphere_resistance) > 0.0 else ""]
 	_label.text += _power_text()
+
+
+func _use_rodina_hud() -> bool:
+	return VisualStyle.is_rodina() and session != null and not get_tree().paused
+
+
+func _set_debug_hud_visible(visible: bool) -> void:
+	_label.visible = visible
+	_signal_label.visible = visible
+	_mode_label.visible = false
+	_telemetry_label.visible = false
+	_prompt_label.add_theme_font_size_override("font_size", 26)
+	_prompt_label.add_theme_constant_override("outline_size", 6)
+	_prompt_label.add_theme_color_override("font_color", Color.WHITE)
+
+
+func _update_rodina_hud() -> void:
+	_label.visible = false
+	_signal_label.visible = false
+	_mode_label.visible = true
+	_telemetry_label.visible = true
+	var viewport := get_viewport().get_visible_rect().size
+	var mode := session.mode
+	var seated := mode == GameSession.Mode.SEATED or mode == GameSession.Mode.SITTING
+	if seated:
+		var state := ship.state
+		var modes := ["PRECISION", "COMBAT SPEED", "CRUISE SPEED", "WARP"]
+		_mode_label.text = modes[state.gear]
+		if state.selected_gear != state.gear:
+			_mode_label.text += "   %s SELECTED" % modes[state.selected_gear]
+		_telemetry_label.text = "HULL %d%%    FUEL %d%%    SPEED %s" % [
+			roundi(state.hull * 100.0), roundi(state.fuel * 100.0),
+			("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
+	else:
+		var suit := session.suit
+		_mode_label.text = "ON FOOT" if mode == GameSession.Mode.OUTSIDE else "INSIDE SHIP"
+		_telemetry_label.text = "O2 %d%%    JETPACK %d%%    HEALTH %d%%" % [
+			roundi(suit.oxygen * 100.0), roundi(suit.fuel * 100.0), roundi(suit.health * 100.0)]
+	_mode_label.position = Vector2(viewport.x * 0.5 - _mode_label.size.x * 0.5, 12.0)
+	_telemetry_label.position = Vector2(viewport.x * 0.5 - _telemetry_label.size.x * 0.5, viewport.y - 38.0)
+	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
+	_objective_label.add_theme_font_size_override("font_size", 14)
+	_objective_label.position = Vector2(14, viewport.y - 64.0)
+	_prompt_label.add_theme_font_size_override("font_size", 18)
+	_prompt_label.add_theme_constant_override("outline_size", 4)
+	_prompt_label.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
+	_prompt_label.position.y = viewport.y - 120.0
+	if _alert_label.text != "":
+		_alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_alert_label.add_theme_font_size_override("font_size", 15)
+		_alert_label.position = Vector2(viewport.x * 0.5 - _alert_label.size.x * 0.5, 54.0)
 
 
 func _power_text() -> String:

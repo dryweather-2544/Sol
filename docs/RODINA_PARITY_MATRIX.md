@@ -22,7 +22,7 @@ yet visually/behaviourally checked against reference.
 | Terrain material blending / texture tiers | `RodinaTerrain.fx`, `EGEditorData.lua` | `PlanetLook`, terrain shader, palette system | ADAPT / GAP | Texture tiers and six-gate features remain follow-up |
 | Ship exterior/interior geometry | `EGDataShipPlayer.lua:7-9`, meshes (not recovered) | `ship_exterior.gd`, `interior_layout.gd`, ADR 0012 | ADAPT (custom) | Original mesh absent; reference-based recreation only |
 | Audio effects | authored Rodina WAVs | `AudioService` / `audio_library.gd` | PORT / VERIFY | N11 inventory; human listening still required |
-| HUD fonts/colours | `Render/MenuFonts.lua` | N13 HUD fonts / UI | PORT / VERIFY | HUD style tests; compare against supplied frames |
+| HUD fonts/colours | `Render/MenuFonts.lua` | N13 HUD fonts / UI, compact Rodina flight HUD | PORT / VERIFY | compact HUD capture; compare against supplied frames |
 | Items, damage, projectiles, AI, missions | `EGDataItems.lua`, combat scripts | existing Sol systems | ADAPT / GAP | Follow Stage 8; do not replace working systems |
 
 ## Known hard blockers / uncertainties
