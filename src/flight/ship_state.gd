@@ -52,6 +52,9 @@ var barrel_roll_factor := 0.0
 var auto_level_block := 0.0
 ## Seconds the warp gear has been engaged (Rodina EGShipPlayer.LimnalTimer); 0 outside warp. Transient, like Rodina's.
 var limnal_timer := 0.0
+## Rodina EGBehaviorPlayer.LimnalDrift: a small slow steering bias that exists only after the
+## warp drive has fully spun up. Transient, not saved.
+var limnal_drift := Vector2.ZERO
 ## Rodina CancelLimnalDrive moves the pilot's gear down to cruise; Sol keeps the pilot's selection, so a cancelled warp
 ## stays off (this latch) until the pilot selects a lower gear and shifts up again. Transient.
 var warp_cancelled := false

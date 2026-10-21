@@ -47,6 +47,11 @@ const FACE_SLOWDOWN_ANGLE := 0.5
 ## CheckLimnalAtmosphereCollision, EGVehicle.lua:1576-1653). Rodina's relative time snaps back on cancel; Sol's warp
 ## speed decays more slowly, so Sol looks half a second ahead instead of one frame.
 const WARP_LOOKAHEAD_SECONDS := 0.5
+## Rodina EGBehaviorPlayer.lua:174-179: after full activation, a random ±2/s drift is accumulated,
+## clamped to ±0.3, and added to the pilot's turn vector. A deterministic smooth twitch is used here
+## so replays remain reproducible; the magnitude and clamp are Rodina's.
+const WARP_DRIFT_GAIN := 4.0
+const WARP_DRIFT_LIMIT := 0.3
 
 
 static func step(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
@@ -197,7 +202,15 @@ static func _step_angular(ship_state: ShipState, command: PilotCommand, tuning: 
 		var face := turn_toward(ship_state.basis, command.face_direction)
 		ship_state.angular_velocity = Vector3(face.x * tuning.rotation_speed, face.y * tuning.rotation_speed, 0.0)
 	else:
-		_player_rotation(ship_state, command.turn, tuning, environment, delta)
+		var turn := command.turn
+		if ship_state.gear == PilotCommand.GEAR_WARP and ship_state.limnal_timer >= tuning.warp_start_time:
+			var phase := ship_state.limnal_timer
+			ship_state.limnal_drift.x = clampf(ship_state.limnal_drift.x + sin(phase * 31.7) * WARP_DRIFT_GAIN * delta, -WARP_DRIFT_LIMIT, WARP_DRIFT_LIMIT)
+			ship_state.limnal_drift.y = clampf(ship_state.limnal_drift.y + cos(phase * 23.1 + 1.2) * WARP_DRIFT_GAIN * delta, -WARP_DRIFT_LIMIT, WARP_DRIFT_LIMIT)
+			# Rodina adds LimnalDrift to TurnVector; yaw is Sol turn.y and pitch is Sol turn.x.
+			turn.x += ship_state.limnal_drift.y
+			turn.y += ship_state.limnal_drift.x
+		_player_rotation(ship_state, turn, tuning, environment, delta)
 	_level_roll(ship_state, command.turn.z, environment, delta)
 	var turn_angle := ship_state.angular_velocity.length() * delta
 	if turn_angle > 1e-9:

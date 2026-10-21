@@ -410,3 +410,22 @@ func test_control_authority_ramps_after_a_collision() -> void:
 	_fly(ship_state, command, 60)
 	assert_true(ship_state.control_authority > 0.99, "authority returns within Rodina's 0.5-1.5 s window")
 	assert_true(ship_state.velocity.length() > 100.0, "the ship accelerates once control returns")
+
+
+func test_warp_steering_drift_only_after_full_spin_up() -> void:
+	var state := ShipState.new()
+	state.gear = PilotCommand.GEAR_WARP
+	state.selected_gear = PilotCommand.GEAR_WARP
+	state.limnal_timer = 2.0
+	var environment := FlightEnvironment.new()
+	environment.max_gear = PilotCommand.GEAR_WARP
+	var command := PilotCommand.new()
+	command.gear = PilotCommand.GEAR_WARP
+	FlightModel.step(state, command, ShipTuning.new(), environment, DELTA)
+	assert_true(state.limnal_drift.length() > 0.0, "drift accumulates after LimnalActivation reaches 1")
+	assert_true(state.angular_velocity.length() > 0.0, "drift is applied to the pilot's rotation")
+	state.limnal_timer = 0.2
+	state.limnal_drift = Vector2.ZERO
+	state.angular_velocity = Vector3.ZERO
+	FlightModel.step(state, command, ShipTuning.new(), environment, DELTA)
+	assert_eq(state.limnal_drift, Vector2.ZERO, "no drift during the 1.8 s warm-up")

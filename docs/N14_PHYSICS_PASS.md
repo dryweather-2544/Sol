@@ -24,3 +24,12 @@ telemetry but not applied to takeoff because doing so made a landed ship unable 
 real Rodina flight comparison before being called exact.
 
 Tests after this pass: 361 tests / 105,038 assertions / 0 failures.
+
+
+## WARP steering drift
+
+`FlightModel._step_angular` now accumulates Rodina's `LimnalDrift` after full 1.8 s spin-up, clamps it
+to ±0.3 and adds it to the player's turn vector (pitch/yaw mapped from Rodina's axes). The source uses
+`math.random`; this port uses a deterministic smooth twitch so replays remain reproducible while keeping
+the same gain and clamp. `test_warp_steering_drift_only_after_full_spin_up` covers both the spun-up and
+warm-up states. Tests after this pass: 362 tests / 105,041 assertions / 0 failures.
