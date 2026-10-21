@@ -8,6 +8,9 @@ extends Resource
 ## VELES/MORENA are Rodina's shader grammars (see Shaders/Planet*.h in the private source).
 enum Grammar { LEGACY, PERUN, JARILO, VELES, MORENA, ASTEROID }
 @export var grammar: Grammar = Grammar.LEGACY
+## Bumped when the height grammar changes the meaning of saved surface positions. Old saves with a
+## lower revision are re-seated above the new surface on load rather than left inside a hill.
+@export var generation_revision := 0
 @export var terrain_seed := 1234
 ## Broad continents/basins (unit-sphere noise).
 @export var macro_amplitude := 2500.0

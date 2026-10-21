@@ -5,6 +5,7 @@
 
 [sub_resource type="Resource" id="Resource_ncqj7"]
 script = ExtResource("2_ppnkv")
+generation_revision = 1
 grammar = 2
 
 [resource]

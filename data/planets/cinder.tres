@@ -7,6 +7,7 @@
 script = ExtResource("2_m3lx5")
 radius = 4200000.0
 terrain_seed = 4242
+generation_revision = 1
 grammar = 1
 macro_amplitude = 1800.0
 mountain_amplitude = 4800.0

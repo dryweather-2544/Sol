@@ -7,6 +7,7 @@
 script = ExtResource("2_awyq4")
 radius = 8500000.0
 terrain_seed = 9090
+generation_revision = 1
 grammar = 3
 macro_amplitude = 2000.0
 mountain_amplitude = 3000.0

@@ -19,6 +19,6 @@ failures before the terrain changes; current suite must be re-run after every co
 ## Open design questions
 
 - Whether to keep Sol's distance-scaled WARP or port Rodina's relative-time model (world-scale risk).
-- How to migrate save positions after the terrain grammar change; a world-generation revision should be
-  explicit in the save, not silently re-interpreted.
+- Terrain generation revision is now saved and the ship is re-seated when an old save is below the new surface;
+  POI/outpost position re-mapping is still open.
 - Which Sol world corresponds to Morena; do not invent a new planet merely to use the grammar.

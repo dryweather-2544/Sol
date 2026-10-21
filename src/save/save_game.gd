@@ -25,7 +25,8 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 		"save_version": SAVE_VERSION,
 		"game_version": GAME_VERSION,
 		"world_seed": world_seed,
-		"world": {"time": game_time_seconds, "frame": String(session.ship.state.position.frame_id)},
+		"world": {"time": game_time_seconds, "frame": String(session.ship.state.position.frame_id),
+			"terrain_revision": session.planet.profile_or_default().generation_revision if session.planet != null else 0},
 		"ship": {
 			"position": ship_state.position.to_dictionary(),
 			"velocity": _vector_to_array(ship_state.velocity),
@@ -87,6 +88,7 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	ship_state.landed = bool(ship_data["landed"])
 	ship_state.hull = float(ship_data.get("hull", 1.0))
 	ship_state.fuel = float(ship_data.get("fuel", 1.0))
+	_reseat_after_terrain_change(session, data)
 
 	var systems := session.systems
 	var interior_data: Dictionary = data["interior"]
@@ -147,6 +149,31 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 		session.crew.restore(session.systems, data["crew"])
 	session.inventory.restore(data.get("inventory", {"oxygen_tank": 1, "repair_kit": 1}))
 	return ""
+
+
+## A saved position was authored on an older terrain revision. Keep the same surface direction and
+## put the ship just above the new support plane; the next tick settles it. This is deliberately a
+## position migration, not a silent reinterpretation of the old coordinates.
+static func _reseat_after_terrain_change(session: GameSession, data: Dictionary) -> void:
+	if session.planet == null:
+		return
+	var current_revision := session.planet.profile_or_default().generation_revision
+	var saved_revision := int(data.get("world", {}).get("terrain_revision", 0))
+	if saved_revision >= current_revision:
+		return
+	var state := session.ship.state
+	var position := state.position
+	var length := sqrt(position.x * position.x + position.y * position.y + position.z * position.z)
+	if length <= 0.0:
+		return
+	var direction := Vector3(position.x, position.y, position.z) / length
+	var ground := session.planet.surface_radius_xyz(direction.x, direction.y, direction.z)
+	if state.landed or length < ground + 1.0:
+		var seated := direction * (ground + 2.1)
+		state.position = WorldPos.new(position.frame_id, seated.x, seated.y, seated.z)
+		state.velocity = Vector3.ZERO
+		state.angular_velocity = Vector3.ZERO
+		state.landed = false
 
 
 static func _vector_to_array(vector: Vector3) -> Array:
