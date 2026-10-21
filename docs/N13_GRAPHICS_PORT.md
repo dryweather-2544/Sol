@@ -208,19 +208,23 @@ DeepSeek measured; HSV of the mean colour, four dominant colours). Shots: `docs/
 | Ceiling lights White/Soft/Green/Wide/Emergency | EGDataItems.lua:212-260 | data; room assignment is Sol's |
 | HUD fonts Orbitron / Audiowide / Michroma, sizes and colours | Render/MenuFonts.lua (fonts: OFL, Google Fonts) | data |
 | Camera FOV 60 while the setting is at Sol's default | EGOptions.lua:26 | data; vertical FOV inferred |
+| Aurelia day sky greyed 40 % toward its luma | measured sky #ae7b70 / #ba9996 | calibrated |
 
 Results (Sol render vs Rodina frame, mean colour):
 
 | Scene | Sol | Rodina |
 |---|---|---|
-| Ground by the landed ship vs steam01_salmon_sky_mountains | (121, 92, 85), value 0.48 | (123, 92, 83), value 0.48 |
+| Ground by the landed ship vs steam01_salmon_sky_mountains | (115, 95, 89), value 0.45 | (123, 92, 83), value 0.48 |
 | Lit planet from orbit (pixels on the disc) vs the dominant #aa7d4e | about (169, 131, 92) | (170, 125, 78) |
 | Ship against space vs videoT90_19_ship_silhouette (render from before the bloom/space-colour change) | value 0.12, hue 260 | value 0.13, hue 256 |
 | Interior cabin vs four interior frames (same earlier render) | value 0.13 | value 0.11-0.20 |
 
-Still off: the day sky is brighter and redder than Rodina's sky pixels (ours about (197, 115, 90) high up against
-#ae7b70 / #ba9996). Rodina's screen-space filter pass (RodinaAtmosphereFilter.fx, 628 bytes) probably explains it, but
-its source is not in the recovered files, so it is not ported.
+Day sky: the ported maths alone gave a sky brighter and redder than Rodina's (about (197, 115, 90) high up against
+#ae7b70). Rodina's screen-space filter pass (RodinaAtmosphereFilter.fx, 628 bytes) probably explains the gap, but its
+source is not recovered, so a calibrated stand-in greys Aurelia's sky 40 % toward its own luma (`atm_sky_desaturate`):
+the upper sky now measures (174, 125, 110) against #ae7b70 (174, 123, 112), and the sun view's dominant colours are
+#ae7d6f and #bba7a7 against Rodina's #ae7b70 and #ba9996. With the greyer sky the ground frame's mean moved to
+(115, 95, 89), value 0.45 (Rodina (123, 92, 83), 0.48).
 
 ## 11. Bigger on the inside (ADR 0012)
 

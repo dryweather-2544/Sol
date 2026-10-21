@@ -30,6 +30,10 @@ uniform float atm_sunset_star_halo = 0.2; // SunsetStarHalo
 uniform float atm_sunset_star_buffer = 0.2; // SunsetStarAngleBuffer
 uniform float atm_sunset_horizon_limit = -1.0; // SunsetHorizonLimit
 uniform float atm_star_radius_angle = 0.01; // the star's angular radius, radians
+// Calibrated, not from Rodina's code: the day sky is greyed toward its own luma by this much (display space) so it
+// matches DeepSeek's measured Jarilo sky (#ae7b70, #ba9996). Probably standing in for Rodina's screen-space filter pass
+// (RodinaAtmosphereFilter.fx), whose source is not recovered. 0 = off; only the sky shader uses it.
+uniform float atm_sky_desaturate = 0.0;
 
 vec3 rodina_to_linear(vec3 c) {
 	c = max(c, vec3(0.0));
