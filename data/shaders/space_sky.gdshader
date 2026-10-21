@@ -17,6 +17,10 @@ uniform vec3 space_color = vec3(0.004, 0.005, 0.012);
 uniform float star_gain = 1.0;
 uniform vec3 star_tint = vec3(1.0);
 uniform float star_gamma = 1.0; // >1 darkens the dim (dusty) parts of the panorama more than the bright stars
+// Rodina's baked skybox (RodinaSkyBake / tools/bake_rodina_skybox.gd): x = Milky Way, y = dust, z = stars. When present it
+// replaces the star texture and the galaxy band, composited as RodinaSkybox.fx does.
+uniform samplerCube rodina_sky : filter_linear;
+uniform float rodina_sky_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float galaxy_amount = 0.0; // Rodina only: a broad dust/gas band across the black sky
 uniform vec3 galaxy_color = vec3(0.0);
 uniform vec3 galaxy_normal = vec3(0.35, 0.82, 0.25);
@@ -60,14 +64,27 @@ void sky() {
 		stars = textureLod(starfield, uv, 0.0).rgb;
 	}
 	stars = pow(max(stars, vec3(0.0)), vec3(star_gamma)) * star_gain * star_tint;
-	// A painted Milky-Way-like band, visible in Rodina's orbit frames but absent from Sol's
-	// hash-star sky. Keep it broad and low-contrast; it must not turn into a visible polygon.
-	float band = exp(-pow(dot(normalize(EYEDIR), normalize(galaxy_normal)), 2.0) / 0.050);
-	// Smooth, stretched structure: a hash-per-cell noise made visible stair-steps at 64 px.
-	// Keep the band soft and diffuse; fine procedural stripes read as geometry in the sky.
-	float dust = 0.85;
-	vec3 galaxy = galaxy_color * band * dust * galaxy_amount;
-	stars = stars * (1.0 + band * 0.35) + galaxy;
+	if (rodina_sky_amount < 0.5) {
+		// A painted Milky-Way-like band, visible in Rodina's orbit frames but absent from Sol's
+		// hash-star sky. Keep it broad and low-contrast; it must not turn into a visible polygon.
+		float band = exp(-pow(dot(normalize(EYEDIR), normalize(galaxy_normal)), 2.0) / 0.050);
+		// Smooth, stretched structure: a hash-per-cell noise made visible stair-steps at 64 px.
+		// Keep the band soft and diffuse; fine procedural stripes read as geometry in the sky.
+		float dust = 0.85;
+		vec3 galaxy = galaxy_color * band * dust * galaxy_amount;
+		stars = stars * (1.0 + band * 0.35) + galaxy;
+	} else {
+		// RodinaSkybox.fx: base colour (.025, 0, .05) + Milky Way (1, 1, 1.35) - dust (.6, .75, 1.5 x2), saturated, then the stars
+		// (1, 1, 1.5) added on top, in display space. The scene's star/Milky Way factors fall from 1 in space as the air thickens.
+		vec3 baked = textureLod(rodina_sky, normalize(EYEDIR), 0.0).rgb;
+		float milky_factor = 1.0 - daylight;
+		float star_factor = 1.0 - 0.9 * daylight;
+		vec3 base_display = vec3(0.025, 0.0, 0.05);
+		vec3 milky_combined = vec3(1.0, 1.0, 1.35) * baked.x + vec3(-0.6, -0.75, -1.5) * 2.0 * baked.y;
+		vec3 composite = clamp(base_display + milky_combined * milky_factor, 0.0, 1.0);
+		composite += vec3(1.0, 1.0, 1.5) * baked.z * star_factor;
+		stars = rodina_to_linear(composite) - rodina_to_linear(base_display);
+	}
 	if (rodina_atmosphere) {
 		// Rodina: the atmosphere pass over space and stars (see rodina_atmosphere.gdshaderinc); thin airs let stars through.
 		vec3 eye_dir = normalize(EYEDIR);

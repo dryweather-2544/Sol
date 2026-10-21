@@ -3,3 +3,6 @@
 
 # Visual-check screenshots (tools/visual_check.gd) are local review material, not source.
 tests/visual/out/
+
+# Rodina skybox baked from Rodina's generator data (tools/bake_rodina_skybox.sh): local only, never publish.
+assets/generated/rodina_skybox/

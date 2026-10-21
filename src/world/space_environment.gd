@@ -75,6 +75,11 @@ func apply_look(look: PlanetLook) -> void:
 		var value: Variant = parameters[parameter]
 		_sky_material.set_shader_parameter(parameter, Vector3(value.r, value.g, value.b) if value is Color else value)
 	_sky_material.set_shader_parameter("rodina_atmosphere", false)
+	# Rodina's own sky (baked stars, Milky Way and dust) when this machine has baked it (tools/bake_rodina_skybox.sh).
+	var baked_sky: Cubemap = RodinaSky.cubemap() if VisualStyle.is_rodina() else null
+	_sky_material.set_shader_parameter("rodina_sky_amount", 1.0 if baked_sky != null else 0.0)
+	if baked_sky != null:
+		_sky_material.set_shader_parameter("rodina_sky", baked_sky)
 
 
 ## daylight: 0 = space, 1 = full sky. up_direction: local up, for the horizon glow.
