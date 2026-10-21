@@ -67,16 +67,17 @@ func test_colour_masks_poles_snow_steepness_and_airless_palette() -> void:
 
 func test_lod_grids_are_progressive_and_preserve_coarse_shape() -> void:
 	var planet := PlanetBody.new()
-	var previous_vertices := 0
+	var previous_grid := 0
+	for level in [2, 1, 0]:
+		assert_true(ChunkMesher.grid_for_level(level) > previous_grid, "backstop grids get finer toward level 0 (the biggest face)")
+		previous_grid = ChunkMesher.grid_for_level(level)
 	for level in [0, 1, 2, 3, 6, 10]:
-		var mesh_data := ChunkMesher.build(ChunkKey.make(0, level, 0, 0), planet)
-		var grid: int = mesh_data["grid"]
-		assert_eq(grid, ChunkMesher.grid_for_level(level))
-		var vertices: PackedVector3Array = mesh_data["vertices"]
-		assert_true(vertices.size() > (grid + 1) * (grid + 1), "skirt vertices exist at level %d" % level)
-		if level >= 6:
-			assert_true(previous_vertices > 0 and vertices.size() >= previous_vertices, "fine grids do not get coarser")
-		previous_vertices = vertices.size()
-		var normals: PackedVector3Array = mesh_data["normals"]
-		for i in mini(vertices.size(), 64):
-			assert_true(normals[i].length() > 0.99 and normals[i].length() < 1.01, "coarse normal is unit length")
+		for grid in [ChunkMesher.grid_for_level(level), ChunkMesher.PREVIEW_GRID, ChunkMesher.FINE_GRID]:
+			var mesh_data := ChunkMesher.build(ChunkKey.make(0, level, 0, 0), planet, grid)
+			assert_eq(int(mesh_data["grid"]), grid)
+			var vertices: PackedVector3Array = mesh_data["vertices"]
+			assert_true(vertices.size() > (grid + 1) * (grid + 1), "skirt vertices exist at level %d grid %d" % [level, grid])
+			var normals: PackedVector3Array = mesh_data["normals"]
+			for i in mini(vertices.size(), 64):
+				assert_true(normals[i].length() > 0.99 and normals[i].length() < 1.01, "normal is unit length")
+	assert_eq(int(ChunkMesher.build(ChunkKey.make(0, 10, 0, 0), planet)["grid"]), ChunkMesher.FINE_GRID, "the default build is the full grid")

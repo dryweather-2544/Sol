@@ -4,36 +4,42 @@ extends RefCounted
 ## can run on worker threads. Vertices are stored relative to the chunk's origin point so they
 ## stay small; the caller places the node at origin - render_origin.
 
-## Fine quads per edge. Coarse LODs use a much smaller grid because a whole cube face at a
-## 32x32 grid is both visually redundant and expensive to generate.
+## Quads per edge of a desired (leaf) chunk. Every leaf subtends a similar screen angle (the
+## planner splits by distance), so every leaf gets the same full grid.
 const FINE_GRID := 32
-const GRID := FINE_GRID # compatibility alias for callers/tests that mean the fine grid
-## Level 0 is a whole cube face, level 6+ is near-ground detail.
-const GRID_BY_LEVEL := [4, 6, 8, 12, 16, 24, 32]
+const GRID := FINE_GRID # compatibility alias for callers/tests that mean the full grid
+## A quick first mesh for a leaf that is not on screen yet: about a tenth of the samples, same
+## height function, replaced by the full grid as soon as that is built (PlanetTerrain).
+const PREVIEW_GRID := 8
+## The pinned whole-planet backstop (levels 0-2, PlanetTerrain.FALLBACK_LEVELS) only has to keep
+## the silhouette and colours while leaves stream, so it uses small grids.
+const FALLBACK_GRID_BY_LEVEL := [12, 10, 8]
 ## Slope weight written into each vertex colour's alpha for the terrain detail shader: 0 = flat layer, 1 = steep (rock) layer.
 ## "Steepness" is 1 - cos(slope angle); the 0.5 point is at about 26 degrees. The plain material ignores alpha (it is opaque).
 const STEEP_WEIGHT_FROM := 0.04
 const STEEP_WEIGHT_TO := 0.16
 
 
-## Returns {origin: PackedFloat64Array(3), vertices, normals, colors, indices} for the key.
+## Grid used for a pinned fallback chunk of this level (levels past the table use the full grid).
 static func grid_for_level(level: int) -> int:
-	if level <= 0:
-		return GRID_BY_LEVEL[0]
-	if level >= GRID_BY_LEVEL.size():
+	if level < 0:
+		return FALLBACK_GRID_BY_LEVEL[0]
+	if level >= FALLBACK_GRID_BY_LEVEL.size():
 		return FINE_GRID
-	return GRID_BY_LEVEL[level]
+	return FALLBACK_GRID_BY_LEVEL[level]
 
 
-static func build(key: int, planet: PlanetBody, grid_override: int = -1) -> Dictionary:
-	# A build runs on a worker thread. HeightFunction holds mutable noise caches, so each chunk
-	# gets its own instance; the shared planet height function is used only for test overrides.
-	var height_function: HeightFunction = null
-	if not planet.height_override.is_valid():
+## Returns {origin: PackedFloat64Array(3), vertices, normals, colors, indices, grid, level} for the key.
+## grid <= 0 means FINE_GRID. height_function: a private instance for this thread (HeightFunction
+## caches noise objects and is not thread-safe); null makes one. Ignored with a test override.
+static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_function: HeightFunction = null) -> Dictionary:
+	if planet.height_override.is_valid():
+		height_function = null
+	elif height_function == null:
 		height_function = HeightFunction.new(planet.profile_or_default())
 	var face := ChunkKey.face_of(key)
 	var level := ChunkKey.level_of(key)
-	var grid: int = grid_override if grid_override > 0 else grid_for_level(level)
+	var grid: int = grid_override if grid_override > 0 else FINE_GRID
 	var span := 2.0 / float(1 << level)
 	var face_u_start := -1.0 + ChunkKey.column_of(key) * span
 	var face_v_start := -1.0 + ChunkKey.row_of(key) * span
