@@ -38,6 +38,6 @@ claim that Rodina's own engine material is a pixel emitter.
 
 ## N14 compact HUD capture
 
-`/tmp/n14_hud_check/cruise_1s.jpg` — real main scene, Rodina style, N13 HUD fonts with the compact
-top gear tab and bottom telemetry replacing the developer overlay. The same frame shows the pixel engine
-layer over the N13 flame cone.
+`/tmp/n14_hud_reticle/cruise_1s.jpg` — real main scene, Rodina style, N13 HUD fonts with the compact
+top gear tab, bottom telemetry and central reticle replacing the developer overlay. The same frame shows
+the pixel engine layer over the N13 flame cone.

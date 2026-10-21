@@ -8,5 +8,6 @@ The N13 graphics port changed HUD fonts but still showed the full developer over
 - smaller prompt/objective text;
 - source HUD font roles are still applied through `VisualStyle.hud_font`.
 
-The detailed overlay remains for Sol style and paused/debug states. Capture: `/tmp/n14_hud_check/cruise_1s.jpg`.
+The detailed overlay remains for Sol style and paused/debug states. A cyan central reticle is shown in
+seated flight, matching the supplied cockpit frames. Capture: `/tmp/n14_hud_reticle/cruise_1s.jpg`.
 The N13 engine flame cone plus the owner-requested pixel layer are visible in the same frame.

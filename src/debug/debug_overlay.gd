@@ -14,6 +14,7 @@ var _objective_label := Label.new()
 var _alert_label := Label.new()
 var _mode_label := Label.new()
 var _telemetry_label := Label.new()
+var _reticle := FlightReticle.new()
 var _sol_looks := {} # label -> its sol colour and size (restyle)
 
 
@@ -74,6 +75,8 @@ func _ready() -> void:
 	_telemetry_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_telemetry_label.add_theme_constant_override("outline_size", 3)
 	add_child(_telemetry_label)
+	_reticle.visible = false
+	add_child(_reticle)
 	_sol_looks = {}
 	for label in [_label, _prompt_label, _signal_label, _objective_label, _alert_label, _mode_label, _telemetry_label]:
 		_sol_looks[label] = {"color": label.get_theme_color("font_color"), "size": label.get_theme_font_size("font_size")}
@@ -168,6 +171,7 @@ func _set_debug_hud_visible(visible: bool) -> void:
 	_signal_label.visible = visible
 	_mode_label.visible = false
 	_telemetry_label.visible = false
+	_reticle.visible = false
 	_prompt_label.add_theme_font_size_override("font_size", 26)
 	_prompt_label.add_theme_constant_override("outline_size", 6)
 	_prompt_label.add_theme_color_override("font_color", Color.WHITE)
@@ -179,6 +183,8 @@ func _update_rodina_hud() -> void:
 	_mode_label.visible = true
 	_telemetry_label.visible = true
 	var viewport := get_viewport().get_visible_rect().size
+	_reticle.visible = true
+	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
 	var mode := session.mode
 	var seated := mode == GameSession.Mode.SEATED or mode == GameSession.Mode.SITTING
 	if seated:
@@ -192,6 +198,7 @@ func _update_rodina_hud() -> void:
 			("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
 	else:
 		var suit := session.suit
+		_reticle.visible = false
 		_mode_label.text = "ON FOOT" if mode == GameSession.Mode.OUTSIDE else "INSIDE SHIP"
 		_telemetry_label.text = "O2 %d%%    JETPACK %d%%    HEALTH %d%%" % [
 			roundi(suit.oxygen * 100.0), roundi(suit.fuel * 100.0), roundi(suit.health * 100.0)]
