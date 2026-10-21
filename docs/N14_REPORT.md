@@ -33,6 +33,13 @@ worktree are preserved; a file-level backup of the dirty worktree is at
 - WARP steering drift after full 1.8 s activation, deterministic twitch replacement for `math.random`.
 - Source equations and uncertainties in `N14_PHYSICS_PASS.md`.
 
+### Terrain streaming
+
+- Predictive lookahead (`viewer_velocity`, 2.5 s capped at 25 km) and level-0 face fallback.
+- Fine build queue is lookahead-first; level-0 faces keep the planet covered until fine children arrive.
+- Per-worker `HeightFunction` removes a worker stall; the real-scene streaming probe is in
+  `N14_TERRAIN_STREAMING.md`.
+
 ### Presentation
 
 - Compact Rodina HUD with source fonts, gear tab, bottom telemetry and central reticle; detailed developer

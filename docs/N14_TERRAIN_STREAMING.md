@@ -19,8 +19,9 @@ the planet could be empty or smooth until the player stopped.
    so an enormous orbital speed cannot flood the planner.
 3. The build queue prioritizes a **level-0 fallback** (six face chunks) first. A level-0 face is one
    coarse mesh, enough to keep the planet visible while the fine set streams.
-4. Fine chunks are then requested ahead of the fallback; coarse faces are removed only once their
-   children cover them, so there is no hole during replacement.
+4. Fine chunks are ordered by distance to the **preload point** first (current-view distance only breaks
+   ties), so the worker budget fills the predicted view before the ship arrives.
+5. Coarse faces are removed only once their children cover them, so there is no hole during replacement.
 5. Each worker chunk builds its own `HeightFunction`; the shared grammar noise cache is no longer
    mutated concurrently. This removed a worker stall seen with the new terrain grammar.
 
@@ -28,6 +29,7 @@ the planet could be empty or smooth until the player stopped.
 
 - Streaming probe after the coarse fallback: six fallback faces displayed after ~1 s, with fine chunks
   continuing to arrive; the planet is no longer blank.
+- Fine chunks are now built in lookahead order rather than current-view order.
 - Visual capture: `/tmp/n14_terrain_stream/approach_fallback.png` (real main scene, 20 km, 5 km/s).
 - Existing LOD tiling/preload test: `tests/unit/lod_planner_test.gd::test_preload_viewer_requests_detail_ahead_without_overlap`.
 

@@ -113,8 +113,13 @@ func _replan() -> void:
 	wanted.sort_custom(func(key_a: int, key_b: int) -> bool:
 		var center_a := planner.chunk_center(key_a)
 		var center_b := planner.chunk_center(key_b)
-		var distance_a := minf(viewer_point.distance_squared_to(center_a), preload_point.distance_squared_to(center_a))
-		var distance_b := minf(viewer_point.distance_squared_to(center_b), preload_point.distance_squared_to(center_b))
+		# While moving, fill the predicted view before the current one. The current view is covered
+		# by the level-0 fallback until its fine chunks are ready, so spending the build budget ahead
+		# is what removes the "stop to let it load" behaviour.
+		var distance_a := preload_point.distance_squared_to(center_a)
+		var distance_b := preload_point.distance_squared_to(center_b)
+		if is_equal_approx(distance_a, distance_b):
+			return viewer_point.distance_squared_to(center_a) < viewer_point.distance_squared_to(center_b)
 		return distance_a < distance_b)
 	var fallback_wanted: Array[int] = []
 	for key in _fallback:
