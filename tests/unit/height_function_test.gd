@@ -45,7 +45,7 @@ const GOLDEN_HASH := 619230855
 
 
 func test_rodina_height_grammars_are_deterministic_finite_and_not_flat() -> void:
-	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES, TerrainProfile.Grammar.ASTEROID]:
+	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES, TerrainProfile.Grammar.MORENA, TerrainProfile.Grammar.ASTEROID]:
 		var profile := TerrainProfile.new()
 		profile.grammar = grammar
 		var a := HeightFunction.new(profile)
@@ -74,7 +74,7 @@ func test_world_resources_choose_the_recovered_grammars() -> void:
 
 
 func test_grammar_heights_are_continuous_at_small_offsets() -> void:
-	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES, TerrainProfile.Grammar.ASTEROID]:
+	for grammar in [TerrainProfile.Grammar.PERUN, TerrainProfile.Grammar.JARILO, TerrainProfile.Grammar.VELES, TerrainProfile.Grammar.MORENA, TerrainProfile.Grammar.ASTEROID]:
 		var profile := TerrainProfile.new()
 		profile.grammar = grammar
 		var function := HeightFunction.new(profile)

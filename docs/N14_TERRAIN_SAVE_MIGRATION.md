@@ -2,6 +2,7 @@
 
 `TerrainProfile.generation_revision` records the height-field revision. Aurelia, Cinder, Verdant, Selene and
 Pebble are revision 1 because they changed from the legacy generic noise stack to recovered Rodina grammars.
+Morena's grammar is available for a future body but no Sol world is assigned to it.
 
 `SaveGame.capture` writes the revision in `world.terrain_revision`. On restore, if the save is older than
 the current body revision and the ship was landed or below the new surface, the ship is placed 2.1 m above

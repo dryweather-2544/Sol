@@ -289,9 +289,48 @@ func _veles_height(p: Vector3) -> float:
 	return height
 
 
-func _morena_height(_p: Vector3) -> float:
-	# Placeholder is explicitly temporary; Morena's cracked-plate grammar is the next port.
-	return 0.0
+func _morena_height(p: Vector3) -> float:
+	# PlanetMorena.h: a hand-written cracked-plate grammar, not a GenerationVars world.
+	var crack_distort_big := _warp(12, p, 0.5, 0.5, 2.0, 8)
+	var crack_distort := _warp(10, p, 0.5, 2.0, 2.0, 8)
+	var crack_coord := (p + crack_distort_big * 0.05 + crack_distort * 0.075).normalized()
+	var plate_perlin := _fractal(10, p, 0.6, 60.0, 2.0, 7)
+	var big_mask_1 := plate_perlin - cos(clampf(30.0 * (0.9 * crack_coord.z + 0.3 * crack_coord.y), -8.0 * PI, 8.0 * PI))
+	var big_mask_2 := plate_perlin - cos(clampf(30.0 * crack_coord.z, -8.0 * PI, 8.0 * PI))
+	var plate_cracks := minf(absf(big_mask_1), absf(big_mask_2))
+	var small_cracks := _fractal(0, p, 0.56, 25.0, 2.0, 10)
+	small_cracks = minf(absf(0.46 - small_cracks), minf(absf(0.5 - small_cracks), absf(0.54 - small_cracks)))
+	small_cracks = smoothstep(0.0, 1.0, analog(small_cracks, 0.003, 0.010, 1.0, 0.0))
+	var hills := 0.0
+	var dunes := 0.0
+	if big_mask_1 < 0.0 or big_mask_2 < 0.0:
+		hills = analog(plate_cracks, 0.35, 1.0, 0.0, 1.0)
+		small_cracks *= smoothstep(0.0, 1.0, analog(plate_cracks, 0.3, 0.5, 1.0, 0.0))
+	elif big_mask_1 > 0.0 and big_mask_2 > 0.0:
+		dunes = analog(plate_cracks, 0.4, 1.0, 0.0, 1.0)
+		small_cracks *= smoothstep(0.0, 1.0, analog(plate_cracks, 0.3, 0.35, 1.0, 0.0))
+	var big_cracks := ease_out_in_sin(analog(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75
+	var cracks := maxf(big_cracks, small_cracks * 0.25)
+	var plateau := lerpf(1.0, 0.0, analog(dunes, 0.0, 0.15, 0.0, 1.0))
+	var mountains := lerpf(hills, 0.0, cracks)
+	var height := 14000.0
+	height += plateau * (-1000.0 + 2000.0 * _fractal(0, p, 0.48, 300.0, 2.0, 6))
+	height += cracks * -15000.0
+	if mountains > 0.0:
+		height += mountains * 30000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12)
+	var dune_mask := analog(dunes, 0.0, 0.15, 0.0, 1.0)
+	if dune_mask > 0.0:
+		var dune_distort := _warp(12, p, 0.5, 100.0, 2.0, 3)
+		var dune_coord := (p + dune_distort * 0.001).normalized()
+		var control := sin(dune_coord.dot(Vector3(1, -1, -1)) * 1000.0)
+		var x1 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 400.0, 1.0)
+		var x2 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 400.0 + 0.5, 1.0)
+		var shape1 := ease_in_sin(absf(analog(x1, 0.0, 1.0, -1.0, 1.0)))
+		var shape2 := ease_in_sin(absf(analog(x2, 0.0, 1.0, -1.0, 1.0)))
+		var dune1 := shape1 * ease_out_in_sin(analog(control, 1.0, -1.0, 0.0, 1.0))
+		var dune2 := shape2 * ease_out_in_sin(analog(control, -1.0, 1.0, 0.0, 1.0))
+		height += dune_mask * (800.0 * dune1 + 800.0 * dune2)
+	return height
 
 
 func _asteroid_height(p: Vector3) -> float:
