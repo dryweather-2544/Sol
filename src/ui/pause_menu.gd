@@ -134,6 +134,17 @@ func _build_settings() -> void:
 		settings.visual_style = "rodina" if index == 1 else "sol"
 		VisualStyle.set_active(StringName(settings.visual_style)))
 	_box.add_child(style)
+	# The asset kill-switches live in GameSettings but were previously config-file only. Expose one
+	# honest toggle: it takes effect after a restart because terrain/ship meshes are built at load.
+	var full_assets := CheckBox.new()
+	full_assets.text = "Full visual assets (textures, starfield, decals; applies after restart)"
+	full_assets.button_pressed = settings.asset_materials or settings.starfield or settings.decals or settings.terrain_detail
+	full_assets.toggled.connect(func(pressed: bool):
+		settings.asset_materials = pressed
+		settings.starfield = pressed
+		settings.decals = pressed
+		settings.terrain_detail = pressed)
+	_box.add_child(full_assets)
 	_add_button("Back", func():
 		var error := settings.save_to_file()
 		_status.text = error

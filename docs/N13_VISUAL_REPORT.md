@@ -56,5 +56,6 @@ to the existing gear/trail colour and is explicitly not claimed as reference-mat
 3. Cockpit vent/screen detail is still hard to read; dash housing is present but not reference-level.
 4. Impact/muzzle flash tests are code-level; the synthetic captures did not show them cleanly.
 5. User's persisted settings keep `asset_materials`, `decals`, `terrain_detail` and `starfield` off, so
-   the integrated textures are not part of the current playtest captures.
+   the integrated textures are not part of the current playtest captures. The pause menu now exposes
+   a single "Full visual assets" toggle with an explicit applies-after-restart label.
 6. Full human visual playtest is pending.
