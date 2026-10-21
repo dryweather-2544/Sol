@@ -12,7 +12,8 @@ var path := DEFAULT_PATH
 var mouse_sensitivity := 1.0
 ## Pull the mouse back to pitch the nose up.
 var invert_pitch := false
-var field_of_view := 75.0
+const DEFAULT_FIELD_OF_VIEW := 75.0
+var field_of_view := DEFAULT_FIELD_OF_VIEW
 var master_volume := 0.8
 var sfx_volume := 1.0
 var ambience_volume := 1.0

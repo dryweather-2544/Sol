@@ -543,7 +543,7 @@ func _on_menu_resume() -> void:
 
 
 func _apply_field_of_view() -> void:
-	var fov := GameSettings.instance().field_of_view
+	var fov := VisualStyle.base_field_of_view(GameSettings.instance().field_of_view)
 	for camera in [interior_view.camera, on_foot.camera]:
 		(camera as Camera3D).fov = fov
 	# Rodina sets the camera FOV from the warp blend (EGDataShipPlayer.lua:325-346); at rest it is the setting.

@@ -104,6 +104,15 @@ static func hud_font(role: StringName) -> Dictionary:
 	return {"font": font, "size": spec["size"], "color": spec["color"]}
 
 
+## Camera field of view (degrees) for a field_of_view setting. Rodina's default CameraFOV is 60 (EGOptions.lua:26), so
+## the rodina style uses 60 while the setting is still at Sol's default; a value the player chose is kept. Inferred: that
+## Rodina's FOV is vertical, like Godot's (the engine call is C++).
+static func base_field_of_view(setting_degrees: float) -> float:
+	if is_rodina() and is_equal_approx(setting_degrees, GameSettings.DEFAULT_FIELD_OF_VIEW):
+		return 60.0
+	return setting_degrees
+
+
 ## Multiplier on the ship's painted hull materials (Sol: none). Rodina's ships read as near-black silhouettes in every
 ## measured frame (DeepSeek's palette_report.csv: #05030d, #0d0916, #171221); the textured hull's base is ~0.7, so a
 ## 0.25 tint gives an albedo of ~0.17 (N13 palette pass, measured on Sol renders).
