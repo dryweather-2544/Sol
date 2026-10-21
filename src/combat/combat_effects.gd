@@ -61,6 +61,9 @@ func apply_origin_shift(shift: Vector3) -> void:
 
 
 func flash(world_position: WorldPos) -> void:
+	# Keep the original Sol presentation unchanged; the stepped hit flare belongs to the Rodina style.
+	if not VisualStyle.is_rodina():
+		return
 	var flare: CPUParticles3D = null
 	for candidate in _pool:
 		if not candidate.emitting:

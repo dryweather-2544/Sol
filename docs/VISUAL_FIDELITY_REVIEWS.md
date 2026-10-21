@@ -166,7 +166,8 @@ the green developer wall from those views while keeping the debug overlay for So
 
 The impact flare now also has a short billboard quad to make the hit visible even when the particle
 sparks are small. A direct flash capture still did not show it cleanly, so it remains test-verified
-but visually unconfirmed. Tests: 326 tests / 97,139 assertions / 0 failures.
+but visually unconfirmed. `CombatEffects.flash` is gated to the Rodina style so the original Sol
+presentation is unchanged. Tests: 326 tests / 97,140 assertions / 0 failures.
 
 
 ### Tenth iteration — real COMBAT speed gate (2026-10-21)
