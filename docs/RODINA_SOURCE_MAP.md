@@ -28,6 +28,8 @@ Local recovery/reference material:
 - `/Users/arielbowyer/Documents/Sol-n14/docs/n13_shots/` — N13 graphical captures.
 - `/Users/arielbowyer/Documents/Sol-n14/docs/rodina_reference/` — copied reference frames/palette analysis used by
   the N13 graphics port.
+- `/Users/arielbowyer/Documents/Deepseek workspace/rodina-recovery/game-reference/Data/Models/` —
+  original EGM models including `Ship1.ShipOpen.egm` and its physics mesh, not integrated.
 
 ## Terrain source-to-code links
 

@@ -26,3 +26,10 @@ failures before the terrain changes; current suite must be re-run after every co
 - Terrain generation revision is now saved and the ship is re-seated when an old save is below the new surface;
   POI/outpost position re-mapping is still open.
 - Which Sol world corresponds to Morena; do not invent a new planet merely to use the grammar.
+
+
+## N14 final verification
+
+- Full suite: 363 tests / 105,372 assertions / 0 failures.
+- Real main scene: `N13_SCENE=cruise` and `combat` graphical checks passed.
+- Detailed handoff: `N14_REPORT.md`.
