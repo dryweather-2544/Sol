@@ -199,6 +199,7 @@ func _update_rodina_hud() -> void:
 	else:
 		var suit := session.suit
 		_reticle.visible = false
+		_reticle.target_positions = PackedVector2Array()
 		_mode_label.text = "ON FOOT" if mode == GameSession.Mode.OUTSIDE else "INSIDE SHIP"
 		_telemetry_label.text = "O2 %d%%    JETPACK %d%%    HEALTH %d%%" % [
 			roundi(suit.oxygen * 100.0), roundi(suit.fuel * 100.0), roundi(suit.health * 100.0)]
@@ -211,10 +212,35 @@ func _update_rodina_hud() -> void:
 	_prompt_label.add_theme_constant_override("outline_size", 4)
 	_prompt_label.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
 	_prompt_label.position.y = viewport.y - 120.0
+	if seated:
+		_update_target_brackets()
+	else:
+		_reticle.target_positions = PackedVector2Array()
+		_reticle.queue_redraw()
 	if _alert_label.text != "":
 		_alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_alert_label.add_theme_font_size_override("font_size", 15)
 		_alert_label.position = Vector2(viewport.x * 0.5 - _alert_label.size.x * 0.5, 54.0)
+
+
+## Project living hostile targets through the active camera so the reticle can draw corner brackets.
+func _update_target_brackets() -> void:
+	var camera := get_viewport().get_camera_3d()
+	_reticle.target_positions = PackedVector2Array()
+	if camera == null or session == null:
+		return
+	for target in session.enemy_targets:
+		if target == null or not target.is_alive() or target.team_id() == ship.team_id:
+			continue
+		var target_world: WorldPos = target.combat_position()
+		if target_world == null:
+			continue
+		var local: Vector3 = target_world.to_local_vector3(ship.render_origin)
+		var world: Vector3 = ship.to_global(local)
+		if camera.is_position_behind(world):
+			continue
+		_reticle.target_positions.append(camera.unproject_position(world))
+	_reticle.queue_redraw()
 
 
 func _power_text() -> String:

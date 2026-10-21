@@ -6,6 +6,7 @@ The N13 graphics port changed HUD fonts but still showed the full developer over
 - top-centre gear tab (`PRECISION`, `COMBAT SPEED`, `CRUISE SPEED`, `WARP`);
 - bottom-centre hull/fuel/speed for seated flight, or O2/jetpack/health outside/interior;
 - smaller prompt/objective text;
+- orange corner brackets for living hostile targets projected through the active camera;
 - source HUD font roles are still applied through `VisualStyle.hud_font`.
 
 The detailed overlay remains for Sol style and paused/debug states. A cyan central reticle is shown in
