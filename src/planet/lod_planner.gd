@@ -35,8 +35,13 @@ func chunk_center(key: int) -> Vector3:
 
 
 ## Returns the leaf chunk keys (a Dictionary used as a set) covering the whole planet.
-func select_leaves(viewer: WorldPos) -> Dictionary:
+## preload_viewer is the predicted position ahead of the ship: the tree splits around either point,
+## so high-detail chunks are already being built before they enter the camera.
+func select_leaves(viewer: WorldPos, preload_viewer: WorldPos = null) -> Dictionary:
 	var viewer_point := Vector3(viewer.x, viewer.y, viewer.z)
+	var preload_point := viewer_point
+	if preload_viewer != null:
+		preload_point = Vector3(preload_viewer.x, preload_viewer.y, preload_viewer.z)
 	var leaves := {}
 	var pending: Array[int] = []
 	for face in 6:
@@ -44,7 +49,11 @@ func select_leaves(viewer: WorldPos) -> Dictionary:
 	while not pending.is_empty():
 		var key: int = pending.pop_back()
 		var level := ChunkKey.level_of(key)
-		if level < max_level and viewer_point.distance_to(chunk_center(key)) < chunk_edge_metres(level) * split_ratio:
+		var split_distance := chunk_edge_metres(level) * split_ratio
+		var near := viewer_point.distance_to(chunk_center(key)) < split_distance
+		if not near and preload_viewer != null:
+			near = preload_point.distance_to(chunk_center(key)) < split_distance
+		if level < max_level and near:
 			for child_column in 2:
 				for child_row in 2:
 					pending.append(ChunkKey.child_of(key, child_column, child_row))

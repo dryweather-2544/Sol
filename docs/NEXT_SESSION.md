@@ -7,6 +7,8 @@ failures before the terrain changes; current suite must be re-run after every co
 
 1. Validate the new Perun/Jarilo/Veles terrain against reference framing: add a camera-matched capture at a
    lowland/ridge boundary, verify collision/landing/POI placement and add a terrain-revision save policy.
+   Terrain streaming now has a level-0 fallback and velocity lookahead, but fine-chunk throughput is still the
+   main preload bottleneck (`N14_TERRAIN_STREAMING.md`).
 2. Morena's cracked-plate grammar is implemented but no Sol world is mapped to it; airless Selene/Pebble use
    the asteroid feature grammar. Add remaining crater/material work and decide whether a Morena-like Sol world
    is a documented design change.

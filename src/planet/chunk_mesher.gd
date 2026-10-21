@@ -13,6 +13,11 @@ const STEEP_WEIGHT_TO := 0.16
 
 ## Returns {origin: PackedFloat64Array(3), vertices, normals, colors, indices} for the key.
 static func build(key: int, planet: PlanetBody) -> Dictionary:
+	# A build runs on a worker thread. HeightFunction holds mutable noise caches, so each chunk
+	# gets its own instance; the shared planet height function is used only for test overrides.
+	var height_function: HeightFunction = null
+	if not planet.height_override.is_valid():
+		height_function = HeightFunction.new(planet.profile_or_default())
 	var face := ChunkKey.face_of(key)
 	var level := ChunkKey.level_of(key)
 	var span := 2.0 / float(1 << level)
@@ -35,7 +40,7 @@ static func build(key: int, planet: PlanetBody) -> Dictionary:
 	for row in lattice:
 		for column in lattice:
 			var direction := CubeSphere.direction_xyz(face, face_u_start + (column - 1) * step, face_v_start + (row - 1) * step)
-			var height := planet.terrain_height_xyz(direction[0], direction[1], direction[2])
+			var height: float = height_function.height_xyz(direction[0], direction[1], direction[2]) if height_function != null else planet.terrain_height_xyz(direction[0], direction[1], direction[2])
 			var distance := planet.radius + height
 			lattice_positions[row * lattice + column] = Vector3(direction[0] * distance - origin_x, direction[1] * distance - origin_y, direction[2] * distance - origin_z)
 			lattice_heights[row * lattice + column] = height

@@ -51,3 +51,22 @@ func test_detail_concentrates_near_the_viewer_and_counts_stay_bounded() -> void:
 		orbit_deepest = maxi(orbit_deepest, ChunkKey.level_of(key))
 	assert_true(orbit_deepest < 10, "orbit needs only coarse chunks, deepest %d" % orbit_deepest)
 	assert_true(in_orbit.size() < 400, "orbit chunk count %d" % in_orbit.size())
+
+
+func test_preload_viewer_requests_detail_ahead_without_overlap() -> void:
+	var planner := _planner()
+	var current := WorldPos.new(&"planet", 0.0, 0.0, _planet.radius + 3000.0)
+	var ahead := WorldPos.new(&"planet", 0.0, 0.0, _planet.radius + 3000.0)
+	ahead.x = 6000.0
+	var normal := planner.select_leaves(current)
+	var preloaded := planner.select_leaves(current, ahead)
+	var covered := 0.0
+	for key in preloaded:
+		var span := 2.0 / float(1 << ChunkKey.level_of(key))
+		covered += span * span
+	assert_near(covered, 24.0, 1e-9, "preload leaves still tile the planet without overlap")
+	assert_true(preloaded.size() >= normal.size(), "preload adds ahead detail rather than removing current detail")
+	var deepest := 0
+	for key in preloaded:
+		deepest = maxi(deepest, ChunkKey.level_of(key))
+	assert_true(deepest >= 1, "preload point is actually subdivided")

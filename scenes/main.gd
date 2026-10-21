@@ -85,6 +85,7 @@ func _ready() -> void:
 	terrain = PlanetTerrain.new(planet)
 	terrain.render_origin = ship.render_origin.duplicate_position()
 	terrain.viewer = ship.state.position
+	terrain.viewer_velocity = Vector3.ZERO
 	add_child(terrain)
 
 	_build_poi_manager()
@@ -199,6 +200,7 @@ func _process(_delta: float) -> void:
 	var actor_position := session.player_world_position()
 	if terrain != null:
 		terrain.viewer = actor_position
+		terrain.viewer_velocity = ship.state.velocity if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING else Vector3.ZERO
 	if poi_manager != null:
 		poi_manager.viewer = actor_position
 		session.check_discovery(poi_manager.known_instances())
@@ -455,6 +457,7 @@ func _build_terrain() -> void:
 	terrain = PlanetTerrain.new(planet)
 	terrain.render_origin = ship.render_origin.duplicate_position()
 	terrain.viewer = ship.state.position
+	terrain.viewer_velocity = Vector3.ZERO
 	add_child(terrain)
 
 

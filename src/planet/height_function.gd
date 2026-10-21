@@ -18,8 +18,6 @@ var _rough: FastNoiseLite
 var _mid: FastNoiseLite
 var _large: FastNoiseLite
 var _grammar_noises := {}
-## Chunk terrain is generated on worker threads; the cache must not be mutated concurrently.
-var _noise_mutex := Mutex.new()
 
 
 func _init(terrain_profile: TerrainProfile) -> void:
@@ -104,11 +102,8 @@ func _smooth_noise(noise: FastNoiseLite, x: float, y: float, z: float) -> float:
 ## which is the same idea with an explicit epsilon.
 func _grammar_noise(seed_value: int, frequency: float, octaves: int, gain: float, lacunarity: float, cellular := false) -> FastNoiseLite:
 	var key := "%d/%.5f/%d/%.5f/%.5f/%s" % [seed_value, frequency, octaves, gain, lacunarity, str(cellular)]
-	_noise_mutex.lock()
 	if _grammar_noises.has(key):
-		var cached: FastNoiseLite = _grammar_noises[key]
-		_noise_mutex.unlock()
-		return cached
+		return _grammar_noises[key]
 	var noise := FastNoiseLite.new()
 	noise.seed = SeedHash.derive(profile.terrain_seed, key) & 0x7FFFFFFF
 	noise.frequency = frequency
@@ -124,7 +119,6 @@ func _grammar_noise(seed_value: int, frequency: float, octaves: int, gain: float
 	else:
 		noise.noise_type = FastNoiseLite.TYPE_PERLIN
 	_grammar_noises[key] = noise
-	_noise_mutex.unlock()
 	return noise
 
 

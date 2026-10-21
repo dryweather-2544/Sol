@@ -13,21 +13,34 @@ class BuildState extends RefCounted:
 	var cancelled := false
 
 
-const CHUNKS_ADDED_PER_FRAME := 4
-const MAX_BUILDS_IN_FLIGHT := 6
+const CHUNKS_ADDED_PER_FRAME := 8
+const MAX_BUILDS_IN_FLIGHT := 8
 const PLAN_INTERVAL_SECONDS := 0.2
+## Hierarchical coarse coverage: six level-0 faces first, then 24 level-1 and 96 level-2 chunks.
+## Each level is removed once its children cover it, so a blank planet never has to wait for the
+## full fine set. This is what prevents the smooth empty blocks during a fast approach.
+## Level 0 alone already covers the whole sphere; building the level-1/2 fallbacks before the
+## fine chunks would delay the HD view the player is asking for, so they are added to the queue
+## after the desired chunks only when the level-0 coverage is already visible.
+const FALLBACK_LEVELS := [0]
 
 var planet: PlanetBody
 var planner: LodPlanner
 ## Same meaning as Ship.render_origin: where Vector3 zero is in the planet frame (kept in doubles).
 var render_origin := WorldPos.new(&"planet")
 var viewer := WorldPos.new(&"planet")
+## Planet-frame velocity of the viewer, used to plan high-detail chunks ahead of the ship. The
+## actual build is still worker-threaded; this only changes which chunks are requested.
+var viewer_velocity := Vector3.ZERO
+const PRELOAD_LOOKAHEAD_SECONDS := 2.5
+const PRELOAD_MAX_METRES := 25000.0
 
 var _material := StandardMaterial3D.new()
 var _detail_material: ShaderMaterial ## null = plain vertex-colour material (switch off, or an asset missing)
 var _displayed := {}          # key -> {node, origin: WorldPos}
 var _displayed_prefixes := {} # key -> count of displayed descendants (so coverage checks are cheap)
 var _desired := {}
+var _fallback := {}           # coarse ancestors that must hold the planet until fine chunks arrive
 var _pending := {}            # keys currently being built
 var _build_queue: Array[int] = [] # closest-first keys still to build
 var _build_state := BuildState.new()
@@ -86,23 +99,76 @@ func is_settled() -> bool:
 
 
 func _replan() -> void:
-	_desired = planner.select_leaves(viewer)
+	var preload_viewer := _preload_viewer()
+	_desired = planner.select_leaves(viewer, preload_viewer)
+	_fallback = _fallback_ancestors(_desired)
 	var viewer_point := Vector3(viewer.x, viewer.y, viewer.z)
+	var preload_point := viewer_point
+	if preload_viewer != null:
+		preload_point = Vector3(preload_viewer.x, preload_viewer.y, preload_viewer.z)
 	var wanted: Array[int] = []
 	for key in _desired:
 		if not _displayed.has(key) and not _pending.has(key):
 			wanted.append(key)
 	wanted.sort_custom(func(key_a: int, key_b: int) -> bool:
+		var center_a := planner.chunk_center(key_a)
+		var center_b := planner.chunk_center(key_b)
+		var distance_a := minf(viewer_point.distance_squared_to(center_a), preload_point.distance_squared_to(center_a))
+		var distance_b := minf(viewer_point.distance_squared_to(center_b), preload_point.distance_squared_to(center_b))
+		return distance_a < distance_b)
+	var fallback_wanted: Array[int] = []
+	for key in _fallback:
+		if not _displayed.has(key) and not _pending.has(key):
+			fallback_wanted.append(key)
+	# Coarsest coverage first; within one level, nearest first.
+	fallback_wanted.sort_custom(func(key_a: int, key_b: int) -> bool:
+		var level_a := ChunkKey.level_of(key_a)
+		var level_b := ChunkKey.level_of(key_b)
+		if level_a != level_b:
+			return level_a < level_b
 		return viewer_point.distance_squared_to(planner.chunk_center(key_a)) < viewer_point.distance_squared_to(planner.chunk_center(key_b)))
-	_build_queue = wanted
+	_build_queue = fallback_wanted + wanted
 	_start_queued_builds()
 	_remove_obsolete_chunks()
+
+
+func _fallback_ancestors(leaves: Dictionary) -> Dictionary:
+	var result := {}
+	for key in leaves:
+		var ancestor: int = key
+		while ChunkKey.level_of(ancestor) >= 0:
+			if ChunkKey.level_of(ancestor) in FALLBACK_LEVELS:
+				result[ancestor] = true
+			if ChunkKey.level_of(ancestor) == 0:
+				break
+			ancestor = ChunkKey.parent_of(ancestor)
+	return result
+
+
+func _covers_any_desired(key: int) -> bool:
+	for desired_key in _desired:
+		if desired_key == key or ChunkKey.is_ancestor(key, desired_key):
+			return true
+	return false
+
+
+## The predicted viewer point is capped so a high orbit speed cannot flood the planner with
+## thousands of fine chunks; the point is still far enough ahead to cover a normal approach.
+func _preload_viewer() -> WorldPos:
+	var speed := viewer_velocity.length()
+	if speed < 1.0:
+		return null
+	var distance := minf(speed * PRELOAD_LOOKAHEAD_SECONDS, PRELOAD_MAX_METRES)
+	if distance < 1.0:
+		return null
+	var direction := viewer_velocity / speed
+	return WorldPos.new(viewer.frame_id, viewer.x + direction.x * distance, viewer.y + direction.y * distance, viewer.z + direction.z * distance)
 
 
 func _start_queued_builds() -> void:
 	while _pending.size() < MAX_BUILDS_IN_FLIGHT and not _build_queue.is_empty():
 		var key: int = _build_queue.pop_front()
-		if _pending.has(key) or _displayed.has(key) or not _desired.has(key):
+		if _pending.has(key) or _displayed.has(key) or (not _desired.has(key) and not _fallback.has(key)):
 			continue
 		_pending[key] = true
 		_task_ids.append(WorkerThreadPool.add_task(PlanetTerrain._build_in_background.bind(key, planet, _build_state)))
@@ -135,7 +201,7 @@ func _collect_finished_builds() -> void:
 	for mesh_data in finished:
 		var key: int = mesh_data["key"]
 		_pending.erase(key)
-		if _desired.has(key) and not _displayed.has(key):
+		if (_desired.has(key) or _fallback.has(key)) and not _displayed.has(key):
 			_show_chunk(key, mesh_data)
 	if not finished.is_empty():
 		_remove_obsolete_chunks()
@@ -183,7 +249,9 @@ func _remove_obsolete_chunks() -> void:
 	for key in _displayed:
 		if _desired.has(key):
 			continue
-		if _has_displayed_ancestor(key) or _children_covered(key):
+		if not _covers_any_desired(key):
+			removable.append(key) # stale fallback outside the current desired area
+		elif _has_displayed_ancestor(key) or _children_covered(key):
 			removable.append(key)
 	for key in removable:
 		var record: Dictionary = _displayed[key]
