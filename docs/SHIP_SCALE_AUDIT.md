@@ -32,9 +32,9 @@ Current authored extents from the code:
 - The pressure hull runs approximately `z = -9.25` to `z = +10.86`: about **20.1 m** long, excluding any extra reach from appendages.
 - The hull chine reaches about `x = ±3.75`: about **7.5 m** across the pressure hull. Engine pods extend the complete vehicle's total width beyond the hull.
 - Sol's layout has cabin, engineering and cargo rooms each **11 m wide** (half-width 5.5 m), and its turret room is **8 m wide**. Cockpit and airlock are narrower transition spaces that fit inside the pressure hull.
-- The interior's room chain runs roughly from `z = -7 m` to `z = +10.6 m`, so its overall length is not many times the hull length.
+- The interior's room chain runs roughly from `z = -7 m` to `z = +10.6 m`: about **17.6 m** long. That is only about **87.5% of the pressure hull's 20.1 m longitudinal span**. The interior is therefore not larger than the hull along its length in the current layout; only the main room widths exceed the hull width.
 
-That means Sol's existing pocket spaces are wider than the visible pressure hull—11 m versus 7.5 m, around 1.47×—but the interior is not currently a wildly larger, independent floor plan.
+That means Sol's existing pocket spaces are wider than the visible pressure hull—11 m versus 7.5 m, around 1.47×—but the interior is not currently a wildly larger, independent floor plan. Numerically, its main corridor/room chain is shorter than the exterior hull, not much longer. This is a concrete reason the current implementation will not yet create Rodina's strong 'small outside, much bigger inside' impression.
 
 ### The current pocket mechanism
 
