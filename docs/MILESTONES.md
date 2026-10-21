@@ -287,4 +287,5 @@ and the commit is pushed.
 - [x] Compact seated flight HUD; combat-only streak field; blocky entry fire and purple exposure.
 - [x] 326 tests / 97,139 assertions / 0 failures.
 - [x] Central cyan reticle and basic weapon-ready panel.
-- [ ] Human visual comparison; target brackets and remaining WARP reference.
+- [x] Hostile target brackets projected through the active camera.
+- [ ] Human visual comparison; weapon/target detail panel and remaining WARP reference.

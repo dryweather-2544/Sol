@@ -60,8 +60,8 @@ Companion to `VISUAL_REFERENCE_INDEX.md` and `VISUAL_FIDELITY_REVIEWS.md`. Tags:
   colour.
 - Implemented a compact Rodina-style seated HUD: mode tab, bottom hull/fuel/speed, small objective
   and prompt. The full debug overlay remains available for Sol style/outside/interior. Reticle,
-  weapon/status panels and target brackets: central reticle and a basic weapon-ready panel are now
-implemented; target brackets remain open.
+  weapon/status panels: central reticle, basic weapon-ready panel and orange hostile target brackets
+are now implemented.
 
 ## 7. Implementation constraints
 

@@ -189,6 +189,25 @@ func _update_rodina_hud() -> void:
 	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
 	_weapon_label.text = "HULL BLASTER\nREADY"
 	_weapon_label.position = Vector2(viewport.x - _weapon_label.size.x - 16.0, 16.0)
+	_update_target_brackets()
+
+
+func _update_target_brackets() -> void:
+	var camera := get_viewport().get_camera_3d()
+	_reticle.target_positions = PackedVector2Array()
+	if camera != null and session != null:
+		for target in session.enemy_targets:
+			if target == null or not target.is_alive() or target.team_id() == ship.team_id:
+				continue
+			var world_position := target.combat_position()
+			if world_position == null:
+				continue
+			var local := world_position.to_local_vector3(ship.render_origin)
+			var world := ship.to_global(local)
+			if camera.is_position_behind(world):
+				continue
+			_reticle.target_positions.append(camera.unproject_position(world))
+	_reticle.queue_redraw()
 	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
 	_objective_label.add_theme_font_size_override("font_size", 14)
 	_objective_label.position = Vector2(14, viewport.y - 64.0)

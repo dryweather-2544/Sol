@@ -125,5 +125,6 @@ Added a small cyan central reticle and a top-right `HULL BLASTER / READY` panel,
 reference's minimal flight interface while retaining the larger prompt/objective text for usability.
 Capture: `/tmp/n13_hud_reticle.png`.
 
-Still open: target brackets and a proper weapon/target status panel. Tests: 326 tests / 97,139
-assertions / 0 failures.
+Target brackets were added in the same pass: visible hostile targets are projected through the active
+camera and drawn as four corner brackets in orange, filtered for team/alive/behind-camera. The
+capture path is `/tmp/n13_hud_reticle.png` (no hostile present in that frame). Tests: 326 / 97,139 / 0.
