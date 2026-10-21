@@ -218,7 +218,10 @@ static func _ochre_steppe() -> PlanetLook:
 		{"color": _hex("#7b4f2f"), "height_max": 300.0, "height_fade": 350.0}, # Dunes x 1a
 	]
 	look.base_color = _hex("#6f4428") # BaseB x 1a
-	look.orbit_color = _hex("#6f4428")
+	# Calibrated from orbit: Rodina's Jarilo reads ochre there (#aa7d4e, steam06_orbit_ochre) once the pale scatter is
+	# added, which needs a more saturated orange under it than the ground colours above (measured on Sol renders).
+	look.orbit_color = _hex("#b07428")
+	look.orbit_mix_max = 0.85
 	look.sky_zenith = _hex("#5f6fb3")
 	look.sky_horizon = _hex("#e8c3a6")
 	look.sunset_color = _hex("#ff8a4a")

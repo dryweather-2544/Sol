@@ -140,11 +140,19 @@ static func default_system() -> StarSystem:
 	return system
 
 
+## The body from a planet definition file, or null (the caller then uses its built-in fallback). A missing or invalid
+## file is reported with a warning, so a broken content file never silently swaps a world for its fallback.
 static func _definition_body(path: String) -> BodyDef:
 	if not ResourceLoader.exists(path):
+		push_warning("Planet definition %s is missing; using the built-in fallback." % path)
 		return null
 	var definition := load(path) as PlanetDefinition
-	if definition == null or definition.validation_error() != "":
+	if definition == null:
+		push_warning("Planet definition %s is not a PlanetDefinition; using the built-in fallback." % path)
+		return null
+	var problem := definition.validation_error()
+	if problem != "":
+		push_warning("Planet definition %s is invalid (%s); using the built-in fallback." % [path, problem])
 		return null
 	return definition.to_body_def()
 
