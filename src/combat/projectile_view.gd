@@ -14,6 +14,9 @@ func _init() -> void:
 	_mesh.size = Vector3(0.3, 0.3, 4.0)
 	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_material.albedo_color = Color(1.0, 0.8, 0.3)
+	_material.emission_enabled = true
+	_material.emission = Color(1.0, 0.55, 0.1)
+	_material.emission_energy_multiplier = 3.0
 
 
 func _ready() -> void:

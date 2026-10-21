@@ -177,3 +177,12 @@ The first streak implementation used a cruise-scale 300–6000 m/s fade, so at C
 ~450 m/s it was effectively invisible. Corrected the gate to the real combat band (180–500 m/s).
 Capture: `/tmp/n13_combat_streak.png`; the field and olive trail are visible with the COMBAT SPEED
 tab. Tests: 326 tests / 97,140 assertions / 0 failures.
+
+
+### Eleventh iteration — weapon glow/muzzle (2026-10-21)
+
+Added emission to the projectile bolts and a short additive muzzle flash driven by
+`ship.weapon.shots_fired`. A synthetic firing capture (`/tmp/n13_fire_probe/fire.png`) did not show the
+muzzle flash clearly because the probe fired while the ship was low over the terrain and the muzzle is
+close to the hull; the projectile glow itself remains a small code-level improvement. This is
+reported as unverified rather than claimed as a matched effect. Tests: 326 tests / 97,140 assertions.

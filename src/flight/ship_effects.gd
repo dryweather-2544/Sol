@@ -17,6 +17,9 @@ var _streaks := CPUParticles3D.new()
 var _sheath := MeshInstance3D.new()
 var _sheath_material := ShaderMaterial.new()
 var _heat := 0.0
+var _muzzle_flash := MeshInstance3D.new()
+var _muzzle_timer := 0.0
+var _last_shots := 0
 
 
 ## nacelles: the nozzle nodes (cylinder +y is the exhaust direction); each gets a plume.
@@ -31,6 +34,7 @@ func setup(nacelles: Array[MeshInstance3D]) -> void:
 		_plumes.append(plume)
 	_build_trails()
 	_build_heat()
+	_build_muzzle_flash()
 
 
 func update_effects(ship: Ship, delta: float) -> void:
@@ -54,6 +58,11 @@ func update_effects(ship: Ship, delta: float) -> void:
 		# Streaks stream away from the direction of travel, in ship space.
 		_streaks.direction = (state.basis.transposed() * -state.velocity.normalized())
 	_streaks.speed_scale = 0.5 + _heat
+	if ship.weapon.shots_fired != _last_shots:
+		_last_shots = ship.weapon.shots_fired
+		_muzzle_timer = 0.07
+	_muzzle_timer = maxf(0.0, _muzzle_timer - delta)
+	_muzzle_flash.visible = active and _muzzle_timer > 0.0
 
 
 ## Reference evidence (trailer CRUISE SPEED): two long, dotted lime trails persist behind the ship.
@@ -201,6 +210,15 @@ func _make_plume() -> CPUParticles3D:
 	plume.color_ramp = _ramp([[0.0, Color(1.0, 0.97, 0.92, 0.9)], [0.25, Color(0.55, 0.9, 1.0, 0.7)], [0.7, Color(0.2, 0.45, 1.0, 0.3)], [1.0, Color(0.1, 0.2, 0.6, 0.0)]])
 	plume.emitting = false
 	return plume
+
+
+func _build_muzzle_flash() -> void:
+	_muzzle_flash.name = "MuzzleFlash"
+	_muzzle_flash.mesh = _additive_sprite(1.5)
+	_muzzle_flash.position = Vector3(0.0, 0.8, -8.8)
+	_muzzle_flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_muzzle_flash.visible = false
+	add_child(_muzzle_flash)
 
 
 func _build_heat() -> void:
