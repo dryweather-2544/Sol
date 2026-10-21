@@ -183,8 +183,11 @@ func _replan() -> void:
 		_fallback = _fallback_ancestors(_desired)
 	var viewer_point := Vector3(viewer.x, viewer.y, viewer.z)
 	var corridor_points: Array[Vector3] = []
+	var corridor_along: Array[float] = [] # path distance from the viewer to each corridor point
 	for point in corridor:
-		corridor_points.append(Vector3(point.x, point.y, point.z))
+		var corridor_point := Vector3(point.x, point.y, point.z)
+		corridor_points.append(corridor_point)
+		corridor_along.append(viewer_point.distance_to(corridor_point))
 	# Candidates as Vector4i(tier, distance in metres, key high bits, key low bits) so the native
 	# sort orders them (tier first, then distance) without a script comparator.
 	var candidates: Array[Vector4i] = []
@@ -203,8 +206,11 @@ func _replan() -> void:
 			continue
 		var center := planner.chunk_center(key)
 		var score := viewer_point.distance_to(center)
-		for point in corridor_points:
-			score = minf(score, point.distance_to(center) * AHEAD_DISTANCE_WEIGHT)
+		# Rank by how soon the ship reaches the chunk: the path length to a corridor point plus the
+		# distance from that point. A chunk centred on a corridor point 60 km ahead used to score ~0
+		# and was built before chunks the ship reaches in 0.1 s, starving the near field at 10 km/s.
+		for index in corridor_points.size():
+			score = minf(score, corridor_along[index] + corridor_points[index].distance_to(center) * AHEAD_DISTANCE_WEIGHT)
 		var tier := TIER_FULL
 		var grid := ChunkMesher.FINE_GRID
 		if have_grid == 0:
