@@ -9,7 +9,7 @@ failures before the terrain changes; current suite must be re-run after every co
    lowland/ridge boundary, verify collision/landing/POI placement and add a terrain-revision save policy.
 2. Port the remaining terrain grammars (Morena cracked plates and the asteroid grammar) or explicitly leave
    their Sol profiles on LEGACY; do not ship placeholder heights.
-3. Implement Rodina hull restitution 0.8 and the `SetVelocityControl` authority ramp with tests.
+3. ~~Implement Rodina hull restitution 0.8 and the `SetVelocityControl` authority ramp with tests.~~ Done in the N14 physics pass; the exact Havok meaning of `SetVelocityControl` is still an explicit ADAPT.
 4. Audit the N13 particle/camera port against `EGDataParticles.lua` and supplied frames; the N13 shader uses
    inferred particle semantics and must not be called exact.
 5. Inspect/replace the N13 atmosphere filter calibration once the shader/filter evidence is available.

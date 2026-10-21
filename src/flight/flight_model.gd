@@ -62,6 +62,7 @@ static func step(ship_state: ShipState, command: PilotCommand, tuning: ShipTunin
 		ship_state.warp_cancelled = ship_state.selected_gear == PilotCommand.GEAR_WARP
 	ship_state.limnal_timer = ship_state.limnal_timer + delta if ship_state.gear == PilotCommand.GEAR_WARP else 0.0
 	_update_atmosphere_state(ship_state, environment, delta)
+	_update_control_authority(ship_state, command, delta)
 	_step_linear(ship_state, command, tuning, environment, delta)
 	_step_angular(ship_state, command, tuning, environment, delta)
 	_entry_push(ship_state, environment, delta)
@@ -96,6 +97,27 @@ static func _update_atmosphere_state(ship_state: ShipState, environment: FlightE
 		ship_state.entering_atmosphere = false
 		ship_state.in_atmosphere = false
 	ship_state.entry_complete_timer = maxf(0.0, ship_state.entry_complete_timer - delta)
+
+
+## Rodina EGVehicle:UpdateMovementControl (847-884). The script ramps ControlTimer over
+## 0.5–1.5 s and TerrainContactTimer over 0.2 s, then feeds both to Engine:SetVelocityControl.
+## Sol applies the resulting authority to the drive rate; gravity/inertia still act while it is low.
+static func _update_control_authority(ship_state: ShipState, command: PilotCommand, delta: float) -> void:
+	ship_state.control_timer = minf(10.0, ship_state.control_timer + delta)
+	var control := ship_state.control_timer
+	if control >= 0.5:
+		control = 1.0 # EGAnalogue(ControlTimer, 0.5, 1.5, 0, .1), then >= .1 means 1
+	else:
+		control = clampf((control - 0.5) / 1.0, 0.0, 1.0) * 0.1
+		control = 0.0 if control < 0.1 else 1.0
+	# TerrainContactTimer only advances while the ship is moving or already settled for >2 s.
+	var moving := command.thrust.length() > 0.5 or command.turn.length() > 0.5
+	if ship_state.terrain_contact_timer > 2.0 or (ship_state.velocity.length() > 8.0 and moving):
+		ship_state.terrain_contact_timer = minf(10.0, ship_state.terrain_contact_timer + delta)
+	var terrain := clampf(ship_state.terrain_contact_timer / 0.2, 0.0, 1.0)
+	terrain = 1.0 if terrain >= 0.1 else 0.0
+	ship_state.control_authority = control
+	ship_state.terrain_control_authority = terrain
 
 
 static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: ShipTuning, environment: FlightEnvironment, delta: float) -> void:
@@ -142,7 +164,7 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 			strength = 1.0 # drive to the input's target (zero when released) at the gear's full rate: stop, hold, hover
 			if wish == Vector3.ZERO:
 				braking = 1.0 # hands off is a brake: over the gear's speed it sheds speed in proportion, like Rodina's braking
-		var rate := acceleration_factor * move_speed
+		var rate := acceleration_factor * move_speed * ship_state.control_authority
 		if speed > move_speed and braking > 0.0:
 			rate = maxf(acceleration_factor, deceleration_factor) * speed
 		if command.brake:

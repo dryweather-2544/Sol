@@ -30,7 +30,7 @@ func _settle(ship: Ship, ticks: int) -> void:
 func test_ship_never_ends_up_below_flat_ground_and_lands() -> void:
 	var planet := _sloped_planet(0.0)
 	var ship := _ship_above_pole(planet, 3.0)
-	ship.state.velocity = Vector3(0, 0, -30) # falling toward the ground
+	ship.state.velocity = Vector3(0, 0, -3) # a slow settling descent; the 30 m/s impact case is the restitution test
 	var coast := PilotCommand.parked(0)
 	ship.controller.request_control(ScriptedPilotSource.new([coast, coast, coast]), &"pilot_seat")
 	_settle(ship, 300)
@@ -121,4 +121,23 @@ func test_thrust_up_lifts_off_and_clears_landed() -> void:
 	_settle(ship, 120)
 	assert_true(not ship.state.landed, "left the ground")
 	assert_true(planet.altitude_above_ground(ship.state.position) > 3.0)
+	ship.free()
+
+
+func test_hull_impact_restitution_matches_rodina() -> void:
+	var planet := _sloped_planet(0.0)
+	var ship := _ship_above_pole(planet, 3.0)
+	ship.state.velocity = Vector3(0, 0, -30)
+	var bounced := 0.0
+	for tick in 30:
+		ship.simulate_tick(DELTA)
+		if ship.state.last_impact_speed > 20.0:
+			bounced = maxf(bounced, ship.state.velocity.z)
+	if bounced == 0.0:
+		# The first contact may already be the only contact in this short window; a fresh drop
+		# records its outgoing normal speed on the impact tick.
+		for tick in 30:
+			ship.simulate_tick(DELTA)
+			bounced = maxf(bounced, ship.state.velocity.z)
+	assert_true(bounced > 10.0, "30 m/s impact should bounce upward at about 0.8 restitution, got %f" % bounced)
 	ship.free()

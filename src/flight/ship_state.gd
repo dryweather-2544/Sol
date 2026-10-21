@@ -29,6 +29,13 @@ var hull := 1.0
 var fuel := 1.0
 ## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
 var last_impact_speed := 0.0
+## Rodina EGVehicle movement-control authority. ControlTimer ramps the engine's velocity drive back
+## from 0 to 1 over 0.5–1.5 s after a contact (EGVehicle.lua:847-884); TerrainContactTimer ramps the
+## terrain-specific drive back over 0.2 s. Both are transient and read by FlightModel.
+var control_timer := 10.0
+var terrain_contact_timer := 10.0
+var control_authority := 1.0
+var terrain_control_authority := 1.0
 
 ## Atmosphere entry state (Rodina EGVehicle:UpdateInAtmosphereState): entering below ratio 1, "in" below 0.5 (which
 ## starts the 4 s entry timer), both cleared above 1. Derived from position, so not saved; the first update after a

@@ -18,6 +18,11 @@ const LANDED_FRICTION := 25.0
 ## friction is engine-side, taken as 1): sliding slows by this times how hard the hull is pressed into the ground,
 ## by the impact and by gravity. On slopes steeper than atan(0.4) = 21.8 degrees gravity wins and the ship slides.
 const HULL_FRICTION := 0.4
+## Rodina player hull restitution (EGDataShipPlayer.lua:26-38). Havok applies it to contact
+## impulses; Sol's support-point resolver applies it only to the first non-landed impact so a
+## resting ship does not jitter. Small settling impacts are still absorbed.
+const HULL_RESTITUTION := 0.8
+const MIN_BOUNCE_SPEED := 8.0
 
 
 static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTuning, delta: float) -> void:
@@ -48,6 +53,9 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 
 	ship_state.last_impact_speed = 0.0
 	if lowest_clearance < 0.0:
+		# Rodina's OnCollision resets TerrainContactTimer on every planet contact; the engine then
+		# ramps velocity control back over 0.2 s (EGVehicle.lua:736-765, 847-884).
+		ship_state.terrain_contact_timer = 0.0
 		position.x -= up.x * lowest_clearance
 		position.y -= up.y * lowest_clearance
 		position.z -= up.z * lowest_clearance
@@ -55,6 +63,8 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 		if into_ground_speed < 0.0:
 			ship_state.last_impact_speed = -into_ground_speed
 			ship_state.velocity -= ground_normal * into_ground_speed
+			if not ship_state.landed and ship_state.last_impact_speed > MIN_BOUNCE_SPEED:
+				ship_state.velocity += ground_normal * ship_state.last_impact_speed * HULL_RESTITUTION
 	var touching := lowest_clearance < TOUCH_DISTANCE
 	var tilt_degrees := rad_to_deg(acos(clampf(ship_state.basis.y.dot(ground_normal), -1.0, 1.0)))
 

@@ -398,3 +398,15 @@ func test_warp_gear_has_a_higher_cap_than_cruise() -> void:
 		FlightModel.step(warp, warp_command, tuning, environment, 1.0 / 60.0)
 	assert_near(cruise.speed(), 5000.0, 1e-3)
 	assert_near(warp.speed(), 5000.0 * tuning.warp_speed_multiplier, 1e-3)
+
+
+func test_control_authority_ramps_after_a_collision() -> void:
+	var ship_state := ShipState.new()
+	ship_state.control_timer = 0.0
+	var command := _thrust(Vector3(0, 0, -1), PilotCommand.GEAR_COMBAT)
+	_fly(ship_state, command, 1)
+	assert_true(ship_state.control_authority < 0.01, "no drive authority immediately after contact")
+	assert_near(ship_state.velocity.length(), 0.0, 1e-6, "the engine does not accelerate while control is low")
+	_fly(ship_state, command, 60)
+	assert_true(ship_state.control_authority > 0.99, "authority returns within Rodina's 0.5-1.5 s window")
+	assert_true(ship_state.velocity.length() > 100.0, "the ship accelerates once control returns")
