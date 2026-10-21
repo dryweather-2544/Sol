@@ -166,6 +166,9 @@ func _set_debug_hud_visible(visible: bool) -> void:
 	_telemetry_label.visible = false
 	_reticle.visible = false
 	_weapon_label.visible = false
+	_prompt_label.add_theme_font_size_override("font_size", 26)
+	_prompt_label.add_theme_constant_override("outline_size", 6)
+	_prompt_label.add_theme_color_override("font_color", Color.WHITE)
 
 
 func _update_rodina_hud() -> void:
@@ -189,6 +192,13 @@ func _update_rodina_hud() -> void:
 	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
 	_weapon_label.text = "HULL BLASTER\nREADY"
 	_weapon_label.position = Vector2(viewport.x - _weapon_label.size.x - 16.0, 16.0)
+	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
+	_objective_label.add_theme_font_size_override("font_size", 14)
+	_objective_label.position = Vector2(14, viewport.y - 64.0)
+	_prompt_label.add_theme_font_size_override("font_size", 18)
+	_prompt_label.add_theme_constant_override("outline_size", 4)
+	_prompt_label.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
+	_prompt_label.position.y = viewport.y - 120.0
 	_update_target_brackets()
 
 
@@ -199,19 +209,15 @@ func _update_target_brackets() -> void:
 		for target in session.enemy_targets:
 			if target == null or not target.is_alive() or target.team_id() == ship.team_id:
 				continue
-			var world_position := target.combat_position()
+			var world_position: WorldPos = target.combat_position()
 			if world_position == null:
 				continue
-			var local := world_position.to_local_vector3(ship.render_origin)
+			var local: Vector3 = world_position.to_local_vector3(ship.render_origin)
 			var world := ship.to_global(local)
 			if camera.is_position_behind(world):
 				continue
 			_reticle.target_positions.append(camera.unproject_position(world))
 	_reticle.queue_redraw()
-	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))
-	_objective_label.add_theme_font_size_override("font_size", 14)
-	_objective_label.position = Vector2(14, viewport.y - 64.0)
-	_prompt_label.position.y = viewport.y - 150.0
 
 
 func _power_text() -> String:

@@ -137,5 +137,8 @@ projectile without any effect. Added a fixed 16-flare, allocation-free impact po
 `CombatEffects`, connected to `ProjectileSim.hit`, with short orange/purple additive blocks. This is a
 rendering-only effect; damage remains authoritative in the simulation.
 
-No hostile target is present in the HUD capture, so this pass is currently compilation/test verified
-and needs a live combat screenshot before it can be called visually matched.
+The impact signal was exercised with a synthetic target: one hit was emitted and the flare was
+triggered. The first screenshot did not show the flare because the probe spawned it low against the
+landed terrain; the effect still needs a clean live combat capture before being called visually
+matched.
+- HUD prompt text reduced to 18 px in the Rodina view; debug-view typography is restored when leaving it.
