@@ -29,8 +29,8 @@ func _ready() -> void:
 		flare.gravity = Vector3.ZERO
 		flare.initial_velocity_min = 8.0
 		flare.initial_velocity_max = 22.0
-		flare.scale_amount_min = 0.35
-		flare.scale_amount_max = 0.9
+		flare.scale_amount_min = 0.8
+		flare.scale_amount_max = 2.2
 		flare.color_ramp = _ramp([[0.0, Color(1.0, 0.9, 0.6, 1.0)], [0.25, Color(1.0, 0.45, 0.1, 0.9)], [0.7, Color(0.4, 0.15, 0.8, 0.45)], [1.0, Color(0.1, 0.0, 0.2, 0.0)]])
 		add_child(flare)
 		_pool.append(flare)
@@ -55,7 +55,7 @@ func flash(world_position: WorldPos) -> void:
 
 func _square() -> QuadMesh:
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.7, 0.7)
+	quad.size = Vector2(1.4, 1.4)
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD

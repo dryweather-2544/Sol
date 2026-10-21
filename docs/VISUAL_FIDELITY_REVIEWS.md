@@ -138,7 +138,7 @@ projectile without any effect. Added a fixed 16-flare, allocation-free impact po
 rendering-only effect; damage remains authoritative in the simulation.
 
 The impact signal was exercised with a synthetic target: one hit was emitted and the flare was
-triggered. The first screenshot did not show the flare because the probe spawned it low against the
-landed terrain; the effect still needs a clean live combat capture before being called visually
-matched.
+triggered. A live target-bracket capture (`/tmp/n13_target_probe/target.png`) shows the orange bracket;
+the flare was too small/occluded in that probe, so the impact quads were enlarged. The effect still
+needs a clean live combat capture before being called visually matched.
 - HUD prompt text reduced to 18 px in the Rodina view; debug-view typography is restored when leaving it.
