@@ -39,14 +39,15 @@ func test_each_upgrade_changes_its_number() -> void:
 	session.inventory.add(ItemDefinition.SCRAP, 200)
 	session.inventory.add(ItemDefinition.DATA_CHIP, 20)
 	# damage
-	var plain := ShipDamage.impact_damage(60.0)
+	var plain := ShipDamage.impact_damage(500.0)
 	var before_hull := session.ship.state.hull
-	session.ship.state.last_impact_speed = 60.0
+	session.ship.state.last_impact_speed = 500.0
 	session.ship._take_damage(DELTA)
 	assert_near(before_hull - session.ship.state.hull, plain, 1e-9)
 	session.ship.state.hull = 1.0
 	session.buy_upgrade(&"hull_plating")
-	session.ship.state.last_impact_speed = 60.0
+	session.ship.state.impact_damage_cooldown = 0.0
+	session.ship.state.last_impact_speed = 500.0
 	session.ship._take_damage(DELTA)
 	assert_near(1.0 - session.ship.state.hull, plain * 0.7, 1e-9, "30% less damage")
 	# fuel

@@ -62,6 +62,8 @@ static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTunin
 		var into_ground_speed := ship_state.velocity.dot(ground_normal)
 		if into_ground_speed < 0.0:
 			ship_state.last_impact_speed = -into_ground_speed
+			var speed := ship_state.velocity.length()
+			ship_state.last_impact_incidence = clampf(ground_normal.dot(ship_state.velocity / speed), -1.0, 1.0) if speed > 1e-6 else -1.0
 			ship_state.velocity -= ground_normal * into_ground_speed
 			if not ship_state.landed and ship_state.last_impact_speed > MIN_BOUNCE_SPEED:
 				ship_state.velocity += ground_normal * ship_state.last_impact_speed * HULL_RESTITUTION

@@ -10,7 +10,7 @@ failures before the terrain changes; current suite must be re-run after every co
 2. Morena's cracked-plate grammar is implemented but no Sol world is mapped to it; airless Selene/Pebble use
    the asteroid feature grammar. Add remaining crater/material work and decide whether a Morena-like Sol world
    is a documented design change.
-3. ~~Implement Rodina hull restitution 0.8 and the `SetVelocityControl` authority ramp with tests.~~ Done in the N14 physics pass; the exact Havok meaning of `SetVelocityControl` is still an explicit ADAPT.
+3. ~~Implement Rodina hull restitution 0.8, impact damage and the `SetVelocityControl` authority ramp with tests.~~ Done in the N14 physics pass; the exact Havok meaning of `SetVelocityControl` is still an explicit ADAPT.
 4. WARP steering drift is ported; coasting Wing trails still depend on Rodina's unimplemented clutch. Audit the
    N13 particle/camera port against `EGDataParticles.lua` and supplied frames; the N13 shader uses
    inferred particle semantics and must not be called exact. The pixel engine overlay is a user-design

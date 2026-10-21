@@ -27,8 +27,10 @@ func _session_on_ground(planet: PlanetBody) -> GameSession:
 
 func test_damage_curves() -> void:
 	assert_eq(ShipDamage.impact_damage(10.0), 0.0, "gentle touchdown is free")
-	assert_true(ShipDamage.impact_damage(50.0) > 0.1 and ShipDamage.impact_damage(50.0) < 0.9)
-	assert_eq(ShipDamage.impact_damage(120.0), 1.0, "fast impact is fatal")
+	assert_eq(ShipDamage.impact_damage(150.0), 0.0, "Rodina has no collision damage at or below 150 m/s")
+	assert_true(ShipDamage.impact_damage(500.0) > 0.1 and ShipDamage.impact_damage(500.0) < 0.5, "500 m/s head-on")
+	assert_near(ShipDamage.impact_damage(500.0, 0.25), 0.0, 1e-9, "a glancing impact does no damage")
+	assert_true(ShipDamage.impact_damage(5000.0) >= 1.9, "very fast head-on impact exceeds the hull fraction")
 	# Entry resistance (Rodina UpdateInAtmosphereMovement): into-planet factor x band strength x speed / 5000 (max 2).
 	var down := Vector3(0, -1, 0)
 	assert_eq(ShipDamage.entry_resistance(down * 20000.0, down, 2.0, false, 0.0, 4.0), 0.0, "no resistance in space")
@@ -50,14 +52,14 @@ func test_hard_landing_hurts_the_hull_and_destruction_is_signalled_once() -> voi
 	ship.render_origin = WorldPos.new(planet.frame_id)
 	ship.state.position = WorldPos.new(planet.frame_id, 0.0, 0.0, planet.radius + 60.0)
 	ship.state.basis = Basis(Vector3.RIGHT, PI / 2.0)
-	ship.state.velocity = Vector3(0, 0, -45)
+	ship.state.velocity = Vector3(0, 0, -500)
 	var destroyed_count := [0]
 	ship.destroyed.connect(func(): destroyed_count[0] += 1)
 	for tick in 200:
 		ship.simulate_tick(DELTA)
-	assert_true(ship.state.hull < 0.95 and ship.state.hull > 0.0, "a 45 m/s impact damages but does not destroy: %f" % ship.state.hull)
+	assert_true(ship.state.hull < 0.95 and ship.state.hull > 0.0, "a 500 m/s impact damages but does not destroy: %f" % ship.state.hull)
 	assert_eq(destroyed_count[0], 0)
-	ship.state.velocity = Vector3(0, 0, -150)
+	ship.state.velocity = Vector3(0, 0, -5000)
 	ship.state.position = WorldPos.new(planet.frame_id, 0.0, 0.0, planet.radius + 400.0)
 	for tick in 200:
 		ship.simulate_tick(DELTA)

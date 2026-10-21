@@ -33,3 +33,11 @@ to ±0.3 and adds it to the player's turn vector (pitch/yaw mapped from Rodina's
 `math.random`; this port uses a deterministic smooth twitch so replays remain reproducible while keeping
 the same gain and clamp. `test_warp_steering_drift_only_after_full_spin_up` covers both the spun-up and
 warm-up states. Tests after this pass: 362 tests / 105,041 assertions / 0 failures.
+
+
+## Collision damage
+
+`ShipDamage.impact_damage(speed, incidence)` now follows `EGVehicle:OnCollision`: no damage at or below
+150 m/s, angle strength from incidence, speed factor 0.1..2, and a 0.25 s cooldown. GroundContact records
+the impact incidence. Tests cover the curve, hard impacts, glancing hits and the cooldown interaction.
+Tests after this pass: 363 tests / 105,372 assertions / 0 failures.

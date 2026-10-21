@@ -104,7 +104,12 @@ func apply_origin_shift(shift: Vector3) -> void:
 func _take_damage(delta: float) -> void:
 	if state.hull <= 0.0:
 		return
-	var impact_loss := ShipDamage.impact_damage(state.last_impact_speed) * upgrades.damage_taken_multiplier()
+	state.impact_damage_cooldown = maxf(0.0, state.impact_damage_cooldown - delta)
+	var impact_loss := 0.0
+	if state.impact_damage_cooldown <= 0.0 and state.last_impact_speed > 0.0:
+		impact_loss = ShipDamage.impact_damage(state.last_impact_speed, state.last_impact_incidence) * upgrades.damage_taken_multiplier()
+		if impact_loss > 0.0:
+			state.impact_damage_cooldown = ShipDamage.IMPACT_DAMAGE_COOLDOWN
 	var heating_loss := ShipDamage.entry_damage_rate(state.atmosphere_resistance) * delta * upgrades.damage_taken_multiplier()
 	var loss := impact_loss + heating_loss
 	if loss <= 0.0:

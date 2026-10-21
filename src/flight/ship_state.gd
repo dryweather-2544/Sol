@@ -29,6 +29,10 @@ var hull := 1.0
 var fuel := 1.0
 ## Speed (m/s) into the ground on the latest tick; 0 when nothing was hit.
 var last_impact_speed := 0.0
+## Ground-normal dot velocity direction on the latest impact; used by Rodina's collision damage.
+var last_impact_incidence := -1.0
+## Rodina CollisionDamageTimer: impact damage is limited to once per 0.25 s.
+var impact_damage_cooldown := 0.0
 ## Rodina EGVehicle movement-control authority. ControlTimer ramps the engine's velocity drive back
 ## from 0 to 1 over 0.5–1.5 s after a contact (EGVehicle.lua:847-884); TerrainContactTimer ramps the
 ## terrain-specific drive back over 0.2 s. Both are transient and read by FlightModel.
