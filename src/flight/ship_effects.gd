@@ -57,6 +57,7 @@ const FLAME_GLOW_SIZE := {PilotCommand.GEAR_COMBAT: [1.5, 3.5], PilotCommand.GEA
 const FLAME_RESPONSE := 8.0 # per second
 var _flames: Array[MeshInstance3D] = []
 var _flame_glows: Array[MeshInstance3D] = []
+var _pixel_plumes: Array[CPUParticles3D] = []
 var _flame_gear := -1
 var _flame_target := 0.0
 var _flame_strength := 0.0
@@ -179,6 +180,66 @@ func _update_flames(delta: float) -> void:
 		var glow_color: Color = (colors[0] as Color).lerp(Color.WHITE, 0.2)
 		glow_color.a = 0.35 + 0.5 * _flame_strength
 		(glow.material_override as StandardMaterial3D).albedo_color = glow_color
+		# Hard-edged pixel layer on top of the source-derived flame cone. The owner asked for the
+		# same stepped language as the entry fire; the cone remains the smooth volumetric base.
+		if index >= _pixel_plumes.size():
+			var pixel := _make_pixel_plume(index)
+			_pixel_plumes.append(pixel)
+		var pixels := _pixel_plumes[index]
+		pixels.transform = nozzle * Transform3D(Basis.IDENTITY, Vector3(0, 0.5, 0))
+		pixels.direction = Vector3(0, 1, 0)
+		pixels.emitting = flame.visible
+		pixels.color_ramp = _pixel_ramp(_flame_gear)
+		pixels.scale_amount_min = 0.6 + 0.5 * _flame_strength
+		pixels.scale_amount_max = 1.3 + 0.8 * _flame_strength
+
+
+## A hard-edged additive square. Used by the owner-requested pixel engine layer; the entry fire
+## uses hard blocks for the same reason, so engine and atmospheric flames share a visual language.
+static func _pixel_square(size: float) -> QuadMesh:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.vertex_color_use_as_albedo = true
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	quad.material = material
+	return quad
+
+
+func _make_pixel_plume(index: int) -> CPUParticles3D:
+	var pixels := CPUParticles3D.new()
+	pixels.name = "EnginePixels%d" % (index + 1)
+	pixels.amount = 30
+	pixels.lifetime = 0.32
+	pixels.local_coords = true
+	pixels.mesh = _pixel_square(1.2)
+	pixels.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINT
+	pixels.spread = 14.0
+	pixels.gravity = Vector3.ZERO
+	pixels.initial_velocity_min = 25.0
+	pixels.initial_velocity_max = 42.0
+	pixels.scale_amount_curve = Curve.new()
+	pixels.scale_amount_curve.add_point(Vector2(0.0, 1.0))
+	pixels.scale_amount_curve.add_point(Vector2(1.0, 0.3))
+	pixels.color_ramp = _pixel_ramp(PilotCommand.GEAR_COMBAT)
+	pixels.emitting = false
+	add_child(pixels)
+	return pixels
+
+
+static func _pixel_ramp(gear: int) -> Gradient:
+	var gradient := Gradient.new()
+	if gear == PilotCommand.GEAR_CRUISE:
+		gradient.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+		gradient.colors = PackedColorArray([Color(0.75, 0.9, 1.0, 0.95), Color(0.35, 0.3, 1.0, 0.7), Color(0.05, 0.02, 0.3, 0.0)])
+	else:
+		gradient.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+		gradient.colors = PackedColorArray([Color(1.0, 1.0, 1.0, 0.95), Color(0.0, 0.7, 1.0, 0.7), Color(0.0, 0.2, 0.6, 0.0)])
+	return gradient
 
 
 func _make_flame(index: int) -> MeshInstance3D:

@@ -11,7 +11,8 @@ failures before the terrain changes; current suite must be re-run after every co
    their Sol profiles on LEGACY; do not ship placeholder heights.
 3. ~~Implement Rodina hull restitution 0.8 and the `SetVelocityControl` authority ramp with tests.~~ Done in the N14 physics pass; the exact Havok meaning of `SetVelocityControl` is still an explicit ADAPT.
 4. Audit the N13 particle/camera port against `EGDataParticles.lua` and supplied frames; the N13 shader uses
-   inferred particle semantics and must not be called exact.
+   inferred particle semantics and must not be called exact. The pixel engine overlay is a user-design
+   addition, not a source port.
 5. Inspect/replace the N13 atmosphere filter calibration once the shader/filter evidence is available.
 6. Human-audition audio and record findings in `RODINA_AUDIO_COMPARISONS.md`.
 7. Keep the proprietary Rodina WAVs and transcribed particle tables local; do not push this public repository.

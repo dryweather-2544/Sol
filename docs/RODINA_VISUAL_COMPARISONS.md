@@ -26,3 +26,11 @@ gameplay videos, Steam screenshots, selected frames, palettes). Sol captures: `d
 The N13 port's shader formulas are source-derived, but its Voronoi point buffer and engine particle semantics
 are inferred. Do not describe those adaptations as exact ports. The user-supplied Rodina frames are the
 authority for composition; source data is the authority for formulae.
+
+
+## N14 engine-flame capture
+
+`/tmp/n14_pixel_check/combat_thrust.jpg` is the real main scene with the Rodina-style engine flame cone plus
+the owner-requested hard-edged pixel particle layer. The layer uses the same stepped language as the entry
+fire; the cone and transcribed particle defs remain underneath. This is a visual-design overlay, not a
+claim that Rodina's own engine material is a pixel emitter.
