@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Resource_2j8by"]
 script = ExtResource("2_etvyy")
 radius = 1700000.0
-generation_revision = 1
+generation_revision = 2
 grammar = 5
 terrain_seed = 7777
 macro_amplitude = 500.0

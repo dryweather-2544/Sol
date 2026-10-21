@@ -204,32 +204,38 @@ func _holes(value: float, thresholds: Vector4) -> float:
 
 
 func _perun_height(p: Vector3) -> float:
-	# GenerationVars[1..17] for Perun (EGDataPlanets.lua:286-324). Seed groups are 10/0.
-	var mask_distort := _warp(10, p, 1.0, 1.0, 2.0, 2, 0)
-	var distort := _warp(0, p, 1.0, 1.0, 2.0, 9, 1)
-	var mask_coord := (p + mask_distort * 0.05 + distort * 0.005).normalized()
-	var base_coords := (p + distort * 0.02).normalized()
-	var mountain_distort := _warp(10, mask_coord, 1.0, 2.0, 2.0, 2, 2)
-	var mountain_coord1 := (mask_coord + mountain_distort * 0.2).normalized()
-	var mountain_coords := (p + distort * 0.001).normalized()
-	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25, 3)
-	var holes := _holes(_fractal(0, mountain_coords, 1.0, 128.0, 2.0, 4, 4), Vector4(0.275, 0.375, 0.375, 0.55))
-	var plateau := analog(_fractal(10, mask_coord, 3.0, 0.56, 2.0, 12, 5), 0.5, 0.675, 0.0, 1.0)
-	var mountain_perlin := _fractal(10, mountain_coord1, 3.0, 0.6, 2.0, 5, 6)
-	var mountain_mask := analog(mountain_perlin, 0.45, 0.6, 0.0, 1.0)
-	var mountains := analog(_fractal(0, mountain_coords, 1.0, 1.0, 2.0, 9, 7), 0.4, 0.7, 0.0, 1.0)
-	mountains = analog(mountain_mask * mountains, 0.0, 0.5, 0.0, 1.0)
-	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)
+	# PlanetPerun.h GetPlanetFeatures/GetPlanetHeight with Perun's GenerationVars
+	# (EGDataPlanets.lua:286-324; the [n] indices below). Every formula and constant is the
+	# original's; the noise primitives are the Rodina-shaped helpers shared with Jarilo.
+	var mask_distort := p - _r_deriv(10.0, p, 1.0, 1.0, 2.0, 2)        # seeds1.x, [1]
+	var distort := p - _r_deriv(0.0, p, 1.0, 1.0, 2.0, 9)              # seeds2.x, [2]
+	var mask_coord := (p + mask_distort * 0.05 + distort * 0.005).normalized()  # [4]
+	var base_coords := (p + distort * 0.02).normalized()               # [5]
+	var mountain_distort := mask_coord - _r_deriv(10.0, mask_coord, 1.0, 2.0, 2.0, 2)  # seeds1.y, [3]
+	var mountain_coord1 := (mask_coord + mountain_distort * 0.2).normalized()  # [6].x
+	var mountain_coords := (p + distort * 0.001).normalized()          # [6].y
+	var base := _r_voronoi2(base_coords, 0.5, 0.5, 0.25)               # [15]
+	var holes := _holes(_r_fbm(0.0, mountain_coords, 0.5, 128.0, 2.0, 4), Vector4(0.275, 0.375, 0.375, 0.55))  # seeds2.y, [9], [10]
+	var plateau := analog(_r_fbm(10.0, mask_coord, 0.56, 3.0, 2.0, 12), 0.5, 0.675, 0.0, 1.0)  # seeds1.z, [7], [8]
+	var mountain_mask := analog(_r_fbm(10.0, mountain_coord1, 0.6, 3.0, 2.0, 5), 0.45, 0.6, 0.0, 1.0)  # seeds1.w, [11], [12]
+	var mountains := analog(_r_fbm(0.0, mountain_coords, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0)  # seeds2.z, [13], [14]
+	mountains = mountain_mask * mountains
+	# GetPlanetHeight
+	mountains = analog(mountains, 0.0, 0.5, 0.0, 1.0)           # [100]
+	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)      # [101]
 	mountains = mountains * mountains
-	plateau = ease_out_in_sin2(analog(plateau, 0.1, 0.425, 0.0, 1.0))
-	base = ease_out_in_sin2(analog(base, 0.4, 0.7, 0.3, 1.0))
+	plateau = ease_out_in_sin2(analog(plateau, 0.1, 0.425, 0.0, 1.0))  # [105]
+	base = ease_out_in_sin2(analog(base, 0.4, 0.7, 0.3, 1.0))   # [110]
 	base = lerpf(base, 0.0, plateau)
 	base = lerpf(base, 0.0, mountains)
 	mountains = lerpf(mountains, 0.0, holes)
 	var height := 0.0
-	height += mountains * (20000.0 * _fractal(0, p, roughness, 500.0, 2.0, 12))
-	height += plateau * (12000.0 + 5000.0 * _fractal(0, p, 0.5, 300.0, 2.0, 10, 9))
-	height += base * (500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7, 10))
+	if mountains > 0.0:
+		height += mountains * (20000.0 * _r_fbm(0.0, p, roughness, 500.0, 2.0, 12))   # [102], [103]
+	if plateau > 0.0:
+		height += plateau * (12000.0 + 5000.0 * _r_fbm(0.0, p, 0.5, 300.0, 2.0, 10))  # [106], [107]
+	if base > 0.0:
+		height += base * (500.0 * _r_fbm(0.0, p, 0.35, 3750.0, 2.0, 7))               # [111], [112]
 	return height
 
 
@@ -394,43 +400,64 @@ static func ease_out_in_sin(value: float) -> float:
 	return sin(t * PI * 0.5) * sin(t * PI * 0.5)
 
 
+## _voronoi.h Voronoi(p, max): nearest-point distance only, remapped 0..max -> 1..0. Uses the same
+## cell field as _r_voronoi2; for ~1000 uniform points the nearest distance averages 0.8 x the
+## mean of the two nearest (Poisson: 0.5 / 0.625).
+func _r_voronoi1(p: Vector3, max_distance: float) -> float:
+	return _r_voronoi2(p, 0.4, 0.4, max_distance)
+
+
 func _veles_height(p: Vector3) -> float:
-	# PlanetVeles.h constants. Deliberately kept short until this grammar is calibrated against
-	# a Veles screenshot; it is still much closer than the generic Sol noise stack.
-	var base := _voronoi_base(p, 0.25, 0.5, 0.25, 22)
-	var plate_cracks := _fractal(10, p, 1.0, 10.0, 2.0, 10, 23)
-	plate_cracks = analog(absf(0.5 - plate_cracks), 0.0, 0.025, 1.0, 0.25)
-	var plate_mask := _fractal(10, p, 1.0, 1.0, 2.0, 10, 24) * analog(p.x, -0.9, 0.0, 0.3, 2.0)
+	# PlanetVeles.h. Its domain warps are commented out in the shader, so every coordinate is p.
+	var base := _r_voronoi1(p, 0.25)
+	var half_mask := analog(p.x, -0.9, 0.0, 0.3, 2.0)
+	var holes := _r_fbm(0.0, p, 0.5, 128.0, 2.0, 4)
+	if holes <= 0.375:
+		holes = smoothstep(0.275, 0.375, holes)
+	else:
+		holes = smoothstep(0.55, 0.375, holes)
+	var plate_cracks := analog(absf(0.5 - _r_fbm(10.0, p, 0.56, 10.0, 2.0, 10)), 0.0, 0.025, 1.0, 0.25)
+	var plate_mask := _r_fbm(10.0, p, 0.6, 1.0, 2.0, 10) * half_mask
 	var plateau := analog(plate_mask, 0.4, 0.41, 0.0, 1.0) - plate_cracks
 	var mountain_mask := analog(plate_mask, 0.375, 0.45, 0.0, 1.0)
-	var mountains := analog(_fractal(0, p, 1.0, 1.0, 2.0, 9, 25), 0.4, 0.7, 0.0, 1.0)
-	mountains = analog(mountain_mask * mountains, 0.0, 0.5, 0.0, 1.0)
-	mountains = mountains * mountains
+	var mountains := analog(_r_fbm(0.0, p, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0)
+	mountains = mountain_mask * mountains
+	# GetPlanetHeight
 	plateau = ease_out_in_sin2(plateau)
 	mountains = analog(mountains, 0.0, 0.5, 0.0, 1.0)
+	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)
+	mountains = mountains * mountains
 	base = lerpf(base, 0.0, plateau)
 	base = lerpf(base, 0.0, mountains)
 	var volcano := pow(analog(base, 0.875, 0.995, 0.0, 1.0), 3.0)
+	if base > 0.9955:
+		volcano = analog(base, 0.9955, 0.998, 1.0, 0.45)
+	volcano = smoothstep(0.0, 1.0, volcano)
 	base = ease_out_in_sin2(analog(base, 0.4, 0.7, 0.3, 1.0))
-	mountains = lerpf(mountains, 0.0, _holes(0.0, Vector4(0.275, 0.375, 0.375, 0.55)))
+	mountains = lerpf(mountains, 0.0, holes)
 	var height := 0.0
-	height += mountains * (20000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12, 26))
-	height += plateau * (15000.0 + 5000.0 * _fractal(0, p, 0.5, 300.0, 2.0, 10, 27))
-	height += (base * 8000.0 + volcano * 5000.0) * _fractal(0, p, 0.5, 500.0, 2.0, 12, 28)
+	if mountains > 0.0:
+		height += mountains * (20000.0 * _r_fbm(0.0, p, roughness, 500.0, 2.0, 12))
+	if plateau > 0.0:
+		height += plateau * (15000.0 + 5000.0 * _r_fbm(0.0, p, 0.5, 300.0, 2.0, 10))
+	var lowland := base * 8000.0 + volcano * 5000.0
+	if lowland > 0.0:
+		height += lowland * _r_fbm(0.0, p, 0.5, 500.0, 2.0, 12)
 	height += volcano * 30000.0
 	return height
 
 
 func _morena_height(p: Vector3) -> float:
-	# PlanetMorena.h: a hand-written cracked-plate grammar, not a GenerationVars world.
-	var crack_distort_big := _warp(12, p, 0.5, 0.5, 2.0, 8, 29)
-	var crack_distort := _warp(10, p, 0.5, 2.0, 2.0, 8, 30)
+	# PlanetMorena.h: a hand-written cracked-plate grammar, not a GenerationVars world. Every
+	# formula and constant is the original's.
+	var crack_distort_big := _r_deriv(12.0, p, 0.5, 0.5, 2.0, 8)
+	var crack_distort := _r_deriv(10.0, p, 0.5, 2.0, 2.0, 8)
 	var crack_coord := (p + crack_distort_big * 0.05 + crack_distort * 0.075).normalized()
-	var plate_perlin := _fractal(10, p, 0.6, 60.0, 2.0, 7, 31)
+	var plate_perlin := _r_fbm(10.0, p, 0.6, 60.0, 2.0, 7)
 	var big_mask_1 := plate_perlin - cos(clampf(30.0 * (0.9 * crack_coord.z + 0.3 * crack_coord.y), -8.0 * PI, 8.0 * PI))
 	var big_mask_2 := plate_perlin - cos(clampf(30.0 * crack_coord.z, -8.0 * PI, 8.0 * PI))
 	var plate_cracks := minf(absf(big_mask_1), absf(big_mask_2))
-	var small_cracks := _fractal(0, p, 0.56, 25.0, 2.0, 10, 32)
+	var small_cracks := _r_fbm(0.0, p, 0.56, 25.0, 2.0, 10)
 	small_cracks = minf(absf(0.46 - small_cracks), minf(absf(0.5 - small_cracks), absf(0.54 - small_cracks)))
 	small_cracks = smoothstep(0.0, 1.0, analog(small_cracks, 0.003, 0.010, 1.0, 0.0))
 	var hills := 0.0
@@ -443,16 +470,16 @@ func _morena_height(p: Vector3) -> float:
 		small_cracks *= smoothstep(0.0, 1.0, analog(plate_cracks, 0.3, 0.35, 1.0, 0.0))
 	var big_cracks := ease_out_in_sin(analog(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75
 	var cracks := maxf(big_cracks, small_cracks * 0.25)
-	var plateau := lerpf(1.0, 0.0, analog(dunes, 0.0, 0.15, 0.0, 1.0))
+	var dune_mask := analog(dunes, 0.0, 0.15, 0.0, 1.0)
+	var plateau := lerpf(1.0, 0.0, dune_mask)
 	var mountains := lerpf(hills, 0.0, cracks)
 	var height := 14000.0
-	height += plateau * (-1000.0 + 2000.0 * _fractal(0, p, 0.48, 300.0, 2.0, 6, 33))
+	height += plateau * (-1000.0 + 2000.0 * _r_fbm(0.0, p, 0.48, 300.0, 2.0, 6))
 	height += cracks * -15000.0
 	if mountains > 0.0:
-		height += mountains * 30000.0 * _fractal(0, p, 0.5, 500.0, 2.0, 12, 34)
-	var dune_mask := analog(dunes, 0.0, 0.15, 0.0, 1.0)
+		height += mountains * 30000.0 * _r_fbm(0.0, p, 0.5, 500.0, 2.0, 12)
 	if dune_mask > 0.0:
-		var dune_distort := _warp(12, p, 0.5, 100.0, 2.0, 3, 35)
+		var dune_distort := _r_deriv(12.0, p, 0.5, 100.0, 2.0, 3)
 		var dune_coord := (p + dune_distort * 0.001).normalized()
 		var control := sin(dune_coord.dot(Vector3(1, -1, -1)) * 1000.0)
 		var x1 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 400.0, 1.0)
@@ -466,33 +493,26 @@ func _morena_height(p: Vector3) -> float:
 
 
 func _asteroid_height(p: Vector3) -> float:
-	# PlanetAsteroid.h: the same base/plateau/mountain/hole feature grammar as Perun, with a flat
-	# radius offset. The small Asteroid GenerationVars are used (plateau 3 km, mountains 0.5 km);
-	# the amplitude is scaled down for a tiny body like Pebble and kept for Selene.
+	# PlanetAsteroid.h (the uncommented GetPlanetFeatures) with the Asteroid GenerationVars block
+	# (EGDataPlanets.lua:1252+; later duplicates win, as in Lua). The engine's per-rock
+	# Randomize() seeds are not reproducible, so the block's own seeds (20,10,113,20) are used.
+	# Amplitudes are scaled for tiny bodies such as Pebble and kept as authored for Selene.
 	var scale := clampf(profile.radius / 1700000.0, 0.1, 1.0)
-	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2, 36)
-	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9, 37)
-	var base_coords := (p + map_distort * 0.1 + feature_distort * 0.005).normalized()
-	var plateau_coord := (p + map_distort * 0.0 + feature_distort * 0.0).normalized()
-	var base := _voronoi_base(base_coords, 0.5, 0.5, 0.25, 38)
-	var plateau := analog(_fractal(10, plateau_coord, 0.5, 2.0, 2.0, 9, 39), 0.0, 1.0, 0.0, 1.0)
-	var mountain_perlin := _fractal(10, plateau_coord, 0.5, 1.0, 2.0, 3, 40)
-	var mountain_mask := analog(mountain_perlin, 0.5, 1.0, 0.0, 1.0)
-	var mountains := analog(_fractal(0, p, 0.5, 2.0, 2.0, 9, 41), 0.4, 1.0, 0.0, 1.0)
-	var holes := _holes(_fractal(0, p, 0.5, 40.0, 2.0, 4, 42), Vector4(0.1, 0.39, 0.4, 0.65))
-	mountains = analog(mountain_mask * mountains, 0.0, 0.35, 0.0, 1.0)
-	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)
+	# The base term is base * (0 + 0 * noise) because [112] is zero, so the Voronoi and the
+	# map/feature distortions that only feed it are skipped.
+	# [4] and [6] are zero, so the plateau and mountain coordinates are p itself.
+	var plateau := analog(_r_fbm(113.0, p, 0.5, 0.5, 2.0, 12), 0.0, 1.0, 0.0, 1.0)  # seeds1.z, [7], [8]
+	var mountains := analog(_r_fbm(0.0, p, 0.5, 1.0, 2.0, 3), 0.5, 1.0, 0.0, 1.0)  # seeds2.z, [13], [14]
+	# mountainMask is 1 ([12] has zero width and saturates). GetPlanetHeight ([10] holes range is 1,1,1,1: holes are always 0)
+	mountains = analog(mountains, 0.0, 0.3, 0.0, 1.0)            # [100]
+	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)       # [101]
 	mountains = mountains * mountains
-	plateau = analog(plateau, 0.4, 0.8, 0.0, 1.0)
-	base = ease_out_in_sin2(analog(base, 0.4, 0.7, 0.3, 1.0))
-	base = lerpf(base, 0.0, plateau)
-	base = lerpf(base, 0.0, mountains)
-	mountains = lerpf(mountains, 0.0, holes)
-	var height := -1000.0 * scale
-	height += mountains * (250.0 + 150.0 * _fractal(0, p, roughness, 80.0, 2.0, 10)) * scale
-	height += plateau * 3000.0 * scale
-	height += base * 500.0 * _fractal(0, p, 0.35, 3750.0, 2.0, 7, 44) * scale
-	return height
+	plateau = analog(plateau, 0.0, 1.0, 0.0, 1.0)                # [105]
+	var height := -1000.0                                        # [104]
+	if mountains > 0.0:
+		height += mountains * 500.0 * _r_fbm(0.0, p, roughness, 2.5, 2.0, 10)   # [102], [103]
+	height += plateau * 3000.0                                   # [107]
+	return height * scale
 
 
 func height(direction: Vector3) -> float:
