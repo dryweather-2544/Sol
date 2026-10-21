@@ -233,45 +233,155 @@ func _perun_height(p: Vector3) -> float:
 	return height
 
 
+## Rodina's Jarilo (PlanetJarilo.h GetPlanetFeatures/GetPlanetHeight) with its GenerationVars
+## (EGDataPlanets.lua Jarilo; [14] is listed twice there, the later value wins as in Lua).
+## Every formula and constant is the original's. The Perlin octaves of FractalPerlin and
+## FractalPerlinDerivative come from FastNoiseLite's Perlin (same seed-as-coordinate-offset and
+## per-octave coordinate derivative as _perlin.h; a different lattice hash; plain FractalPerlin uses
+## FastNoiseLite's own FBM, which is the same sum normalised the same way), SpecialPerlin keeps the
+## original's derivative damping, and Voronoi2's 1000 engine-supplied points are replaced by a
+## cellular field calibrated to the same distance distribution (the points are not in the
+## recovered files). Exact _perlin.h noise: RodinaNoise (too slow per vertex in GDScript).
+const JARILO_VORONOI_FREQUENCY := 8.9 ## cells per unit: ~1000 cells over the unit sphere
+const JARILO_VORONOI_JITTER := 2.0
+
 func _jarilo_height(p: Vector3) -> float:
-	# GenerationVars[1..17,100..114] for Jarilo (EGDataPlanets.lua:567-615).
-	var map_distort := _warp(10, p, 1.0, 1.0, 2.0, 2, 11)
-	var feature_distort := _warp(0, p, 1.0, 1.0, 2.0, 9, 12)
-	var base_coords := (p + map_distort * 0.06 + feature_distort * 0.02).normalized()
-	var plateau_coord := (p + map_distort * 0.05 + feature_distort * 0.0).normalized()
-	var dunes := _voronoi_base(base_coords, 0.5, 0.5, 0.25, 13)
-	var plateau := analog(_fractal(10, plateau_coord, 2.0, 0.5, 2.0, 16, 14), 0.4, 0.8, 0.0, 1.0)
-	var mountain_distort := _warp(10, plateau_coord, 1.0, 2.0, 2.0, 2, 15)
-	var mountain_coord1 := (plateau_coord + mountain_distort * 0.0).normalized()
-	var mountain_coords := (p + feature_distort * 0.001).normalized()
-	var mountain_perlin := _fractal(10, mountain_coord1, 1.0, 1.0, 2.0, 9, 16)
-	var mountain_mask := analog(mountain_perlin, 0.45, 0.8, 0.0, 1.0)
-	var mountains := analog(_fractal(0, mountain_coords, 1.0, 2.0, 2.0, 2, 17), 0.0, 0.5, 0.0, 1.0)
-	mountains = analog(mountain_mask * mountains, 0.0, 0.5, 0.0, 1.0)
+	# GetPlanetFeatures
+	var map_distort := p - _r_deriv(10.0, p, 1.0, 1.0, 2.0, 2)        # seeds1.x, [1]
+	var feature_distort := p - _r_deriv(0.0, p, 1.0, 1.0, 2.0, 9)     # seeds2.x, [2]
+	var base_coords := (p + map_distort * 0.06 + feature_distort * 0.02).normalized()  # [5]
+	var base := _r_voronoi2(base_coords, 0.5, 0.5, 0.2)                # [15]
+	var plateau_coord := (p + map_distort * 0.05 + feature_distort * 0.0).normalized()  # [4]
+	var plateau := analog(_fractal(20, plateau_coord, 0.5, 2.0, 2.0, 16, 46), 0.4, 0.8, 0.0, 1.0)  # seeds1.z, [7], [8]
+	var mountain_distort := plateau_coord - _r_deriv(10.0, plateau_coord, 1.0, 2.0, 2.0, 2)  # seeds1.y, [3]
+	var mountain_coord1 := (plateau_coord + mountain_distort * 0.0).normalized()  # [6].x
+	var mountain_coords := (p + feature_distort * 0.001).normalized()             # [6].y
+	var mountain_mask := analog(_fractal(21, mountain_coord1, 0.5, 2.0, 2.0, 5, 47), 0.1, 0.4, 0.0, 1.0)  # seeds1.w, [11], [12]
+	var mountains := analog(_fractal(0, mountain_coords, 1.0, 1.0, 2.0, 9, 48), 0.45, 0.8, 0.0, 1.0)     # seeds2.z, [13], [14]
+	var holes := _holes(_fractal(1, p, 0.5, 2500.0, 2.0, 4, 49), Vector4(0.0, 0.0, 0.375, 0.5))       # seeds2.y, [9], [10]
+	mountains = mountain_mask * mountains
+	# GetPlanetHeight
+	var dunes := base
+	mountains = analog(mountains, 0.0, 0.5, 0.0, 1.0)            # [100]
+	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)       # [101]
 	mountains = mountains * mountains
-	var holes := _holes(_fractal(0, p, 1.0, 2500.0, 2.0, 4, 18), Vector4(0.0, 0.0, 0.375, 0.5))
-	plateau = ease_out_in_sin2(analog(plateau, 0.4, 0.8, 0.0, 1.0))
-	dunes = ease_out_in_sin2(analog(dunes, 0.4, 0.7, 0.0, 1.0))
-	dunes = analog(plateau, 0.0, 0.15, dunes, 0.0)
-	dunes = analog(mountains, 0.05, 0.1, dunes, 0.0)
+	plateau = ease_out_in_sin2(analog(plateau, 0.05, 0.1, 0.0, 1.0))  # [105]
+	dunes = ease_out_in_sin2(analog(dunes, 0.4, 0.7, 0.0, 1.0))       # [110]
+	dunes = analog(plateau, 0.0, 0.15, dunes, 0.0)               # [113]
+	dunes = analog(mountains, 0.05, 0.1, dunes, 0.0)             # [114]
 	var height := 0.0
-	height += mountains * (50000.0 * _special(0, p, 0.0, 500.0, 2.0, 12, 19))
-	var plateau_hills := _special(153, p, 0.5, 4000.0, 2.0, 9, 20)
-	plateau_hills = lerpf(plateau_hills, 0.45, holes)
-	height += plateau * (2000.0 + 2000.0 * plateau_hills)
-	var dune_mask := dunes
-	if dune_mask > 0.0:
-		var dune_distort := _warp(12, p, 1.0, 0.5, 2.0, 3, 21)
+	if mountains > 0.0: # mountains * (...) is 0 otherwise; skipping it changes nothing
+		height += mountains * (0.0 + 50000.0 * _r_special(0.0, p, roughness, 500.0, 2.0, 12))  # [102], [103]
+	if plateau > 0.0:
+		var plateau_hills := _r_special(153.0, p, 0.5, 4000.0, 2.0, 9)  # [106]
+		plateau_hills = lerpf(plateau_hills, 0.45, holes)                        # [108]
+		height += plateau * (2000.0 + 2000.0 * plateau_hills)                    # [107]
+	if dunes > 0.0:
+		var dune_distort := _r_deriv(12.0, p, 0.5, 100.0, 2.0, 3)
 		var dune_coord := (p + dune_distort * 0.001).normalized()
-		var dune_control := sin(dune_coord.dot(Vector3(1, -1, -1)) * 1000.0)
-		var x1 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 800.0, 1.0)
-		var x2 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 800.0 + 0.5, 1.0)
+		var dune_control := sin(dune_coord.dot(Vector3(1, -1, -1)) * 1000.0)   # [111].x
+		var x1 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 800.0, 1.0)       # [111].y
+		var x2 := fposmod(dune_coord.dot(Vector3(1, 1, 1)) * 800.0 + 0.5, 1.0) # [111].z
 		var shape1 := ease_in_sin(absf(analog(x1, 0.0, 1.0, -1.0, 1.0)))
 		var shape2 := ease_in_sin(absf(analog(x2, 0.0, 1.0, -1.0, 1.0)))
 		var dune1 := shape1 * ease_out_in_sin(analog(dune_control, 1.0, -1.0, 0.0, 1.0))
 		var dune2 := shape2 * ease_out_in_sin(analog(dune_control, -1.0, 1.0, 0.0, 1.0))
-		height += dune_mask * (700.0 * dune1 + 700.0 * dune2)
+		height += dunes * (700.0 * dune1 + 700.0 * dune2)                       # [112]
 	return height
+
+
+# --- Rodina-shaped fractals over a single Perlin octave field (see _jarilo_height) ----------
+var _r_noise: FastNoiseLite
+var _r_cells: FastNoiseLite
+
+
+func _r_octave_noise() -> FastNoiseLite:
+	if _r_noise == null:
+		_r_noise = FastNoiseLite.new()
+		_r_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+		_r_noise.fractal_type = FastNoiseLite.FRACTAL_NONE
+		_r_noise.frequency = 1.0
+		_r_noise.seed = SeedHash.derive(profile.terrain_seed, "rodina_perlin") & 0x7FFFFFFF
+	return _r_noise
+
+
+## _perlin.h FractalPerlin: octaves of Perlin at seed + p * frequency, normalised to 0..1.
+func _r_fbm(seed: float, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int) -> float:
+	var noise_field := _r_octave_noise()
+	var frequency := octave_base
+	var noise := 0.0
+	var range_sum := 0.0
+	var mult := 1.0
+	for octave in octaves:
+		noise += mult * noise_field.get_noise_3d(seed + p.x * frequency, seed + p.y * frequency, seed + p.z * frequency)
+		range_sum += mult
+		frequency *= octave_change
+		mult *= mult_change
+	return clampf((noise + range_sum) / (2.0 * range_sum), 0.0, 1.0)
+
+
+## _perlin.h FractalPerlinDerivative(...).xyz: sum over octaves of mult x dPerlin/dcoord (derivative
+## in each octave's own coordinate, not chain-ruled by frequency, as in the original).
+func _r_deriv(seed: float, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int) -> Vector3:
+	var noise_field := _r_octave_noise()
+	var frequency := octave_base
+	var total := Vector3.ZERO
+	var mult := 1.0
+	var e := 0.01
+	for octave in octaves:
+		var cx := seed + p.x * frequency
+		var cy := seed + p.y * frequency
+		var cz := seed + p.z * frequency
+		var n0 := noise_field.get_noise_3d(cx, cy, cz)
+		total += mult * Vector3(noise_field.get_noise_3d(cx + e, cy, cz) - n0, noise_field.get_noise_3d(cx, cy + e, cz) - n0, noise_field.get_noise_3d(cx, cy, cz + e) - n0) / e
+		frequency *= octave_change
+		mult *= mult_change
+	return total
+
+
+## _perlin.h SpecialPerlin: each octave divided by 1 + the running x/z derivative squared.
+func _r_special(seed: float, p: Vector3, mult_change: float, octave_base: float, octave_change: float, octaves: int) -> float:
+	var noise_field := _r_octave_noise()
+	var frequency := octave_base
+	var noise := 0.0
+	var range_sum := 0.0
+	var mult := 1.0
+	var dx := 0.0
+	var dz := 0.0
+	var e := 0.01
+	for octave in octaves:
+		var cx := seed + p.x * frequency
+		var cy := seed + p.y * frequency
+		var cz := seed + p.z * frequency
+		var n0 := noise_field.get_noise_3d(cx, cy, cz)
+		dx += (noise_field.get_noise_3d(cx + e, cy, cz) - n0) / e
+		dz += (noise_field.get_noise_3d(cx, cy, cz + e) - n0) / e
+		noise += mult * n0 / (1.0 + dx * dx + dz * dz)
+		range_sum += mult
+		frequency *= octave_change
+		mult *= mult_change
+	return clampf((noise + range_sum) / (2.0 * range_sum), 0.0, 1.0)
+
+
+## _voronoi.h Voronoi2(p, (f1, f2), max): (f1 x nearest + f2 x second-nearest distance) remapped
+## 0..max -> 1..0. Cellular field with ~1000 cells over the unit sphere in place of the points.
+func _r_voronoi2(p: Vector3, factor1: float, factor2: float, max_distance: float) -> float:
+	if _r_cells == null:
+		_r_cells = FastNoiseLite.new()
+		_r_cells.noise_type = FastNoiseLite.TYPE_CELLULAR
+		_r_cells.frequency = JARILO_VORONOI_FREQUENCY
+		_r_cells.cellular_jitter = JARILO_VORONOI_JITTER
+		_r_cells.cellular_distance_function = FastNoiseLite.DISTANCE_EUCLIDEAN
+		_r_cells.cellular_return_type = FastNoiseLite.RETURN_DISTANCE2_ADD
+		_r_cells.seed = SeedHash.derive(profile.terrain_seed, "rodina_voronoi") & 0x7FFFFFFF
+	# DISTANCE2_ADD returns (d1 + d2) / 2 - 1 in cell units; convert to unit-sphere distance.
+	var cell_mean := (_r_cells.get_noise_3d(p.x, p.y, p.z) + 1.0) / JARILO_VORONOI_FREQUENCY
+	# A jittered 3D cell grid has a narrower spread of (d1 + d2) / 2 than 1000 uniform random points
+	# on the sphere; this linear map matches that distribution's 10th-90th percentiles (calibrated by
+	# brute force over 1000 seeded points, 1500 queries: medians 0.067 vs 0.067).
+	var mean_distance := maxf(0.0, -0.1016 + 2.456 * cell_mean)
+	var distance := (factor1 + factor2) * mean_distance
+	return analog(distance, 0.0, max_distance, 1.0, 0.0)
 
 
 static func ease_in_sin(value: float) -> float:
