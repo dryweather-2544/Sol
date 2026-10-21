@@ -31,7 +31,7 @@ static func intensity_for(speed: float, gear: int) -> float:
 		return 0.0
 	# COMBAT is the labelled reference mode and tops out around 500 m/s. Use that real band rather
 	# than a cruise/warp-scale fade that would leave the field invisible in actual combat.
-	return smoothstep(180.0, 500.0, speed) * 0.58
+	return smoothstep(180.0, 500.0, speed) * 0.82
 
 
 func _process(delta: float) -> void:

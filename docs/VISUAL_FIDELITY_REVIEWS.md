@@ -51,7 +51,7 @@ zero at low speed and when the style is `sol`.
 - Remaining visual gap in that capture: trails are straighter/sparser than the reference's curved
   twin trails; the debug HUD dominates; the reference's painted galaxy band and blocky entry fire
   are still absent. Those are the next priorities, not reasons to undo this change.
-- Tests: 324 tests / 97,129 assertions / 0 failures. The camera-rebase test from N12 still passes.
+- Tests: 324 tests / 97,140 assertions / 0 failures. The camera-rebase test from N12 still passes.
 
 **Next iteration priority:** add the blue/white COMBAT-SPEED streak field or a galaxy/sky pass only
 after checking the corresponding reference sequence; do not add invented WARP visuals.
@@ -74,7 +74,7 @@ and more structured. The shipped `sky/tex_sky_starfield.png` is the intended tex
 current `starfield=false` setting hides it, so this procedural band is only a fallback under that
 setting. Sol style keeps `galaxy_amount=0` and is unchanged.
 
-Tests after both iterations: 324 tests / 97,129 assertions / 0 failures.
+Tests after both iterations: 324 tests / 97,140 assertions / 0 failures.
 
 
 ### Third iteration — COMBAT-SPEED streak field (2026-10-21)
@@ -127,7 +127,7 @@ Capture: `/tmp/n13_hud_reticle.png`.
 
 Target brackets were added in the same pass: visible hostile targets are projected through the active
 camera and drawn as four corner brackets in orange, filtered for team/alive/behind-camera. The
-capture path is `/tmp/n13_hud_reticle.png` (no hostile present in that frame). Tests: 326 / 97,139 / 0.
+capture path is `/tmp/n13_hud_reticle.png` (no hostile present in that frame). Tests: 326 / 97,140 / 0.
 
 
 ### Seventh iteration — projectile hit flashes (2026-10-21)

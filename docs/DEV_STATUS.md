@@ -29,7 +29,7 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - Implemented the evidence-backed speed gap in the Rodina style: 85 m chase framing, dark hull silhouette, twin state-driven dotted exhaust trails (lime for cruise, blue-white for WARP), plus a soft fallback galaxy/dust band under the starfield asset switch. Sol style is unchanged.
 - Added a Rodina-only COMBAT-SPEED blue/white streak layer and blocky orange/purple entry fire with a resistance-driven purple wash; speed effects are suppressed during entry.
 - Added a compact Rodina-style HUD for seated, inside and on-foot views, reticle/target brackets, a cockpit-view obstruction fix, and strictly separated the combat streak field from cruise trails.
-- Tests: 326 tests / 97,139 assertions / 0 failures. Graphical captures in `/tmp/n13_hud_cruise.png` and `/tmp/n13_entry_probe/entry3.png`; no human visual test yet.
+- Tests: 326 tests / 97,140 assertions / 0 failures. Graphical captures in `/tmp/n13_hud_cruise.png` and `/tmp/n13_entry_probe/entry3.png`; no human visual test yet.
 - Next: COMBAT-SPEED streak field/galaxy band/entry effect/HUD, guided by the video index.
 
 ## N12 — ship flicker/ghosting fix (branch `n12-render-flicker`)

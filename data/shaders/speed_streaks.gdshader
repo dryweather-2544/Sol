@@ -31,6 +31,6 @@ void fragment() {
 	float centre_fade = smoothstep(0.05, 0.34, abs(uv.y - 0.5));
 	float left_weight = smoothstep(0.00, 0.10, uv.x) * (1.0 - smoothstep(0.32, 0.72, uv.x));
 	float edge_fade = smoothstep(0.0, 0.12, uv.y) * (1.0 - smoothstep(0.88, 1.0, uv.y));
-	float alpha = clamp(intensity * s * left_weight * centre_fade * edge_fade * 1.35, 0.0, 0.65);
+	float alpha = clamp(intensity * s * left_weight * centre_fade * edge_fade * 1.55, 0.0, 0.82);
 	COLOR = vec4(tint * (0.8 + 0.5 * s), alpha);
 }
