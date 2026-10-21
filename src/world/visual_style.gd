@@ -81,6 +81,29 @@ static func space_parameters() -> Dictionary:
 	return {"space_color": Color(0.004, 0.005, 0.012), "star_gain": 1.0, "star_tint": Vector3.ONE, "star_gamma": 1.0}
 
 
+## Rodina's HUD fonts (Scripts/Render/MenuFonts.lua): face, size (pixels at 1080p) and colour per role. The faces are the
+## Google Fonts Rodina names (Orbitron, Michroma, Audiowide; OFL, in assets/sol/fonts); which Sol label takes which role
+## is Sol's choice.
+const RODINA_HUD_FONTS := {
+	&"info": {"face": "Orbitron-Variable", "size": 18, "color": Color(1, 1, 1)},            # InfoFont (35-46)
+	&"notification": {"face": "Orbitron-Variable", "size": 20, "color": Color(0.975, 0.975, 0.975)}, # NotificationFont (77-88)
+	&"warning": {"face": "Audiowide-Regular", "size": 24, "color": Color(1, 0.25, 0.25)},   # WarningFont (49-60)
+	&"discovery": {"face": "Michroma-Regular", "size": 50, "color": Color(1, 1, 1)},        # DiscoveryFont (5-16)
+	&"loading": {"face": "Orbitron-Variable", "size": 20, "color": Color(0.75, 0.9, 1)},    # LoadingFont (63-74)
+}
+
+
+## Font, size and colour for one HUD role under the rodina style, or {} under sol (labels keep their own look). The font
+## is null when the file is missing (the label then keeps Godot's default face but takes the size and colour).
+static func hud_font(role: StringName) -> Dictionary:
+	if not is_rodina() or not RODINA_HUD_FONTS.has(role):
+		return {}
+	var spec: Dictionary = RODINA_HUD_FONTS[role]
+	var path := "res://assets/sol/fonts/%s.ttf" % spec["face"]
+	var font: Font = load(path) if ResourceLoader.exists(path) else null
+	return {"font": font, "size": spec["size"], "color": spec["color"]}
+
+
 ## Multiplier on the ship's painted hull materials (Sol: none). Rodina's ships read as near-black silhouettes in every
 ## measured frame (DeepSeek's palette_report.csv: #05030d, #0d0916, #171221); the textured hull's base is ~0.7, so a
 ## 0.25 tint gives an albedo of ~0.17 (N13 palette pass, measured on Sol renders).
@@ -183,17 +206,19 @@ static func _rodina_base(family: StringName) -> PlanetLook:
 ## PlanetFeatureColor1a HSV(45, .5, .61) or 1b HSV(30, .5, 1) (EGDataPlanets.lua:548-551; the later lines win in Lua).
 ## Inferred: that the shader multiplies the two (PlanetJarilo.fx is not available) and which layer each Sol feature
 ## takes. Measured Rodina ground is this dark: #4c3422 and #2b1808 (palette_report.csv, steam01_salmon_sky_mountains).
+## Calibrated: those products are hue ~40 (olive in a render) while the measured ground is hue 26, so every hue here is
+## turned 15 degrees toward red, keeping saturation and value (what reddens it in Rodina is in the missing shader).
 static func _ochre_steppe() -> PlanetLook:
 	var look := _rodina_base(&"ochre_steppe")
 	look.features = [
 		{"color": _hex("#e3e3e3"), "latitude_min": 0.88, "latitude_fade": 0.03, "slope_max": 0.12}, # PolarIceCaps
-		{"color": _hex("#5a4924"), "slope_min": 0.1, "slope_fade": 0.03}, # Mountains x 1a
-		{"color": _hex("#93673b"), "height_min": 2600.0, "height_fade": 500.0}, # Mountains x 1b
-		{"color": _hex("#b67942"), "mask_scale": 9000.0, "mask_min": 0.25, "mask_fade": 0.12, "mask_seed": 1}, # BaseB x 1b
-		{"color": _hex("#7b622f"), "height_max": 300.0, "height_fade": 350.0}, # Dunes x 1a
+		{"color": _hex("#5a3b24"), "slope_min": 0.1, "slope_fade": 0.03}, # Mountains x 1a
+		{"color": _hex("#93513b"), "height_min": 2600.0, "height_fade": 500.0}, # Mountains x 1b
+		{"color": _hex("#b65c42"), "mask_scale": 9000.0, "mask_min": 0.25, "mask_fade": 0.12, "mask_seed": 1}, # BaseB x 1b
+		{"color": _hex("#7b4f2f"), "height_max": 300.0, "height_fade": 350.0}, # Dunes x 1a
 	]
-	look.base_color = _hex("#6f5628") # BaseB x 1a
-	look.orbit_color = _hex("#6f5628")
+	look.base_color = _hex("#6f4428") # BaseB x 1a
+	look.orbit_color = _hex("#6f4428")
 	look.sky_zenith = _hex("#5f6fb3")
 	look.sky_horizon = _hex("#e8c3a6")
 	look.sunset_color = _hex("#ff8a4a")
