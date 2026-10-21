@@ -154,8 +154,9 @@ dash and planet. Added a dark cockpit floor/tub and console/instrument geometry 
 Capture after the change: `/tmp/n13_cockpit_probe/cockpit4.png`. It is much closer to the reference
 cockpit composition, but still lacks the reference's detailed vents, dashboard screens and framing;
 those remain open. No flight or camera-transform logic changed.
-A screen-space cockpit dash with vents/screens was prototyped but did not render in the capture and
-was removed rather than shipped unverified.
+Two screen-space cockpit dash prototypes (a CanvasLayer callback and a direct Control draw) did not
+render in the capture and were removed rather than shipped unverified. The 3D canopy/dark-dash view
+is the accepted result of this pass.
 
 
 ### Ninth iteration — compact HUD on foot and in the ship (2026-10-21)
