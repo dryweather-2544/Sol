@@ -24,6 +24,9 @@ var boost := false
 var brake := false
 ## Coast with the drive disconnected (Rodina Clutch): thrust and drag do nothing, momentum and gravity carry the ship.
 var lock_linear := false
+## The pilot is holding the clutch (right mouse). Informational for effects and the HUD; the drive disconnect itself is
+## lock_linear, which the player source sets together with it (Rodina: Clutch and Gear < 4).
+var clutch := false
 ## 0..1 (Rodina MoveLock): how far to override the acceleration limit and match the thrust's target velocity exactly
 ## this tick. AI and scripted pilots use it to hold a velocity (Rodina's AI mover does); players leave it 0.
 var move_lock := 0.0
@@ -52,6 +55,7 @@ func without_thrust() -> PilotCommand:
 	copy.boost = boost
 	copy.brake = brake
 	copy.lock_linear = lock_linear
+	copy.clutch = clutch
 	copy.move_lock = move_lock
 	copy.stop_rotation = stop_rotation
 	copy.source_id = source_id
@@ -75,6 +79,7 @@ func without_boost() -> PilotCommand:
 	copy.gear = gear
 	copy.brake = brake
 	copy.lock_linear = lock_linear
+	copy.clutch = clutch
 	copy.move_lock = move_lock
 	copy.stop_rotation = stop_rotation
 	copy.source_id = source_id

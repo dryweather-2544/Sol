@@ -43,6 +43,21 @@ Everything about *feel*: flight handling, mouse sensitivity, camera lag, walking
 - Headless suite 323 tests / 97,120 assertions / 0 failures; live CoreAudio check 19/19 events. Footsteps and RCS hiss removed after playtest.
 - Music `.egu` unsupported and not integrated. Human listening/levels still unjudged. Details: `docs/N11_REPORT.md`.
 
+## Warp unlock (setting `warp_always_available`, default on)
+- The story gate (no Warp coil = open space at 0.05% speed and no WARP gear) was what stopped interplanetary travel. `WorldRuntime.advance` now treats the drive as online when the coil is installed OR the setting is on; the pause-menu Settings page has the toggle. Off restores the story gate. Tests: `progress_test` (new case); not run (no Godot in the cloud/VM).
+
+## Engine look pass (owner review of the first flight)
+- Combat-speed screen streaks removed (`SpeedEffects.intensity_for` is 0 in every gear): they were added by mistake from missile footage.
+- Engine pods now vector with the thrust (`ShipExterior.pod_angle_for`): level forward, upright for up, tipped past upright for reverse, nozzles up for down, upright when landed. Engine exhaust burns for any pod thrust.
+- Second pass: pods turn the full range (-90 to 180 degrees) at 4.5 rad/s; the engine glow orbs are gone (pixels only); the limnal/warp effects are drawn as hard squares matched to the Rodina warp footage (`RodinaEmitter.SQUARE_EFFECTS`): a startup ring of violet squares, big overlapping translucent squares filling the screen, a dense magenta core of small ones.
+- Long flame cone removed; the exhaust is 220 tiny squares (0.3 m, 0.2 s) packed at each nozzle. Not run (no Godot here).
+
+## Clutch gear shifting and gear HUD (Rodina EGBehaviorPlayer:UpdateShiftGears)
+- Right mouse (or Z) = clutch: drive disconnected (coast), W shifts up / S shifts down, commit on release, refused shifts grind once (`PlayerPilotSource._clutch_shift`, `ShipState.allowed_gear/shift_pending/shift_refusals`). `[` `]` still work.
+- `GearHud` (`src/ui/gear_hud.gd`): Rodina's stepped gear tiles (top right, sizes grow with gear, teal for the gear being shifted to) and the fading gear banner ("COMBAT SPEED"), measured from the owner's footage; replaces the standing gear tab in flight. The "||" in the footage is YouTube's pause overlay, not a HUD icon.
+- Engine flame colours: combat blue, cruise a white-hot core in a violet plume ("the purple gear").
+- Coasting "Wing" trails still not ported (their particle material is not in the extracted Rodina data). Tests added in `pilot_controller_test`; not run (no Godot here).
+
 ## N10 — WARP gear (branch `n10-warp`, latest remote base `143ca6e`)
 - Fourth WARP/Limnal gear above CRUISE, gated by the installed drive and open-space environment; 6.7x distance-scaled cap, faster fuel burn, HUD/input/save coverage.
 - Fixed the pre-existing audio/decal test failures. Full suite: 318 tests / 96,602 assertions / 0 failures. All six bodies now load from `data/planets/*.tres` (ADR 0009).
@@ -85,3 +100,9 @@ before the overhaul (audio_library_test parse error; 5 decal-name checks in ship
 - **N8 done (small)**: wall screens at the reactor panel (green to red with core heat, dark when tripped) and engine station (red to green with engine health), fire smoke particles, per-room lights and red fire lighting (from N4). Not done: sunset/atmosphere scattering, reactor hum audio, exterior silhouette, any CC0 art kit (needs your go-ahead and ATTRIBUTION rows). Interior perf: avg 10 ms, 296 draw calls (`tools/interior_perf.gd`).
 - **N9 (branch `n9-art-audio`, unpushed, no PR): art and audio integration written, NOT yet run under Godot.** Ship materials, screens and decals, terrain detail shader, POI materials, starfield sky and the recorded audio (136 files minus the deferred list) are wired in behind five `GameSettings` switches (`asset_materials`, `decals`, `terrain_detail`, `starfield`, `sample_audio`). The cloud session that wrote it had no Godot, display or speakers: only gdparse and the Python asset checker were run. First thing to do: `tools/n9_verify.sh` (add `--quick` for tests only, `--baseline` to also measure the PR #1 build). Details, deviations and the deferred sounds: `docs/N9_STATUS.md`, `docs/N9_REPORT.md`.
 - **Next:** human playtest of the slice (docs/PLAYING.md), then tuning from feedback; optional: atmosphere sunset shader, audio for alarms/hum, a second hostile at the ambush, a crew-usable gunner seat for the player. Human playtest of the slice still owed; see docs/PLAYING.md (add the new keys R/G/P and the Mayday mission there).
+- Limnal squares are drawn by `data/shaders/rodina_square_particle.gdshader`, which fades them out toward the screen centre (per-effect `clear`/`full` in `RodinaEmitter.SQUARE_EFFECTS`, screen heights; the magenta core, ring and blur are unmasked) so the pilot can see ahead and the effect builds at the borders.
+- Clutch held below warp gear: both engines throw yellow-green square streaks that hang in the world (squares get the ship velocity reversed, capped at 45 m/s so they stay a streak) instead of the thrust flame. Pods moved inboard (POD_PIVOT.x 4.65) to hug the hull.
+- Bullets (from Rodina EGVehicle.FireWeapon / EGWeaponBlaster): ship gun now 10 000 m/s, 20 shots/s alternating two barrels (damage per shot cut to keep DPS), gun sound limited to one per 0.1 s; `ProjectileView` draws a bright square bolt with specks and a muzzle-flare spray of squares per shot that stays in the world.
+- Pulsar-style gun: the player ship has no nose gun any more (`Ship.nose_gun_enabled = false`). The pilot's fire button (combat gear only) works the dorsal turret (`ShipTurret.fire_at_crosshair`, shots cross 600 m ahead of the nose so they close on the reticle); a crewman in the gunner seat auto-aims it when the pilot is not firing. The turret now uses the full ship-gun stats (20 shots/s, 0.015 damage). Hostile ships keep their two nose barrels.
+
+- Gunner station (untested): H while seated hands the ship to an AI pilot and puts the player on the dorsal gun (turret camera, mouse aims inside the arc, fire button shoots, heat 0-100% with overheat lockout). H again returns to the helm; standing up ends it. Logic in ShipTurret.update_manual and GameSession.toggle_gunner_station; tests/unit/gunner_station_test.gd.

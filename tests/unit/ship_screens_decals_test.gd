@@ -63,7 +63,9 @@ func test_decals_sit_inside_the_ship() -> void:
 	for decal in _decals(visuals):
 		var position := decal.position
 		# The pocket rooms are wider than the hull (ADR 0012): a decal past the hull must be drawn with the pocket.
-		var limit := InteriorLayout.POCKET_HALF_WIDTH + 0.01
+		var limit := 0.01
+		for room in layout.rooms.values():
+			limit = maxf(limit, maxf(absf((room as Rect2).position.x), absf((room as Rect2).end.x)))
 		assert_true(position.x >= -limit and position.x <= limit, "%s x=%.2f within the rooms" % [decal.name, position.x])
 		if absf(position.x) > 3.2:
 			assert_true(decal.get_parent() == visuals.pocket, "%s x=%.2f is past the hull, so it is in the pocket" % [decal.name, position.x])

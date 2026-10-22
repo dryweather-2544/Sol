@@ -38,9 +38,11 @@ static func route(layout: InteriorLayout, from_xz: Vector2, to_xz: Vector2) -> A
 	for hop in hops:
 		var opening: Rect2 = (layout.portals[hop["portal"]] as Portal).opening
 		var centre := opening.get_center()
-		var direction := signf((layout.rooms[hop["to"]] as Rect2).get_center().y - (layout.rooms[hop["from"]] as Rect2).get_center().y)
-		waypoints.append({"position": Vector2(centre.x, centre.y - direction * DOORWAY_APPROACH), "door": hop["portal"]})
-		waypoints.append({"position": Vector2(centre.x, centre.y + direction * DOORWAY_APPROACH), "door": &""})
+		var travel := (layout.rooms[hop["to"]] as Rect2).get_center() - (layout.rooms[hop["from"]] as Rect2).get_center()
+		# A door in a wall running along x is crossed along z; a side-wall door is crossed along x.
+		var along := Vector2(0.0, signf(travel.y)) if opening.size.x >= opening.size.y else Vector2(signf(travel.x), 0.0)
+		waypoints.append({"position": centre - along * DOORWAY_APPROACH, "door": hop["portal"]})
+		waypoints.append({"position": centre + along * DOORWAY_APPROACH, "door": &""})
 	waypoints.append({"position": to_xz, "door": &""})
 	return waypoints
 

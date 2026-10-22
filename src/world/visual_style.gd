@@ -137,6 +137,9 @@ const RODINA_ROOM_LIGHTS := {
 	&"turret_room": {"color": Color(0.7, 0.6, 0.6), "range": 8.0},
 	&"cargo": {"color": Color(1.0, 1.0, 1.0), "range": 16.0},
 	&"airlock": {"color": Color(0.9, 0.2, 0.2), "range": 8.0},
+	&"living_area": {"color": Color(0.7, 0.6, 0.6), "range": 8.0},
+	&"medical": {"color": Color(0.75, 0.95, 0.9), "range": 8.0},
+	&"bathroom": {"color": Color(0.8, 0.95, 1.0), "range": 8.0},
 }
 
 
@@ -172,7 +175,31 @@ static func _sol_look(body: BodyDef) -> PlanetLook:
 
 # --- Rodina-inspired families ----------------------------------------------------------------------------------
 
+## Rodina's own feature-texture terrain colouring (PlanetLook.rodina_feature_colors) per body. Remove a body from this list
+## to give it back its hand-made palette below.
+const RODINA_FEATURE_COLOR_BODIES: Array[StringName] = [&"planet", &"cinder", &"verdant", &"selene", &"pebble"]
+
+
+## Sol's brightness gain per world on top of Rodina's colours (see PlanetLook.rodina_albedo_gain).
+const RODINA_ALBEDO_GAIN := {&"cinder": 3.2, &"pebble": 1.7}
+## Sol's scale on a world's fog density (Rodina's own atmosphere colours stay): Cinder's dark red haze would otherwise
+## swallow the ground from a few km away.
+const RODINA_FOG_SCALE := {&"cinder": 0.35}
+## Patchy colour variation per world (see PlanetLook.rodina_color_variation): Cinder and Pebble have wide, plain ground.
+const RODINA_COLOR_VARIATION := {&"cinder": 0.5, &"pebble": 0.4}
+
+
 static func _rodina_look(body: BodyDef) -> PlanetLook:
+	var look := _rodina_look_palette(body)
+	if body.id in RODINA_FEATURE_COLOR_BODIES:
+		look.rodina_feature_colors = true
+		look.rodina_albedo_gain = RODINA_ALBEDO_GAIN.get(body.id, 1.0)
+		look.rodina_color_variation = RODINA_COLOR_VARIATION.get(body.id, 0.0)
+		look.fog_density *= RODINA_FOG_SCALE.get(body.id, 1.0)
+	return look
+
+
+static func _rodina_look_palette(body: BodyDef) -> PlanetLook:
 	match body.id:
 		&"planet":
 			return _apply_rodina_atmosphere(_ochre_steppe(), body.id)
@@ -181,7 +208,7 @@ static func _rodina_look(body: BodyDef) -> PlanetLook:
 		&"verdant":
 			return _apply_rodina_atmosphere(_teal_alien(), body.id)
 		&"selene":
-			return _airless(&"airless_grey", "#6e6a65", "#4c4946", "#8a8580", "#3a3836", "#5e5a56", "#77736e")
+			return _apply_rodina_atmosphere(_airless(&"airless_grey", "#6e6a65", "#4c4946", "#8a8580", "#3a3836", "#5e5a56", "#77736e"), body.id)
 		&"pebble":
 			return _airless(&"airless_rust", "#5b4a3e", "#463a31", "#77665a", "#2c2420", "#6e5a48", "#5e5045")
 	return _sol_look(body) # stars and anything unknown keep the Sol look
@@ -317,7 +344,20 @@ static func _teal_alien() -> PlanetLook:
 const RODINA_ATMOSPHERES := {
 	&"planet": {"source": "Jarilo (EGDataPlanets.lua:503-506)", "density": 0.75, "scatter1": [20.0, 0.6, 1.0], "scatter2": [20.0, 0.2, 1.0], "filter1": [192.0, 0.31, 1.0], "filter2": [210.0, 0.5, 1.0], "halo": [0.02, 0.02, 0.2, 0.0],  "terminator": [0.2, -0.2], "surface_ambient": [32.0, 0.2, 0.25], "sky_desaturate": 0.4},
 	&"cinder": {"source": "Veles (EGDataPlanets.lua:386-390)", "density": 2.0, "scatter1": [10.0, 0.87, 0.3], "scatter2": [10.0, 0.87, 0.25], "filter1": [25.0, 0.7, 0.7], "filter2": [15.0, 1.0, 0.7], "halo": [0.1, 0.1, 0.2, 0.0],  "terminator": [0.2, -0.5], "ground_distance": 2.0},
+	&"selene": {"source": "Morena (EGDataPlanets.lua:657-690)", "density": 1.2, "scatter1": [150.0, 0.4, 0.9], "scatter2": [165.0, 0.14, 0.95], "filter1": [205.0, 0.1, 0.95], "filter2": [205.0, 0.3, 0.95], "halo": [0.01, 0.02, 0.2, 0.5], "terminator": [0.2, -0.5]},
 	&"verdant": {"source": "Zosia (EGDataPlanets.lua:111-114)", "density": 1.5, "scatter1": [167.0, 0.8, 0.5], "scatter2": [167.0, 0.425, 0.7], "filter1": [1.0, 0.31, 1.0], "filter2": [80.0, 0.8, 1.0], "halo": [0.05, 0.2, 0.2, -1.0],  "terminator": [0.2, -0.5], "ground_distance": 1.5},
+}
+
+
+## Sol's own tuning of the atmosphere seen from orbit (Rodina's are very dark from space): brighter glow colours for the
+## shell only (display values; the sky from inside keeps Rodina's colours) and a gain on the glow against space.
+## Selene's scatter/filter above are also softened from Morena's (hue 145 sat .6 and a red filter gave a garish mint sky and
+## pink ground): a pale cold green sky and a cold blue-white sun tint.
+const RODINA_GLOW_TWEAKS := {
+	&"planet": {"shell_glow_gain": 1.3},
+	&"cinder": {"shell_scatter1": "#ff5a2a", "shell_scatter2": "#ff9a5a", "shell_glow_gain": 2.6},
+	&"verdant": {"shell_scatter1": "#2fe0c0", "shell_scatter2": "#8ff0dc", "shell_glow_gain": 2.2},
+	&"selene": {"shell_scatter1": "#7fe8c8", "shell_scatter2": "#c8fff0", "shell_glow_gain": 1.8},
 }
 
 
@@ -393,6 +433,9 @@ static func _apply_rodina_atmosphere(look: PlanetLook, body_id: StringName) -> P
 		"atm_sunset_star_buffer": halo[2], "atm_sunset_horizon_limit": halo[3],
 		"atm_ground_distance": float(data.get("ground_distance", 1.0)), # AtmosphereGroundDistance; Jarilo leaves it out
 		"atm_sky_desaturate": float(data.get("sky_desaturate", 0.0))} # calibrated (rodina_atmosphere.gdshaderinc)
+	for key in RODINA_GLOW_TWEAKS.get(body_id, {}):
+		var tweak: Variant = RODINA_GLOW_TWEAKS[body_id][key]
+		look.rodina_atmosphere[key] = Color.html(tweak) if tweak is String else tweak
 	look.rim_power = 2.5
 	look.rim_haze = 0.15
 	if body_id != &"planet": # Aurelia's colours are Jarilo's own; the others keep their far colour leaning to the air's tint
@@ -418,10 +461,11 @@ static func _airless(family: StringName, base: String, low: String, high: String
 	look.sun_energy = 1.5
 	look.back_color = _hex("#241f30")
 	look.back_energy = 0.2
-	look.ambient_space = _hex("#120e18")
-	look.ambient_day = _hex("#120e18")
-	look.ambient_energy_space = 0.18
-	look.ambient_energy_day = 0.18
+	# Airless worlds have no sky to fill shadows; a faint fill (Sol's) keeps cliffs and dune lee sides from going pure black.
+	look.ambient_space = _hex("#6a6684")
+	look.ambient_day = _hex("#6a6684")
+	look.ambient_energy_space = 0.4
+	look.ambient_energy_day = 0.4
 	look.impostor_color = _hex(orbit)
 	return look
 

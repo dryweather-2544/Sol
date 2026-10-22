@@ -18,11 +18,11 @@ const LANDED_FRICTION := 25.0
 ## friction is engine-side, taken as 1): sliding slows by this times how hard the hull is pressed into the ground,
 ## by the impact and by gravity. On slopes steeper than atan(0.4) = 21.8 degrees gravity wins and the ship slides.
 const HULL_FRICTION := 0.4
-## Rodina player hull restitution (EGDataShipPlayer.lua:26-38). Havok applies it to contact
-## impulses; Sol's support-point resolver applies it only to the first non-landed impact so a
-## resting ship does not jitter. Small settling impacts are still absorbed.
-const HULL_RESTITUTION := 0.8
-const MIN_BOUNCE_SPEED := 8.0
+## Rodina's player hull restitution is 0.8 (EGDataShipPlayer.lua:26-38), which in Sol made every landing above 8 m/s hop
+## across the ground. Sol keeps a small rebound for real crashes only: a landing, even a firm one, settles without a bounce.
+## Only the first non-landed impact above MIN_BOUNCE_SPEED rebounds, so a resting ship does not jitter.
+const HULL_RESTITUTION := 0.25
+const MIN_BOUNCE_SPEED := 20.0
 
 
 static func resolve(ship_state: ShipState, planet: PlanetBody, tuning: ShipTuning, delta: float) -> void:

@@ -95,7 +95,7 @@ func test_gear_engines_follow_thrust_axes() -> void:
 		_free(objects))
 
 
-func test_main_engine_flame_runs_along_each_nozzle() -> void:
+func test_main_engine_exhaust_runs_along_each_nozzle_as_many_small_squares() -> void:
 	_with_rodina(func() -> void:
 		var objects := _setup()
 		var ship: Ship = objects[0]
@@ -103,13 +103,14 @@ func test_main_engine_flame_runs_along_each_nozzle() -> void:
 		ship.state.gear = PilotCommand.GEAR_COMBAT
 		ship.last_command = _command(Vector3(0, 0, -1))
 		effects.update_effects(ship, 0.0)
-		var flame := effects.get_node("EngineFlame1") as MeshInstance3D
-		assert_true(flame != null and flame.visible)
-		var aft := flame.transform.basis.y.normalized()
-		assert_true(aft.dot(Vector3(0, 0, 1)) > 0.999, "flame runs along the nozzle's +y (aft): %s" % str(aft))
-		var length := flame.transform.basis.y.length()
-		assert_near(length, 2.0 + 10.0, 1e-4, "combat flame at full thrust")
-		assert_true(flame.transform.origin.z > 9.0, "starts at the nozzle and extends aft")
+		assert_true(effects.get_node_or_null("EngineFlame1") == null, "the long flame beam is gone")
+		var plume := effects.get_node("EnginePixels1") as CPUParticles3D
+		assert_true(plume != null and plume.emitting)
+		var aft := plume.transform.basis.y.normalized()
+		assert_true(aft.dot(Vector3(0, 0, 1)) > 0.999, "the exhaust runs along the nozzle's +y (aft): %s" % str(aft))
+		assert_true(plume.transform.origin.z > 9.0, "starts at the nozzle")
+		assert_true(plume.amount >= 150, "many squares")
+		assert_true((plume.mesh as QuadMesh).size.x <= 0.35, "each one small")
 		_free(objects))
 
 
@@ -136,7 +137,7 @@ func test_warp_runs_the_limnal_effects_and_silences_the_engines() -> void:
 		effects.update_effects(ship, 1.0 / 60.0)
 		active = effects.active_effects()
 		assert_eq(active["Limnal Drive"]["material"], "Limnal Drive")
-		assert_eq(active["Limnal Air"]["material"], "Limnal Pink Air")
+		assert_true(not active.has("Limnal Air"), "the red-pink core is dropped: the magenta comes from the squares themselves")
 		assert_eq(active["Limnal Blur"]["material"], "LimnalShipBlur")
 		assert_true(not ring.is_active(), "the startup ring stops once the drive is fully active")
 		# Leaving warp: all limnal slots stop.
@@ -191,6 +192,39 @@ func test_atmospheric_entry_follows_resistance_and_camera() -> void:
 		active = effects.active_effects()
 		assert_eq(active["Atmosphere Entry"]["material"], "AtmosphereEntryCockpit")
 		assert_eq(active["Atmosphere Entry2"]["material"], "AtmosphereShockwaveCockpit")
+		_free(objects))
+
+
+func test_clutch_held_swaps_the_flame_for_yellow_green_streaks() -> void:
+	_with_rodina(func() -> void:
+		var objects := _setup()
+		var ship: Ship = objects[0]
+		var effects: ShipEffects = objects[1]
+		ship.state.gear = PilotCommand.GEAR_COMBAT
+		ship.last_command = _command(Vector3.ZERO)
+		effects.update_effects(ship, 0.0)
+		assert_true(not effects.clutch_streaks_active(), "no streaks without the clutch")
+		ship.state.clutch = true
+		effects.update_effects(ship, 0.0)
+		assert_true(effects.clutch_streaks_active(), "holding the clutch below warp gear streaks the engines")
+		for index in 2:
+			var streak := effects.get_node("ClutchStreak%d" % (index + 1)) as CPUParticles3D
+			assert_true(streak.emitting)
+		# Drifting forward: the streak is thrown the other way (the squares stay put in the world as the ship moves on).
+		ship.state.basis = Basis.IDENTITY
+		ship.state.velocity = Vector3(0, 0, -30.0)
+		effects.update_effects(ship, 0.0)
+		for index in 2:
+			var streak := effects.get_node("ClutchStreak%d" % (index + 1)) as CPUParticles3D
+			var heading := (streak.transform.basis * streak.direction).normalized()
+			assert_near(heading.z, 1.0, 1e-4, "streak runs aft of a forward drift: %s" % str(heading))
+			assert_near(streak.initial_velocity_max, 30.0, 1e-4, "at 30 m/s the squares stand still in the world")
+		ship.state.velocity = Vector3.ZERO
+		ship.state.gear = PilotCommand.GEAR_WARP
+		effects.update_effects(ship, 0.0)
+		assert_true(not effects.clutch_streaks_active(), "the drive is connected in warp gear: no streaks")
+		ship.state.clutch = false
+		effects.update_effects(ship, 0.0)
 		_free(objects))
 
 

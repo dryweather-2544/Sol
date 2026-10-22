@@ -14,6 +14,8 @@ var kind: int
 var opening: Rect2
 var open_factor := 0.0
 var target_open := false
+## Seconds this door has stood open with nobody in the doorway (ShipSystems closes plain doors after AUTO_CLOSE_SECONDS).
+var idle_open_seconds := 0.0
 
 
 func _init(portal_id: StringName, portal_kind: int, doorway: Rect2) -> void:

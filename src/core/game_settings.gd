@@ -24,11 +24,16 @@ var decals := true
 var terrain_detail := true
 var starfield := true
 var sample_audio := true
+## The constant background beds (cabin air, suit room tone). Off by default: the ship is silent until the engines, machines or alarms make a sound.
+var ambient_beds := false
 ## "sol" (original) or "rodina" (VisualStyle). The SOL_VISUAL_STYLE environment variable overrides it for a run.
 var visual_style := "rodina"
 ## Strength of the in-atmosphere roll levelling (Rodina's "Ship Horizon Levelling" option, default 1.0; 0 = off).
 ## Roll only: it never touches pitch. See FlightModel._level_roll.
 var ship_horizon_levelling := 1.0
+## The warp drive works from the start, without the story's Warp coil (the coil objective then changes nothing).
+## Off restores the story gate: open space is crawl-speed and WARP is locked until the coil is installed.
+var warp_always_available := true
 
 
 static func instance() -> GameSettings:
@@ -48,6 +53,7 @@ func save_to_file() -> String:
 	config.set_value("input", "mouse_sensitivity", mouse_sensitivity)
 	config.set_value("input", "invert_pitch", invert_pitch)
 	config.set_value("input", "ship_horizon_levelling", ship_horizon_levelling)
+	config.set_value("gameplay", "warp_always_available", warp_always_available)
 	config.set_value("video", "field_of_view", field_of_view)
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
@@ -57,6 +63,7 @@ func save_to_file() -> String:
 	config.set_value("assets", "terrain_detail", terrain_detail)
 	config.set_value("assets", "starfield", starfield)
 	config.set_value("assets", "sample_audio", sample_audio)
+	config.set_value("audio", "ambient_beds", ambient_beds)
 	config.set_value("video", "visual_style", visual_style)
 	var error := config.save(path)
 	return "" if error == OK else "could not save settings (error %d)" % error
@@ -70,6 +77,7 @@ func load_from_file() -> void:
 	mouse_sensitivity = clampf(float(config.get_value("input", "mouse_sensitivity", mouse_sensitivity)), 0.2, 3.0)
 	invert_pitch = bool(config.get_value("input", "invert_pitch", invert_pitch))
 	ship_horizon_levelling = clampf(float(config.get_value("input", "ship_horizon_levelling", ship_horizon_levelling)), 0.0, 1.0)
+	warp_always_available = bool(config.get_value("gameplay", "warp_always_available", warp_always_available))
 	field_of_view = clampf(float(config.get_value("video", "field_of_view", field_of_view)), 50.0, 110.0)
 	master_volume = clampf(float(config.get_value("audio", "master_volume", master_volume)), 0.0, 1.0)
 	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", sfx_volume)), 0.0, 1.0)
@@ -79,5 +87,6 @@ func load_from_file() -> void:
 	terrain_detail = bool(config.get_value("assets", "terrain_detail", terrain_detail))
 	starfield = bool(config.get_value("assets", "starfield", starfield))
 	sample_audio = bool(config.get_value("assets", "sample_audio", sample_audio))
+	ambient_beds = bool(config.get_value("audio", "ambient_beds", ambient_beds))
 	var style := str(config.get_value("video", "visual_style", visual_style))
 	visual_style = style if style in ["sol", "rodina"] else "rodina"

@@ -67,7 +67,10 @@ static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_
 			directions[slot + 1] = direction[1]
 			directions[slot + 2] = direction[2]
 	# Rodina renders heights on the GPU; do the same when there is one (the grammar worlds only).
-	var gpu_heights := _gpu_lattice_heights(planet, directions, lattice * lattice)
+	var want_features := planet.look != null and planet.look.rodina_feature_colors
+	var gpu_result := _gpu_lattice(planet, directions, lattice * lattice, want_features)
+	var gpu_heights: PackedFloat32Array = gpu_result["heights"]
+	var lattice_features: PackedFloat32Array = gpu_result["features"] # empty = colour from the CPU feature functions instead
 	for row in lattice:
 		for column in lattice:
 			var slot := (row * lattice + column) * 3
@@ -105,11 +108,17 @@ static func build(key: int, planet: PlanetBody, grid_override: int = -1, height_
 			normals.append(normal)
 			var outward := (position + Vector3(origin_x, origin_y, origin_z)).normalized()
 			var steepness := 1.0 - normal.dot(outward)
-			var base_color := planet.look.surface_color(planet.profile_or_default(), lattice_heights[index], steepness, absf(outward.y), position + Vector3(origin_x, origin_y, origin_z)) \
-				if planet.look != null else _color_for(planet.profile_or_default(), lattice_heights[index], steepness, outward.y)
+			var base_color: Color
+			if planet.look == null:
+				base_color = _color_for(planet.profile_or_default(), lattice_heights[index], steepness, outward.y)
+			elif not lattice_features.is_empty() and planet.look.rodina_feature_colors:
+				var feature_slot := index * 4
+				base_color = planet.look.rodina_terrain_to_color(planet.profile_or_default().grammar, Vector4(lattice_features[feature_slot], lattice_features[feature_slot + 1], lattice_features[feature_slot + 2], lattice_features[feature_slot + 3]), lattice_heights[index], outward, normal.dot(outward), position + Vector3(origin_x, origin_y, origin_z))
+			else:
+				base_color = planet.look.surface_color(planet.profile_or_default(), lattice_heights[index], steepness, absf(outward.y), position + Vector3(origin_x, origin_y, origin_z))
 			# Patchy variation from the absolute position so colours match across chunk borders.
 			var patch := sin((position.x + origin_x) * 0.00031) * sin((position.z + origin_z) * 0.00043) + 0.5 * sin((position.y + origin_y) * 0.0021 + (position.x + origin_x) * 0.0017)
-			var shade := 0.9 + 0.1 * patch
+			var shade := 1.0 if (planet.look != null and planet.look.rodina_feature_colors) else 0.9 + 0.1 * patch
 			colors.append(Color(base_color.r * shade, base_color.g * shade, base_color.b * shade, steep_weight(1.0 - normal.dot(outward))))
 
 	# Geomorph targets: where each vertex would sit on the next-coarser chunk (this chunk's parent, half the vertex count).
@@ -191,18 +200,27 @@ static func make_mesh(mesh_data: Dictionary) -> ArrayMesh:
 ## Heights for a lattice of directions (x, y, z doubles per point) from the GPU, or an empty array when the
 ## planet is not a Rodina-grammar world, a test override is set, or there is no GPU.
 static func _gpu_lattice_heights(planet: PlanetBody, directions: PackedFloat64Array, count: int) -> PackedFloat32Array:
+	return _gpu_lattice(planet, directions, count, false)["heights"]
+
+
+## GPU heights for a whole lattice, plus the planet feature texture when want_features. {heights, features}; both empty
+## when there is no GPU or the world has no Rodina grammar (the CPU path then runs).
+static func _gpu_lattice(planet: PlanetBody, directions: PackedFloat64Array, count: int, want_features: bool) -> Dictionary:
+	var none := {"heights": PackedFloat32Array(), "features": PackedFloat32Array()}
 	if planet.height_override.is_valid() or not GpuHeights.is_ready():
-		return PackedFloat32Array()
+		return none
 	var profile := planet.profile_or_default()
 	if profile.grammar == TerrainProfile.Grammar.LEGACY:
-		return PackedFloat32Array()
+		return none
 	var floats := PackedFloat32Array()
 	floats.resize(count * 4)
 	for index in count:
 		floats[index * 4] = directions[index * 3]
 		floats[index * 4 + 1] = directions[index * 3 + 1]
 		floats[index * 4 + 2] = directions[index * 3 + 2]
-	return GpuHeights.instance().heights(floats, count, profile.grammar, RodinaPlanets.asteroid_scale(profile.radius))
+	if want_features:
+		return GpuHeights.instance().heights_and_features(floats, count, profile.grammar, RodinaPlanets.asteroid_scale(profile.radius))
+	return {"heights": GpuHeights.instance().heights(floats, count, profile.grammar, RodinaPlanets.asteroid_scale(profile.radius)), "features": PackedFloat32Array()}
 
 
 static func steep_weight(steepness: float) -> float:

@@ -63,12 +63,14 @@ var _previous_pickup_total := -1
 var _previous_boost := false
 var _previous_gear := -1
 var _previous_shots_fired := 0
+var _gun_sound_clock := 0.0
 var _previous_turret_firing := false
 var _turret_clock := 0.0
 var _previous_walkway_moving := false
 var _previous_outer_open_factor := 0.0
 var _engine_layer_gains := {}
 var _previous_selected_gear := -1
+var _previous_shift_refusals := 0
 var _restoring := false
 var _world_players: Array[AudioStreamPlayer3D] = []
 
@@ -305,17 +307,18 @@ func _update_cabin_and_suit_loops(inside: bool) -> void:
 	var systems := session.systems
 	var player_position := session.interior_body.position
 	var life_support := systems.power.delivered(ShipPower.Conduit.LIFE_SUPPORT)
-	_set_loop_gain("amb_int_air_loop", 1.0 if inside and life_support > 0.05 else 0.0, &"Ship")
+	var beds := GameSettings.instance().ambient_beds
+	_set_loop_gain("amb_int_air_loop", 1.0 if beds and inside and life_support > 0.05 else 0.0, &"Ship")
 	var outside := session.mode == GameSession.Mode.OUTSIDE
-	_set_loop_gain("amb_suit_room_tone_loop", 1.0 if outside else 0.0, &"Suit")
+	_set_loop_gain("amb_suit_room_tone_loop", 1.0 if beds and outside else 0.0, &"Suit")
 	var strained := session.suit.oxygen <= 0.3
 	_set_loop_gain("amb_suit_breath_calm_loop", 1.0 if outside and not strained else 0.0, &"Suit")
 	_set_loop_gain("amb_suit_breath_strained_loop", 1.0 if outside and strained else 0.0, &"Suit")
 	_set_loop_gain("rod_air_blow_loop", 1.0 if outside and session.exterior_body.jetpack_burning else 0.0, &"Suit")
 	_set_loop_gain("rod_air_blow_repair_loop", 1.0 if inside and session.repairing else 0.0, &"Ship")
 	var reactor_gain := 0.0 if systems.power.is_shut_down() else lerpf(0.5, 1.0, clampf(systems.power.temperature, 0.0, 1.0))
-	_set_loop_gain("amb_int_reactor_loop", reactor_gain * _proximity(&"reactor_panel", player_position, 0.3) if inside else 0.0, &"Ship")
-	var hum_gain := 0.0 if systems.power.is_shut_down() else maxf(_proximity(&"pilot_seat", player_position, 0.15), maxf(_proximity(&"engine_station", player_position, 0.15), _proximity(&"reactor_panel", player_position, 0.15)))
+	_set_loop_gain("amb_int_reactor_loop", reactor_gain * _proximity(&"reactor_panel", player_position, 0.0) if inside else 0.0, &"Ship")
+	var hum_gain := 0.0 if systems.power.is_shut_down() else maxf(_proximity(&"engine_station", player_position, 0.0), _proximity(&"reactor_panel", player_position, 0.0))
 	_set_loop_gain("amb_int_electrical_hum_loop", hum_gain if inside else 0.0, &"Ship")
 	var engine_damage := clampf((0.5 - systems.subsystems.value(ShipSubsystems.Id.ENGINES)) / 0.5, 0.0, 1.0)
 	_set_loop_gain("amb_int_damaged_machine_loop", engine_damage * _proximity(&"engine_station", player_position, 0.2) if inside else 0.0, &"Ship")
@@ -432,8 +435,7 @@ func _play_state_cues() -> void:
 func _play_ship_control_cues(delta: float) -> void:
 	_turret_clock = maxf(0.0, _turret_clock - delta)
 	var command := ship.last_command
-	if command.boost and not _previous_boost:
-		play_sample("sfx_ship_boost_start")
+	# Pressing Shift (boost) makes no sound of its own: the owner dropped the boost-start cue.
 	_previous_boost = command.boost
 	# Rodina EGBehaviorPlayer:UpdateShiftGears (127-147): a shift the pilot asks for plays ShiftUp/ShiftDown, a refused
 	# one ShiftGrind; a gear the game drops by itself (CancelLimnalDrive, an empty tank) plays nothing.
@@ -446,11 +448,16 @@ func _play_ship_control_cues(delta: float) -> void:
 		else:
 			play_sample("rod_gear_down")
 	_previous_selected_gear = selected
+	if ship.state.shift_refusals > _previous_shift_refusals:
+		play_sample("rod_gear_grind", 1) # a clutch shift the gear cannot make (Rodina ShiftGrind)
+	_previous_shift_refusals = ship.state.shift_refusals
 	_previous_gear = ship.state.gear
 	var shots_fired := ship.weapon.shots_fired
 	# The ship's guns are Rodina's EGWeaponBlaster, SoundName "Blaster" (EGDataWeapons.lua:16, EGAudio.lua:245).
-	if shots_fired > _previous_shots_fired:
+	_gun_sound_clock = maxf(0.0, _gun_sound_clock - delta)
+	if shots_fired > _previous_shots_fired and _gun_sound_clock <= 0.0:
 		play_sample("rod_ship_blaster_fire")
+		_gun_sound_clock = 0.1 # Rodina's gun SoundCooldown (EGVehicle.lua:1732): one sound per 0.1 s, not per shot
 	_previous_shots_fired = shots_fired
 	var turret_firing := session.systems.turret_firing
 	if turret_firing and (not _previous_turret_firing or _turret_clock <= 0.0):

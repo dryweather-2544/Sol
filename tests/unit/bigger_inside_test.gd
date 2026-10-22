@@ -74,3 +74,40 @@ func test_crew_in_pocket_rooms_are_hidden_from_outside() -> void:
 	view._process(0.016)
 	assert_true(avatar.visible)
 	view.free()
+
+
+## Two walls drawn on the same plane z-fight (flicker), so no two wall-material boxes of the interior may overlap.
+func test_no_two_interior_walls_overlap() -> void:
+	var visuals := _build_visuals()
+	var boxes: Array = []
+	for parent in [visuals, visuals.pocket]:
+		for child in parent.get_children():
+			var instance := child as MeshInstance3D
+			if instance == null or instance in visuals._hull_nodes or not instance.mesh is BoxMesh:
+				continue
+			if instance.material_override != visuals._wall_material:
+				continue
+			var size := (instance.mesh as BoxMesh).size
+			boxes.append(AABB(instance.position - size * 0.5, size))
+	assert_true(boxes.size() > 20, "the interior has wall boxes")
+	for i in boxes.size():
+		for j in range(i + 1, boxes.size()):
+			var overlap: AABB = (boxes[i] as AABB).intersection(boxes[j])
+			assert_true(overlap.get_volume() < 0.0005, "wall boxes %s and %s overlap by %.4f m3" % [boxes[i], boxes[j], overlap.get_volume()])
+	visuals.free()
+
+
+func test_threshold_shell_is_hidden_from_pocket_rooms_unless_a_door_is_open() -> void:
+	var visuals := _build_visuals()
+	var layout := visuals.ship.systems.layout
+	assert_true(visuals._shell_nodes.has(&"cockpit") and visuals._shell_nodes.has(&"airlock"), "cockpit and airlock have an outward shell")
+	visuals.set_camera_place(true, &"cabin")
+	visuals._update_shell_visibility(layout)
+	assert_true(not (visuals._shell_nodes[&"cockpit"][0] as Node3D).visible, "shell hidden from the cabin")
+	(layout.portals[&"cockpit_door"] as Portal).open_factor = 1.0
+	visuals._update_shell_visibility(layout)
+	assert_true((visuals._shell_nodes[&"cockpit"][0] as Node3D).visible, "an open cockpit door shows the cockpit")
+	visuals.set_camera_place(false, &"")
+	visuals._update_shell_visibility(layout)
+	assert_true((visuals._shell_nodes[&"airlock"][0] as Node3D).visible, "from outside the shell is drawn")
+	visuals.free()

@@ -20,11 +20,17 @@ layout(set = 0, binding = 2, std430) restrict readonly buffer PointBuffer {
 	vec4 points[];
 } point_buffer;
 
+// Optional second output: the planet feature texture (base, plateau, mountains, holes) per point, written only when
+// params.features_enabled is 1 (PSPlanetColors in each Planet<Name>.fx). Mirrors RodinaPlanets.features().
+layout(set = 0, binding = 3, std430) restrict writeonly buffer FeatureBuffer {
+	vec4 features[];
+} feature_buffer;
+
 layout(push_constant, std430) uniform Params {
 	uint count;
 	uint grammar; // TerrainProfile.Grammar: 1 Perun, 2 Jarilo, 3 Veles, 4 Morena, 5 Asteroid
 	float asteroid_scale;
-	float unused;
+	uint features_enabled;
 } params;
 
 const float PI = 3.14159265358979;
@@ -382,6 +388,9 @@ float veles_height(vec3 p) {
 	return height;
 }
 
+// Sol: Morena's big plate cracks off (see RodinaPlanets.MORENA_BIG_CRACK_SCALE).
+const float MORENA_BIG_CRACK_SCALE = 0.0;
+
 float morena_height(vec3 p) {
 	vec3 crack_distort_big = fractal_derivative(12.0, p, 0.5, 0.5, 2.0, 8);
 	vec3 crack_distort = fractal_derivative(10.0, p, 0.5, 2.0, 2.0, 8);
@@ -403,7 +412,7 @@ float morena_height(vec3 p) {
 		dunes = analogue(plate_cracks, 0.4, 1.0, 0.0, 1.0);
 		small_cracks *= hsmooth(0.0, 1.0, analogue(plate_cracks, 0.3, 0.35, 1.0, 0.0));
 	}
-	float big_cracks = ease_out_in_sin(analogue(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75;
+	float big_cracks = ease_out_in_sin(analogue(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75 * MORENA_BIG_CRACK_SCALE;
 	float small = small_cracks * 0.25;
 	float dune_mask = analogue(dunes, 0.0, 0.15, 0.0, 1.0);
 	float cracks = max(big_cracks, small);
@@ -430,10 +439,15 @@ float morena_height(vec3 p) {
 	return height;
 }
 
+// Sol's craggier asteroid mountains; keep in step with RodinaPlanets.ASTEROID_MOUNTAIN_EDGE / _AMPLITUDE.
+const float ASTEROID_MOUNTAIN_EDGE = 0.1;
+const float ASTEROID_MOUNTAIN_AMPLITUDE = 1400.0;
+const float ASTEROID_CRAG_AMPLITUDE = 1000.0; // Sol-only sharp creases; keep in step with RodinaPlanets.ASTEROID_CRAG_AMPLITUDE
+
 float asteroid_height(vec3 p, float scale) {
 	float plateau = analogue(fractal_perlin(113.0, p, 0.5, 0.5, 2.0, 12), 0.0, 1.0, 0.0, 1.0);
 	float mountain_mask = analogue(fractal_perlin(20.0, p, 0.5, 0.5, 2.0, 3), -1.0, -1.0, 0.0, 1.0);
-	float mountains = analogue(fractal_perlin(0.0, p, 0.5, 1.0, 2.0, 3), 0.5, 1.0, 0.0, 1.0);
+	float mountains = analogue(fractal_perlin(0.0, p, 0.5, 1.0, 2.0, 3), ASTEROID_MOUNTAIN_EDGE, 1.0, 0.0, 1.0);
 	mountains = mountain_mask * mountains;
 	mountains = analogue(mountains, 0.0, 0.3, 0.0, 1.0);
 	float roughness = analogue(mountains, 0.0, 0.9, 0.3, 0.5);
@@ -441,10 +455,92 @@ float asteroid_height(vec3 p, float scale) {
 	plateau = analogue(plateau, 0.0, 1.0, 0.0, 1.0);
 	float height = -1000.0;
 	if (mountains > 0.0) {
-		height += mountains * 500.0 * fractal_perlin(0.0, p, roughness, 2.5, 2.0, 10);
+		height += mountains * ASTEROID_MOUNTAIN_AMPLITUDE * fractal_perlin(0.0, p, roughness, 2.5, 2.0, 10);
+		height += mountains * ASTEROID_CRAG_AMPLITUDE * (0.2 - abs(fractal_perlin(5.0, p, 0.55, 40.0, 2.0, 6) - 0.47));
 	}
 	height += plateau * 3000.0;
 	return height * scale;
+}
+
+// --- planet features (GetPlanetFeatures + PSPlanetColors); keep in step with RodinaPlanets.*_features ------------
+
+vec4 perun_features(vec3 p) {
+	vec3 mask_distort = p - fractal_derivative(10.0, p, 1.0, 1.0, 2.0, 2);
+	vec3 distort = p - fractal_derivative(0.0, p, 1.0, 1.0, 2.0, 9);
+	vec3 mask_coord = normalize(p + mask_distort * 0.05 + distort * 0.005);
+	vec3 base_coords = normalize(p + distort * 0.02);
+	vec3 mountain_distort = mask_coord - fractal_derivative(10.0, mask_coord, 1.0, 2.0, 2.0, 2);
+	vec3 mountain_coord1 = normalize(mask_coord + mountain_distort * 0.2);
+	vec3 mountain_coords = normalize(p + distort * 0.001);
+	float base = voronoi_two(base_coords, 0.5, 0.5, 0.25);
+	float holes = holes_remap(fractal_perlin(0.0, mountain_coords, 0.5, 128.0, 2.0, 4), vec4(0.275, 0.375, 0.375, 0.55));
+	float plateau = analogue(fractal_perlin(10.0, mask_coord, 0.56, 3.0, 2.0, 12), 0.5, 0.675, 0.0, 1.0);
+	float mountain_mask = analogue(fractal_perlin(10.0, mountain_coord1, 0.6, 3.0, 2.0, 5), 0.45, 0.6, 0.0, 1.0);
+	float mountains = analogue(fractal_perlin(0.0, mountain_coords, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0);
+	return vec4(base, plateau, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes);
+}
+
+vec4 jarilo_features(vec3 p) {
+	vec3 map_distort = p - fractal_derivative(10.0, p, 1.0, 1.0, 2.0, 2);
+	vec3 feature_distort = p - fractal_derivative(0.0, p, 1.0, 1.0, 2.0, 9);
+	vec3 base_coords = normalize(p + map_distort * 0.06 + feature_distort * 0.02);
+	float base = voronoi_two(base_coords, 0.5, 0.5, 0.2);
+	vec3 plateau_coord = normalize(p + map_distort * 0.05);
+	float plateau = analogue(fractal_perlin(20.0, plateau_coord, 0.5, 2.0, 2.0, 16), 0.4, 0.8, 0.0, 1.0);
+	vec3 mountain_coords = normalize(p + feature_distort * 0.001);
+	float mountain_mask = analogue(fractal_perlin(20.0, plateau_coord, 0.5, 2.0, 2.0, 5), 0.1, 0.4, 0.0, 1.0);
+	float mountains = analogue(fractal_perlin(0.0, mountain_coords, 1.0, 1.0, 2.0, 9), 0.45, 0.8, 0.0, 1.0);
+	float holes = holes_remap(fractal_perlin(0.0, p, 0.5, 2500.0, 2.0, 4), vec4(0.0, 0.0, 0.375, 0.5));
+	return vec4(base, plateau, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes);
+}
+
+vec4 veles_features(vec3 p) {
+	float base = voronoi_one(p, 0.25);
+	float half_mask = analogue(p.x, -0.9, 0.0, 0.3, 2.0);
+	float holes = fractal_perlin(0.0, p, 0.5, 128.0, 2.0, 4);
+	if (holes <= 0.375) {
+		holes = hsmooth(0.275, 0.375, holes);
+	} else {
+		holes = hsmooth(0.55, 0.375, holes);
+	}
+	float plate_cracks = analogue(abs(0.5 - fractal_perlin(10.0, p, 0.56, 10.0, 2.0, 10)), 0.0, 0.025, 1.0, 0.25);
+	float plate_mask = fractal_perlin(10.0, p, 0.6, 1.0, 2.0, 10) * half_mask;
+	float plate = analogue(plate_mask, 0.4, 0.41, 0.0, 1.0);
+	float mountain_mask = analogue(plate_mask, 0.375, 0.45, 0.0, 1.0);
+	float mountains = analogue(fractal_perlin(0.0, p, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0);
+	return vec4(base, plate - plate_cracks, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes);
+}
+
+vec4 morena_features(vec3 p) {
+	vec3 crack_distort_big = fractal_derivative(12.0, p, 0.5, 0.5, 2.0, 8);
+	vec3 crack_distort = fractal_derivative(10.0, p, 0.5, 2.0, 2.0, 8);
+	vec3 crack_coord = normalize(p + crack_distort_big * 0.05 + crack_distort * 0.075);
+	float plate_perlin = fractal_perlin(10.0, p, 0.6, 60.0, 2.0, 7);
+	float pi = 3.14159;
+	float big_mask_1 = plate_perlin - cos(max(min(30.0 * (0.9 * crack_coord.z + 0.3 * crack_coord.y), 8.0 * pi), -8.0 * pi));
+	float big_mask_2 = plate_perlin - cos(max(min(30.0 * (1.0 * crack_coord.z + 0.0 * crack_coord.y), 8.0 * pi), -8.0 * pi));
+	float plate_cracks = min(abs(big_mask_1), abs(big_mask_2));
+	float hills = 0.0;
+	float dunes = 0.0;
+	if (big_mask_1 < 0.0 || big_mask_2 < 0.0) {
+		hills = analogue(plate_cracks, 0.35, 1.0, 0.0, 1.0);
+	} else if (big_mask_1 > 0.0 && big_mask_2 > 0.0) {
+		dunes = analogue(plate_cracks, 0.4, 1.0, 0.0, 1.0);
+	}
+	float big_cracks = pow(analogue(plate_cracks, 0.0, 0.5, 1.0, 0.0), 1.5) * MORENA_BIG_CRACK_SCALE;
+	return vec4(fractal_perlin(8.0, p, 0.5, 8.0, 2.0, 8), big_cracks, hills, analogue(dunes, 0.0, 0.75, 0.0, 1.0));
+}
+
+vec4 asteroid_features(vec3 p) {
+	vec3 map_distort = p - fractal_derivative(20.0, p, 1.0, 1.0, 2.0, 2);
+	vec3 feature_distort = p - fractal_derivative(0.0, p, 1.0, 1.0, 2.0, 9);
+	vec3 base_coords = normalize(p + map_distort * 0.1 + feature_distort * 0.005);
+	float base = voronoi_two(base_coords, 0.5, 0.5, 0.25);
+	float plateau = analogue(fractal_perlin(113.0, p, 0.5, 0.5, 2.0, 12), 0.0, 1.0, 0.0, 1.0);
+	float mountain_mask = analogue(fractal_perlin(20.0, p, 0.5, 0.5, 2.0, 3), -1.0, -1.0, 0.0, 1.0);
+	float mountains = analogue(fractal_perlin(0.0, p, 0.5, 1.0, 2.0, 3), ASTEROID_MOUNTAIN_EDGE, 1.0, 0.0, 1.0);
+	float holes = holes_remap(fractal_perlin(0.0, p, 0.5, 128.0, 2.0, 4), vec4(1.0, 1.0, 1.0, 1.0));
+	return vec4(base, plateau, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes);
 }
 
 void main() {
@@ -466,4 +562,19 @@ void main() {
 		height = asteroid_height(p, params.asteroid_scale);
 	}
 	height_buffer.heights[index] = height;
+	if (params.features_enabled == 1u) {
+		vec4 feature = vec4(0.0);
+		if (params.grammar == 1u) {
+			feature = perun_features(p);
+		} else if (params.grammar == 2u) {
+			feature = jarilo_features(p);
+		} else if (params.grammar == 3u) {
+			feature = veles_features(p);
+		} else if (params.grammar == 4u) {
+			feature = morena_features(p);
+		} else if (params.grammar == 5u) {
+			feature = asteroid_features(p);
+		}
+		feature_buffer.features[index] = feature;
+	}
 }

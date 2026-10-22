@@ -56,7 +56,7 @@ static func default_system() -> StarSystem:
 	moon.parent_id = &"planet"
 	moon.radius = 1.7e6
 	moon.surface_gravity = 3.5
-	moon.atmosphere_height = 0.0
+	moon.atmosphere_height = 100000.0 # Morena-like cold green air (Rodina: 200 km on a 4000 km world)
 	moon.breathable = false
 	moon.orbit_radius = 1.0e8
 	moon.orbit_period = 1.0e6
@@ -78,7 +78,7 @@ static func default_system() -> StarSystem:
 	inner.display_name = "Cinder"
 	inner.radius = 4.2e6
 	inner.surface_gravity = 7.0
-	inner.atmosphere_height = 60000.0
+	inner.atmosphere_height = 160000.0 # Rodina: 200 km on a 5000 km world
 	inner.breathable = false # thin and toxic
 	inner.orbit_radius = 0.7e9
 	inner.orbit_period = 0.9e6

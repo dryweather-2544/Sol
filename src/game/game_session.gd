@@ -29,18 +29,22 @@ var player_state := PlayerState.new()
 var interior_body := InteriorBody.new()
 var exterior_body := OnFootBody.new()
 var pilot_source: PilotSource
+## Gunner station: the player is on the dorsal gun while an AI pilot flies. gunner_trigger is the fire button, set by the scene.
+var gunner_station := false
+var gunner_trigger := false
+var gunner_ai: AIPilotSource
 var discovery_log := DiscoveryLog.new()
 var suit := SuitState.new()
 var progress := ProgressTracker.new()
 var inventory := Inventory.new()
 var loot_log := LootLog.new()
+## Scanner (PoiScanner): seconds until the next pulse is allowed, and how long the readout stays on screen after one.
+var scan_cooldown := 0.0
+var scan_readout_seconds := 0.0
 ## The AI crew aboard (walking the interior; see ShipCrew).
 var crew := ShipCrew.new()
 var crew_brain := CrewBrain.new()
 ## POIs near the player, set by the scene each tick (for crates and solid props).
-## Scanner (PoiScanner): seconds until the next pulse is allowed, and how long the readout stays on screen after one.
-var scan_cooldown := 0.0
-var scan_readout_seconds := 0.0
 var nearby_pois: Array = []
 ## Combat: one projectile world shared by every shooter; enemy_targets is filled by the encounter director.
 var projectiles := ProjectileSim.new()
@@ -59,6 +63,12 @@ signal player_lost(reason: String)
 signal workbench_requested
 ## Observer only (audio): the player used something inside the ship and it was refused; `reason` is the message shown.
 signal interaction_refused(point_id: StringName, reason: String)
+## The player rested on the bed in the living area; the scene saves the game.
+signal rest_requested
+## The player used the airlock computer; the scene opens its menu.
+signal airlock_requested
+## The player used a ship machine (ops_computer, scanners, ftl_radio, battery_array, limnal_drive); the scene opens its screen.
+signal machine_requested(kind: StringName)
 ## The player used the reactor panel; the scene opens the reactor screen.
 signal reactor_requested
 ## The Mayday ambush has started; the scene spawns the hostile ship(s). Carries the beacon direction on Selene.
@@ -69,6 +79,12 @@ const EXTINGUISHER_STRENGTH := 0.35
 var extinguisher_charges := 0
 var _burning_room_count := 0
 var mode := Mode.SEATED
+## The player's view ray inside the ship (ship-local), set by the scene each frame. While `has_look` is true, interacting
+## and the prompt use what you are looking at (press F on the door itself); without it (headless tests, tools) they use
+## the nearest interaction point to the player's feet.
+var look_origin := Vector3.ZERO
+var look_direction := Vector3.ZERO
+var has_look := false
 var message := ""
 var message_seconds_left := 0.0
 var _sit_start_position := Vector3.ZERO
@@ -81,6 +97,7 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 	pilot_source = source
 	systems = ShipSystems.new()
 	ship.systems = systems
+	ship.nose_gun_enabled = false # the dorsal turret is the player ship's gun (pilot's fire button works it)
 	ship.auto_tick = false
 	systems.seats.seat_occupied.connect(_on_seat_occupied)
 	progress.ambush_triggered.connect(func(beacon_direction: Vector3):
@@ -104,6 +121,8 @@ func _init(planet_body: PlanetBody, player_ship: Ship, source: PilotSource) -> v
 ## Advance one physics tick. foot_command drives whichever body is walking.
 func tick(delta: float, foot_command: OnFootCommand) -> void:
 	message_seconds_left = maxf(0.0, message_seconds_left - delta)
+	scan_cooldown = maxf(0.0, scan_cooldown - delta)
+	scan_readout_seconds = maxf(0.0, scan_readout_seconds - delta)
 	if not systems.walkway.is_stowed() and planet != null:
 		_fit_ramp_to_ground() # follows the ship if it settles or shifts while the ramp is out
 	systems.walkway.occupied = _is_anyone_on_ramp()
@@ -116,13 +135,15 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	systems.update(delta, ship.state)
 	crew.update(delta, systems)
 	crew_brain.update(delta, crew, systems, ship, enemy_targets)
-	systems.turret.update(delta, ship, enemy_targets, systems.seats.state_of(&"gunner_seat") == SeatManager.SeatState.OCCUPIED, systems.weapon_factor(), projectiles)
+	if gunner_station:
+		systems.turret.update_manual(delta, ship, systems.weapon_factor(), projectiles, gunner_trigger, ship.upgrades.gun_damage_multiplier())
+	else:
+		var trigger := false # the pilot flies; only the gunner station (or the crew gunner) shoots the roof gun
+		systems.turret.update(delta, ship, enemy_targets, systems.seats.state_of(&"gunner_seat") == SeatManager.SeatState.OCCUPIED, systems.weapon_factor(), projectiles, trigger, ship.upgrades.gun_damage_multiplier())
 	systems.turret_firing = systems.turret.firing
 	_update_repair(delta)
 	var burning_now := systems.hazards.burning_rooms()
 	if burning_now.size() > _burning_room_count:
-	scan_cooldown = maxf(0.0, scan_cooldown - delta)
-	scan_readout_seconds = maxf(0.0, scan_readout_seconds - delta)
 		_say("FIRE in the %s!" % String(burning_now[-1]).replace("_", " "))
 	_burning_room_count = burning_now.size()
 	match mode:
@@ -143,6 +164,35 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	var targets: Array = [_player_ship_target, _player_foot_target]
 	targets.append_array(enemy_targets)
 	projectiles.step(delta, targets)
+
+
+func set_look(origin: Vector3, direction: Vector3) -> void:
+	look_origin = origin
+	look_direction = direction
+	has_look = true
+
+
+## The door or station the interact key would use right now (&"" for nothing).
+func interaction_target() -> StringName:
+	if has_look:
+		return systems.layout.look_target(look_origin, look_direction)
+	return systems.layout.nearest_interaction(interior_body.position)
+
+
+## The airlock computer's buttons: "in", "close" or "out". Returns "" or the reason it was refused.
+func airlock_command(goal: StringName) -> String:
+	var failure := systems.request_airlock(goal, ship.state)
+	if failure != "":
+		interaction_refused.emit(&"airlock_outer" if goal == &"out" else &"airlock_inner", failure)
+	return failure
+
+
+func _door_prompt(portal_id: StringName) -> String:
+	var open: bool = (systems.layout.portals[portal_id] as Portal).target_open
+	match portal_id:
+		&"airlock_inner": return "F: close the inner airlock door" if open else "F: open the inner airlock door"
+		&"airlock_outer": return "F: close the outer door and stow the ramp" if open else "F: open the outer door"
+	return "F: close door" if open else "F: open door"
 
 
 ## The context-sensitive action key.
@@ -177,6 +227,14 @@ func cycle_power_preset() -> void:
 func prompt() -> String:
 	if message_seconds_left > 0.0:
 		return message
+	var context := _context_prompt()
+	var scan := scan_text()
+	if scan == "":
+		return context
+	return scan if context == "" else context + "\n" + scan
+
+
+func _context_prompt() -> String:
 	match mode:
 		Mode.SEATED:
 			return "F: stand up"
@@ -185,17 +243,24 @@ func prompt() -> String:
 		Mode.INSIDE:
 			if systems.hazards.fire_in(player_room()) > 0.0 and extinguisher_charges > 0:
 				return "F: spray the fire (%d sprays left)" % extinguisher_charges
-			var nearest := systems.layout.nearest_interaction(interior_body.position)
+			var nearest := interaction_target()
+			if systems.layout.portals.has(nearest):
+				return _door_prompt(nearest)
 			match nearest:
 				&"pilot_seat": return "F: sit in the pilot seat"
-				&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door": return "F: door"
 				&"reactor_panel": return "F: reactor panel"
 				&"extinguisher_locker": return "F: take the fire extinguisher"
 				&"engine_station": return "F: engine station (install a part)"
 				&"gunner_seat": return "F: " + STATION_NAMES[nearest]
-				&"airlock_inner": return "F: inner airlock door"
-				&"airlock_outer": return "F: outer door / walkway"
 				&"workbench": return "F: workbench (upgrades)"
+				&"airlock_computer": return "F: airlock computer"
+				&"ops_computer": return "F: operations computer"
+				&"scanners": return "F: scanners"
+				&"ftl_radio": return "F: pilot wave radio"
+				&"battery_array": return "F: battery array"
+				&"limnal_drive": return "F: limnal drive"
+				&"bed": return "F: rest (saves the game)"
+				&"medbed": return "F: use the med bay"
 				&"repair_panel": return "F: repair hull" if not repairing else "F: stop repairing"
 		Mode.OUTSIDE:
 			var crate := _nearest_crate()
@@ -222,20 +287,13 @@ func validate() -> String:
 		return "both airlock doors open"
 	match mode:
 		Mode.SEATED:
-			if ship.controller.current_source != pilot_source or not systems.seats.is_seated(ACTOR):
+			var expected_source: PilotSource = gunner_ai if gunner_station else pilot_source
+			if ship.controller.current_source != expected_source or not systems.seats.is_seated(ACTOR):
 				return "seated but not piloting"
 		Mode.INSIDE:
 			if not systems.layout.is_position_walkable(interior_body.position.x, interior_body.position.z, 0.0):
 				return "interior body outside walkable area"
 			if ship.controller.current_source != null:
-	var context := _context_prompt()
-	var scan := scan_text()
-	if scan == "":
-		return context
-	return scan if context == "" else context + "\n" + scan
-
-
-func _context_prompt() -> String:
 				return "standing inside but ship still has a pilot"
 		Mode.OUTSIDE:
 			if planet.altitude_above_ground(exterior_body.position) < -0.01:
@@ -254,7 +312,45 @@ func _seat_local_position() -> Vector3:
 	return systems.layout.seats[PILOT_SEAT]["position"]
 
 
+## Swaps between the pilot's seat and the gun. On the gun an AI flies (it closes on the nearest hostile, weaving);
+## its own trigger is ignored, the player's fire button works the turret. Only from the pilot seat.
+func toggle_gunner_station() -> void:
+	if gunner_station:
+		_end_gunner_station()
+		_say("Back at the helm")
+		return
+	if mode != Mode.SEATED or ship.controller.current_source != pilot_source:
+		return
+	ship.controller.release_control(pilot_source)
+	gunner_ai = AIPilotSource.new(AIPilotSource.Mode.ATTACK)
+	gunner_ai.target_provider = func(): return _gunner_ai_target(false)
+	gunner_ai.target_velocity_provider = func(): return _gunner_ai_target(true)
+	ship.controller.request_control(gunner_ai, &"gunner_ai")
+	gunner_station = true
+	_say("On the dorsal gun - autopilot flying")
+
+
+func _end_gunner_station() -> void:
+	if not gunner_station:
+		return
+	gunner_station = false
+	gunner_trigger = false
+	if gunner_ai != null:
+		ship.controller.release_control(gunner_ai)
+		gunner_ai = null
+	if mode == Mode.SEATED:
+		ship.controller.request_control(pilot_source, PILOT_SEAT)
+
+
+func _gunner_ai_target(velocity: bool):
+	var enemy := systems.turret.pick_target(ship, enemy_targets)
+	if enemy == null:
+		return Vector3.ZERO if velocity else null
+	return enemy.combat_velocity() if velocity else enemy.combat_position()
+
+
 func _stand_up() -> void:
+	_end_gunner_station()
 	if not systems.seats.stand(ACTOR):
 		return
 	player_state.try_stand_up()
@@ -293,7 +389,7 @@ func _use_engine_station() -> String:
 
 
 func _interact_inside() -> void:
-	var point := systems.layout.nearest_interaction(interior_body.position)
+	var point := interaction_target()
 	var failure := ""
 	if point != &"extinguisher_locker" and extinguisher_charges > 0 and systems.hazards.fire_in(player_room()) > 0.0:
 		extinguisher_charges -= 1
@@ -321,11 +417,24 @@ func _interact_inside() -> void:
 		&"engine_station":
 			failure = _use_engine_station()
 		&"gunner_seat":
-			failure = STATION_NAMES[point] + " is not connected yet"
+			failure = "Gunner seat: sit at the helm and press H to man the dorsal gun"
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
 		&"workbench":
 			workbench_requested.emit()
+		&"airlock_computer":
+			airlock_requested.emit()
+		&"ops_computer", &"scanners", &"ftl_radio", &"battery_array", &"limnal_drive":
+			machine_requested.emit(point)
+		&"bed":
+			rest_requested.emit()
+		&"medbed":
+			if suit.health >= 0.99 and suit.oxygen >= 0.99:
+				_say("The scanner finds nothing wrong")
+			else:
+				suit.health = 1.0
+				suit.oxygen = 1.0
+				_say("Treated: full health")
 		&"repair_panel":
 			failure = _toggle_repair()
 		&"airlock_outer":
@@ -474,6 +583,7 @@ func _say(text: String, seconds: float = 2.5) -> void:
 
 ## Puts the session into a saved mode. Interior/exterior bodies and ship state must already be set.
 func restore_mode(saved_mode: int) -> void:
+	_end_gunner_station()
 	var seat_position: Vector3 = systems.layout.seats[PILOT_SEAT]["position"]
 	ship.controller.release_control(pilot_source)
 	systems.seats.reset()
@@ -651,6 +761,29 @@ func _try_open_crate() -> bool:
 	return true
 
 
+## Sends a scanner pulse from wherever the player is (flying, inside or on foot): every site within PoiScanner.RANGE of the
+## POIs the scene knows about becomes a remembered contact. Returns the contacts nearest first ([] while recharging).
+func scan_pulse() -> Array[Dictionary]:
+	if scan_cooldown > 0.0:
+		_say("Scanner recharging")
+		return []
+	scan_cooldown = PoiScanner.COOLDOWN_SECONDS
+	scan_readout_seconds = PoiScanner.READOUT_SECONDS
+	var contacts := PoiScanner.pulse(player_world_position(), forward_vector(), nearby_pois, discovery_log, loot_log)
+	if contacts.is_empty():
+		_say("Scan complete: no signals in range")
+	else:
+		_say("Scan: %d signal%s in range" % [contacts.size(), "" if contacts.size() == 1 else "s"])
+	return contacts
+
+
+## The scanner lines under the prompt: remembered contacts and unfinished sites, nearest first, with live distance and direction.
+func scan_text() -> String:
+	if scan_readout_seconds <= 0.0 or nearby_pois.is_empty():
+		return ""
+	return PoiScanner.readout(PoiScanner.live_contacts(player_world_position(), forward_vector(), nearby_pois, discovery_log, loot_log))
+
+
 ## Use one item from the inventory. Returns the message shown to the player.
 func use_item(item_id: StringName) -> String:
 	if inventory.count(item_id) <= 0:
@@ -748,26 +881,3 @@ func buy_upgrade(upgrade_id: StringName) -> String:
 		suit.oxygen_duration_multiplier = ship.upgrades.oxygen_duration_multiplier()
 		_say("Installed: " + ShipUpgrades.CATALOG[upgrade_id]["name"])
 	return problem
-## Sends a scanner pulse from wherever the player is (flying, inside or on foot): every site within PoiScanner.RANGE of the
-## POIs the scene knows about becomes a remembered contact. Returns the contacts nearest first ([] while recharging).
-func scan_pulse() -> Array[Dictionary]:
-	if scan_cooldown > 0.0:
-		_say("Scanner recharging")
-		return []
-	scan_cooldown = PoiScanner.COOLDOWN_SECONDS
-	scan_readout_seconds = PoiScanner.READOUT_SECONDS
-	var contacts := PoiScanner.pulse(player_world_position(), forward_vector(), nearby_pois, discovery_log, loot_log)
-	if contacts.is_empty():
-		_say("Scan complete: no signals in range")
-	else:
-		_say("Scan: %d signal%s in range" % [contacts.size(), "" if contacts.size() == 1 else "s"])
-	return contacts
-
-
-## The scanner lines under the prompt: remembered contacts and unfinished sites, nearest first, with live distance and direction.
-func scan_text() -> String:
-	if scan_readout_seconds <= 0.0 or nearby_pois.is_empty():
-		return ""
-	return PoiScanner.readout(PoiScanner.live_contacts(player_world_position(), forward_vector(), nearby_pois, discovery_log, loot_log))
-
-

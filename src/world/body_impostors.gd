@@ -20,6 +20,9 @@ var _shells := {} # body id -> AtmosphereShell (only for worlds with an atmosphe
 ## RodinaStar takes the atmosphere filter); the world-space star sphere would be fogged over it, so it is hidden.
 var hide_star := false
 
+## How many star radii the corona quad reaches from the centre.
+const STAR_CORONA_REACH := 4.0
+
 
 func _ready() -> void:
 	for body_id in system.bodies:
@@ -27,8 +30,8 @@ func _ready() -> void:
 		var mesh := SphereMesh.new()
 		mesh.radius = 1.0
 		mesh.height = 2.0
-		mesh.radial_segments = 48
-		mesh.rings = 24
+		mesh.radial_segments = 96 if body.is_star else 48
+		mesh.rings = 48 if body.is_star else 24
 		var material := StandardMaterial3D.new()
 		material.albedo_color = body.color if body.is_star else VisualStyle.look_for(body).impostor_color
 		material.roughness = 1.0
@@ -37,6 +40,8 @@ func _ready() -> void:
 		var node := MeshInstance3D.new()
 		node.mesh = mesh
 		node.material_override = material
+		if body.is_star:
+			_dress_star(node)
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(node)
 		_nodes[body_id] = node
@@ -44,6 +49,25 @@ func _ready() -> void:
 			var shell := AtmosphereShell.new()
 			add_child(shell)
 			_shells[body_id] = shell
+
+
+## The star is a boiling plasma sphere with a corona (star_surface / star_corona shaders), not a flat disc.
+func _dress_star(node: MeshInstance3D) -> void:
+	var surface := ShaderMaterial.new()
+	surface.shader = load("res://data/shaders/star_surface.gdshader")
+	node.material_override = surface
+	var corona := MeshInstance3D.new()
+	corona.name = "Corona"
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2.0, 2.0) * STAR_CORONA_REACH
+	corona.mesh = quad
+	var glow := ShaderMaterial.new()
+	glow.shader = load("res://data/shaders/star_corona.gdshader")
+	glow.set_shader_parameter("reach", STAR_CORONA_REACH)
+	corona.material_override = glow
+	corona.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	corona.extra_cull_margin = 16384.0
+	node.add_child(corona)
 
 
 ## Re-colours the far-away spheres after a visual style switch.

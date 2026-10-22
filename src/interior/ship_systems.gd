@@ -26,9 +26,18 @@ var turret_firing := false
 ## Set when the Mayday ambush starts: the next hit on the ship is a guaranteed engine hit and engineering fire.
 var ambush_armed := false
 signal ambush_hit
+## What the airlock computer is working towards (&"in" or &"out"; &"" when idle) and what it tells the player.
+var airlock_goal := &""
+var airlock_status := ""
+var _airlock_refusal := ""
 ## Set by the outer-door toggle: close the outer door once the walkway has stowed.
 var _outer_close_pending := false
 
+## Plain doors shut by themselves this long after the last person left the doorway (Rodina doors autoclose);
+## it also stops fire and smoke spreading through doors left open. Airlock doors never do.
+const DOOR_AUTO_CLOSE_SECONDS := 5.0
+## Off only for scripted tests that leave doors open on purpose while the "player" is elsewhere.
+var auto_close_enabled := true
 const AUTO_RESTART_BELOW_TEMPERATURE := 0.2
 const ENGINE_CAP_AFTER_AMBUSH := 0.6
 
@@ -41,7 +50,10 @@ func update(delta: float, ship_state: ShipState) -> void:
 	for portal in layout.portals.values():
 		if portal != airlock.inner and portal != airlock.outer:
 			(portal as Portal).update(delta)
+			_auto_close(portal as Portal, delta)
 	airlock.update(delta)
+	if airlock_goal != &"":
+		_step_airlock_goal(ship_state)
 	walkway.update(delta, ship_state)
 	if airlock.outer.open_factor > 0.0:
 		airlock_pressure = move_toward(airlock_pressure, ambient_pressure, delta / 0.8)
@@ -124,6 +136,16 @@ func takeoff_block_reason() -> String:
 	return ""
 
 
+func _auto_close(door: Portal, delta: float) -> void:
+	if not auto_close_enabled or not door.target_open or _is_occupied(door.id):
+		door.idle_open_seconds = 0.0
+		return
+	door.idle_open_seconds += delta
+	if door.idle_open_seconds >= DOOR_AUTO_CLOSE_SECONDS:
+		door.target_open = false
+		door.idle_open_seconds = 0.0
+
+
 ## Interact with the inner door panel. Returns a message ("" on success).
 func toggle_inner_door() -> String:
 	var result: int
@@ -160,14 +182,92 @@ func toggle_door(portal_id: StringName) -> String:
 	return ""
 
 
+## The airlock computer (Rodina's Open In / Close / Open Out). "in" and "out" run the whole sequence by themselves: close the
+## door on the other side (stowing the ramp first if it is out), wait for the air, then open. "close" shuts whichever door is
+## open. Returns "" or why it could not start; later trouble is left in airlock_status.
+func request_airlock(goal: StringName, ship_state: ShipState) -> String:
+	match goal:
+		&"close":
+			airlock_goal = &""
+			airlock_status = ""
+			if airlock.inner.target_open:
+				return AirlockController.describe(airlock.request_close_inner(_is_occupied(&"airlock_inner")))
+			if airlock.outer.target_open:
+				return toggle_outer_door(ship_state)
+			return ""
+		&"in", &"out":
+			airlock_goal = goal
+			airlock_status = "Working..."
+			_airlock_refusal = ""
+			_step_airlock_goal(ship_state)
+			return _airlock_refusal
+	return ""
+
+
+func _step_airlock_goal(ship_state: ShipState) -> void:
+	if airlock_goal == &"in":
+		if airlock.inner.target_open:
+			_finish_airlock_goal("Inner door open")
+		elif airlock.outer.target_open or airlock.outer.open_factor > 0.0:
+			if airlock.outer.target_open and not _outer_close_pending:
+				var refused := toggle_outer_door(ship_state) # stows the ramp, then closes the outer door
+				if refused != "":
+					_refuse_airlock_goal(refused)
+					return
+			airlock_status = "Closing the outer door..."
+		elif airlock_pressure < 0.99:
+			airlock_status = "Pressurising..."
+		else:
+			var result := airlock.request_open_inner()
+			if result == AirlockController.Result.OK:
+				_finish_airlock_goal("Inner door open")
+			elif result == AirlockController.Result.BLOCKED_CYCLING:
+				airlock_status = "Cycling..."
+			else:
+				_refuse_airlock_goal(AirlockController.describe(result))
+	elif airlock_goal == &"out":
+		if airlock.outer.target_open:
+			_finish_airlock_goal("Outer door open")
+		elif airlock.inner.target_open or airlock.inner.open_factor > 0.0:
+			if airlock.inner.target_open:
+				var closing := airlock.request_close_inner(_is_occupied(&"airlock_inner"))
+				if closing != AirlockController.Result.OK:
+					_refuse_airlock_goal(AirlockController.describe(closing))
+					return
+			airlock_status = "Closing the inner door..."
+		else:
+			var refused := toggle_outer_door(ship_state)
+			if refused == "":
+				_finish_airlock_goal("Outer door open")
+			elif refused == AirlockController.describe(AirlockController.Result.BLOCKED_CYCLING):
+				airlock_status = "Cycling..."
+			else:
+				_refuse_airlock_goal(refused)
+
+
+func _finish_airlock_goal(status: String) -> void:
+	airlock_goal = &""
+	airlock_status = status
+
+
+func _refuse_airlock_goal(reason: String) -> void:
+	_finish_airlock_goal(reason)
+	_airlock_refusal = reason
+
+
 ## Called when the pilot sits down: stow the walkway and close the outer door (nothing happens
 ## while someone is on the ramp; takeoff stays blocked until it is done).
 func secure_for_takeoff() -> void:
+	airlock_goal = &""
 	if walkway.occupied:
 		return
 	if airlock.outer.target_open or airlock.outer.open_factor > 0.0:
 		walkway.request_retract()
 		_outer_close_pending = true
+
+
+func is_portal_occupied(portal_id: StringName) -> bool:
+	return _is_occupied(portal_id)
 
 
 func _is_occupied(portal_id: StringName) -> bool:
@@ -177,4 +277,6 @@ func _is_occupied(portal_id: StringName) -> bool:
 ## Drop queued actions (used when a save is loaded; the saved door/walkway states are authoritative).
 func reset_pending_actions() -> void:
 	_outer_close_pending = false
+	airlock_goal = &""
+	airlock_status = ""
 	seats.reset()

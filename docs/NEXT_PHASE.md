@@ -184,7 +184,7 @@ Not doing: content in `.tres` (ARCHITECTURE asks for it, but code tables work an
 
 **N1 — `ShipPower` pure logic + tests + one overlay line.** Branch `n1-ship-power` from `claude/eager-cannon-mrod2z` (or `main` once merged).
 
-1. Read PULSAR `05_SHIP_SYSTEMS_AND_POWER.md` §1, §2, §9, §10 (path: `~/Documents/Deepseek workspace/pulsar-research/pulsar-reference/`). Concepts only; no numbers, names or text copied.
+1. Read PULSAR `05_SHIP_SYSTEMS_AND_POWER.md` §1, §2, §9, §10 (path: `~/Dev/Sol/LOCAL_RODINA_REFERENCE/PULSAR_REFERENCE/pulsar-reference/`). Concepts only; no numbers, names or text copied.
 2. Write `src/ship/ship_power.gd` (`class_name ShipPower extends RefCounted`): conduits ENGINES/WEAPONS/LIFE_SUPPORT, `set_limit(conduit, 0..1)`, `set_request(conduit, units)`, `delivered(conduit)`, `temperature`, `coolant`, `vent_coolant()`, `is_shut_down()`, `request_restart() -> String`, `update(delta)`. Mutating calls return a result string ("" = OK) like `ShipSystems.toggle_*`.
 3. Write `tests/unit/ship_power_test.gd` with the five tests listed under N1.
 4. Own one instance in `ShipSystems` (ticked in `update`) and show one line in `DebugOverlay`. Change nothing else.

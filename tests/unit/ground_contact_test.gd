@@ -124,7 +124,7 @@ func test_thrust_up_lifts_off_and_clears_landed() -> void:
 	ship.free()
 
 
-func test_hull_impact_restitution_matches_rodina() -> void:
+func test_a_hard_crash_rebounds_a_little_but_a_landing_does_not() -> void:
 	var planet := _sloped_planet(0.0)
 	var ship := _ship_above_pole(planet, 3.0)
 	ship.state.velocity = Vector3(0, 0, -30)
@@ -139,5 +139,17 @@ func test_hull_impact_restitution_matches_rodina() -> void:
 		for tick in 30:
 			ship.simulate_tick(DELTA)
 			bounced = maxf(bounced, ship.state.velocity.z)
-	assert_true(bounced > 10.0, "30 m/s impact should bounce upward at about 0.8 restitution, got %f" % bounced)
+	assert_true(bounced > 3.0 and bounced < 12.0, "a 30 m/s crash rebounds at about 0.25 restitution, got %f" % bounced)
+	ship.free()
+
+
+func test_a_firm_landing_does_not_bounce() -> void:
+	var planet := _sloped_planet(0.0)
+	var ship := _ship_above_pole(planet, 3.0)
+	ship.state.velocity = Vector3(0, 0, -15)
+	var highest_rebound := 0.0
+	for tick in 120:
+		ship.simulate_tick(DELTA)
+		highest_rebound = maxf(highest_rebound, ship.state.velocity.z)
+	assert_true(highest_rebound < 1.0, "a 15 m/s landing never rebounds upward, got %f" % highest_rebound)
 	ship.free()

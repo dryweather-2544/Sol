@@ -119,10 +119,13 @@ func set_rodina_viewer(enabled: bool, eye: Vector3 = Vector3.UP, height_ratio: f
 
 ## sun_elevation: cosine of the sun's angle from the local up (dot(up, toward the sun)); 1 in open space. Rodina fades
 ## the star light through the terminator (rendering_notes §6.2, GetPlanetDayLightIntensity); the Sol look ignores it.
-func set_sun_elevation(sun_elevation: float) -> void:
+## air_amount: 0 in open space, 1 inside the atmosphere. The terminator only dims the light through air; out in space the
+## star lights the ship fully wherever it is round the planet (it used to fade the light up and down as a fast ship swung
+## round a planet, which read as the ship's lighting flickering).
+func set_sun_elevation(sun_elevation: float, air_amount: float = 1.0) -> void:
 	var factor := 1.0
 	if _look.terminator_enabled:
-		factor = smoothstep(_look.terminator_end, _look.terminator_begin, sun_elevation)
+		factor = lerpf(1.0, smoothstep(_look.terminator_end, _look.terminator_begin, sun_elevation), clampf(air_amount, 0.0, 1.0))
 	_sun.light_energy = _look.sun_energy * factor
 
 

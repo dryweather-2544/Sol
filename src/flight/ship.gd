@@ -27,6 +27,14 @@ var hull_color := Color(0.62, 0.66, 0.72)
 var weapon := Weapon.ship_gun()
 ## Nose of the ship, where shots leave (ship-local).
 var muzzle_offset := Vector3(0, -0.2, -7.6)
+## Rodina's player ship has two gun barrels (GunBarrelLeft/Right); shots alternate between them.
+const BARREL_X := 1.2
+## False on the player's ship: its main gun is the dorsal turret (ShipTurret). Other ships keep the nose guns.
+var nose_gun_enabled := true
+## Both barrels are angled to cross at this range ahead of the nose, so a burst closes on the reticle (the camera looks
+## along the ship's nose) instead of running parallel and off to the sides.
+const CONVERGENCE := 600.0
+var _next_barrel := -1.0
 
 signal destroyed
 
@@ -64,8 +72,9 @@ func simulate_tick(delta: float) -> void:
 		free_space.fill_environment(state, environment)
 	# The player's ship (the one with interior systems) uses the player's levelling setting; others Rodina's default.
 	environment.horizon_levelling = GameSettings.instance().ship_horizon_levelling if systems != null else 1.0
-	var command := controller.poll_command(state, delta)
 	var tank_empty := state.fuel <= 0.0
+	state.allowed_gear = mini(environment.max_gear, PilotCommand.GEAR_COMBAT if tank_empty else PilotCommand.GEAR_WARP)
+	var command := controller.poll_command(state, delta)
 	if tank_empty:
 		environment.max_gear = mini(environment.max_gear, PilotCommand.GEAR_COMBAT)
 		if command.boost:
@@ -80,6 +89,7 @@ func simulate_tick(delta: float) -> void:
 			command = command.with_thrust_scaled(engine_factor)
 	last_command = command
 	FlightModel.step(state, command, tuning, environment, delta)
+	state.clutch = command.clutch and state.gear < PilotCommand.GEAR_WARP
 	_burn_fuel(command, delta)
 	_fire_weapon(command, delta)
 	if planet != null:
@@ -135,12 +145,20 @@ func _burn_fuel(command: PilotCommand, delta: float) -> void:
 	state.fuel = maxf(0.0, state.fuel - burn * upgrades.fuel_burn_multiplier() * delta)
 
 
+## Guns work in the COMBAT gear only: dock/precision is for landing and cruise/warp are too fast to aim.
+static func gear_allows_fire(gear: int) -> bool:
+	return gear == PilotCommand.GEAR_COMBAT
+
+
 func _fire_weapon(command: PilotCommand, delta: float) -> void:
 	weapon.update(delta)
-	if projectiles == null or not command.fire or state.hull <= 0.0:
+	if not nose_gun_enabled or projectiles == null or not command.fire or state.hull <= 0.0 or not Ship.gear_allows_fire(state.gear):
 		return
-	var muzzle := state.position.offset_by(state.basis * muzzle_offset)
+	var local_muzzle := muzzle_offset + Vector3(_next_barrel * BARREL_X, 0.0, 0.0)
+	var muzzle := state.position.offset_by(state.basis * local_muzzle)
+	var aim := state.basis * (Vector3(0.0, 0.0, -CONVERGENCE) - local_muzzle).normalized()
 	var base_damage := weapon.damage
 	weapon.damage = base_damage * upgrades.gun_damage_multiplier()
-	weapon.try_fire(projectiles, muzzle, -state.basis.z, state.velocity, team_id, self, systems.weapon_factor() if systems != null else 1.0)
+	if weapon.try_fire(projectiles, muzzle, aim, state.velocity, team_id, self, systems.weapon_factor() if systems != null else 1.0):
+		_next_barrel = -_next_barrel
 	weapon.damage = base_damage

@@ -27,6 +27,22 @@ const RODINA_TO_SOL := Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 
 
 const _SHADER_PATH := "res://data/shaders/rodina_particle.gdshader"
 
+## The limnal (warp) effects are drawn as hard-edged squares, matched to the owner's footage of Rodina's warp: a ring of
+## translucent violet-white squares at the start, then big overlapping translucent squares that fill the screen to white
+## (Rodina's own sprite sizes, only the soft dot swapped for a hard square), around a dense magenta core of many small
+## squares. Per effect: `size` scales the sprite sizes in the key frames and `rate` multiplies the particle count.
+## Multiplies the warp squares' violet toward Rodina's magenta-pink.
+const MAGENTA := Color(1.0, 0.45, 0.95)
+const SQUARE_EFFECTS := {
+	# clear/full: the screen-centre mask in screen heights (clear < 0: unmasked). The pink core around the ship stays;
+	# the big white-violet squares thin out toward the middle so the pilot can still see ahead.
+	"Limnal Startup Ring": {"size": 0.13, "rate": 0.2, "clear": -1.0, "full": 0.0, "tint": MAGENTA},
+	"Limnal Drive": {"size": 1.0, "rate": 1.0, "clear": 0.2, "full": 0.6, "tint": MAGENTA},
+	"Limnal Drive Air": {"size": 1.0, "rate": 1.0, "clear": 0.2, "full": 0.6, "tint": MAGENTA},
+	"Limnal Pink Air": {"size": 0.025, "rate": 15.0, "clear": -1.0, "full": 0.0},
+	"LimnalShipBlur": {"size": 0.25, "rate": 2.0, "clear": -1.0, "full": 0.0},
+}
+
 var material_name := ""
 var _rate := 0.0
 var _driven := false
@@ -42,7 +58,8 @@ func setup(effect_name: String) -> void:
 	name = "Rodina_" + effect_name.replace(" ", "")
 	_rate = style["Rate"]
 	lifetime = style["Lifetime"]
-	amount = maxi(1, ceili(_rate * lifetime) + 1)
+	var square: Dictionary = SQUARE_EFFECTS.get(effect_name, {})
+	amount = maxi(1, ceili(_rate * lifetime * float(square.get("rate", 1.0))) + 1)
 	amount_ratio = 0.0
 	emitting = false
 	explosiveness = 0.0
@@ -78,7 +95,7 @@ func setup(effect_name: String) -> void:
 		# adds layers in display space, Godot in linear, so dense additive overlaps differ).
 		var linear := Color(color.x, color.y, color.z).srgb_to_linear()
 		colors.append(Vector4(linear.r, linear.g, linear.b, key["Alpha"]))
-		sizes.append(float(key["Size"]) * s)
+		sizes.append(float(key["Size"]) * s * float(square.get("size", 1.0)))
 	while times.size() < 5:
 		times.append(times[times.size() - 1])
 		colors.append(colors[colors.size() - 1])
@@ -88,8 +105,12 @@ func setup(effect_name: String) -> void:
 	process.set_shader_parameter("key_color", colors)
 	process.set_shader_parameter("key_size", sizes)
 	process_material = process
-	draw_pass_1 = _sprite(definition.get("BlendStyle", "Alpha"))
+	draw_pass_1 = _sprite(definition.get("BlendStyle", "Alpha"), not square.is_empty())
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if not square.is_empty():
+		set_instance_shader_parameter("clear_radius", float(square.get("clear", 0.2)))
+		set_instance_shader_parameter("full_radius", float(square.get("full", 0.6)))
+		set_instance_shader_parameter("tint", square.get("tint", Color.WHITE))
 	# Live particles reach up to Offset + Size + speed * lifetime away from the emitter (the warp streams travel kilometres).
 	var reach := (_vector(style["Offset"]).length() + float(style["Size"]) + (_vector(style["VelocityBase"]).length() + _vector(style["VelocityRange"]).length() + absf(style["VelocityNormalBase"]) + absf(style["VelocityNormalRange"])) * lifetime + 0.5 * (_vector(style["Acceleration"]).length() + absf(style["AccelerationNormal"])) * lifetime * lifetime) * s
 	var biggest := 0.0
@@ -134,20 +155,42 @@ static func _vector(value: Variant) -> Vector3:
 	return value as Vector3
 
 
-static func _sprite(blend_style: String) -> QuadMesh:
-	if _sprites.has(blend_style):
-		return _sprites[blend_style]
+const _SQUARE_SHADER_PATH := "res://data/shaders/rodina_square_particle.gdshader"
+static var _additive_shader: Shader
+
+
+static func _additive_square_shader() -> Shader:
+	if _additive_shader == null:
+		_additive_shader = Shader.new()
+		_additive_shader.code = (load(_SQUARE_SHADER_PATH) as Shader).code.replace("blend_mix", "blend_add")
+	return _additive_shader
+
+
+static func _sprite(blend_style: String, square: bool = false) -> QuadMesh:
+	var cache_key := blend_style + ("_square" if square else "")
+	if _sprites.has(cache_key):
+		return _sprites[cache_key]
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if blend_style == "Add" else BaseMaterial3D.BLEND_MODE_MIX
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.vertex_color_use_as_albedo = true
-	material.albedo_texture = ShipEffects.soft_dot()
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	material.billboard_keep_scale = true
-	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	var material: Material
+	if square:
+		# Hard squares keep the middle of the screen clear: the shader fades them out toward the centre.
+		var screen_material := ShaderMaterial.new()
+		screen_material.shader = load(_SQUARE_SHADER_PATH)
+		if blend_style == "Add":
+			screen_material.shader = _additive_square_shader()
+		material = screen_material
+	else:
+		var standard := StandardMaterial3D.new()
+		standard.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		standard.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if blend_style == "Add" else BaseMaterial3D.BLEND_MODE_MIX
+		standard.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		standard.vertex_color_use_as_albedo = true
+		standard.albedo_texture = ShipEffects.soft_dot()
+		standard.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		standard.billboard_keep_scale = true
+		standard.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		material = standard
 	quad.material = material
-	_sprites[blend_style] = quad
+	_sprites[cache_key] = quad
 	return quad

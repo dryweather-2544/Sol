@@ -7,7 +7,7 @@
 script = ExtResource("2_etvyy")
 radius = 1700000.0
 generation_revision = 3
-grammar = 5
+grammar = 4
 terrain_seed = 7777
 macro_amplitude = 500.0
 mountain_amplitude = 1100.0
@@ -28,7 +28,7 @@ display_name = "Selene"
 parent_id = &"planet"
 radius = 1700000.0
 surface_gravity = 3.5
-atmosphere_height = 0.0
+atmosphere_height = 100000.0
 breathable = false
 orbit_radius = 100000000.0
 orbit_phase = 1.0

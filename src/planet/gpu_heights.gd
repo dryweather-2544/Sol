@@ -28,6 +28,7 @@ var _shader: RID
 var _pipeline: RID
 var _directions_buffer: RID
 var _heights_buffer: RID
+var _features_buffer: RID
 var _points_buffer: RID
 var _uniform_set: RID
 var dispatch_count := 0
@@ -96,13 +97,16 @@ func _run() -> void:
 		_queue_mutex.unlock()
 		if request.is_empty():
 			continue
-		request["result"] = _dispatch(request["directions"], request["count"], request["grammar"], request["scale"])
+		var outcome := _dispatch(request["directions"], request["count"], request["grammar"], request["scale"], request["want_features"])
+		request["result"] = outcome["heights"]
+		request["features"] = outcome["features"]
 		(request["done"] as Semaphore).post()
 	_rd.free_rid(_uniform_set)
 	_rd.free_rid(_pipeline)
 	_rd.free_rid(_shader)
 	_rd.free_rid(_directions_buffer)
 	_rd.free_rid(_heights_buffer)
+	_rd.free_rid(_features_buffer)
 	_rd.free_rid(_points_buffer)
 	_rd.free()
 
@@ -127,9 +131,10 @@ func _setup() -> bool:
 		return false
 	_directions_buffer = _rd.storage_buffer_create(CAPACITY * 16)
 	_heights_buffer = _rd.storage_buffer_create(CAPACITY * 4)
+	_features_buffer = _rd.storage_buffer_create(CAPACITY * 16)
 	_points_buffer = _rd.storage_buffer_create(RodinaPlanets.VORONOI_COUNT * 16, RodinaPlanets.points_as_floats().to_byte_array())
 	var uniforms: Array[RDUniform] = []
-	for pair in [[0, _directions_buffer], [1, _heights_buffer], [2, _points_buffer]]:
+	for pair in [[0, _directions_buffer], [1, _heights_buffer], [2, _points_buffer], [3, _features_buffer]]:
 		var uniform := RDUniform.new()
 		uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 		uniform.binding = pair[0]
@@ -142,18 +147,30 @@ func _setup() -> bool:
 ## directions: count x (x, y, z, 0) float32 unit vectors. Returns count heights (metres above the planet
 ## radius), or an empty array if the GPU failed (callers fall back to the CPU). Any thread.
 func heights(directions: PackedFloat32Array, count: int, grammar: int, asteroid_scale: float) -> PackedFloat32Array:
-	var request := {"directions": directions, "count": count, "grammar": grammar, "scale": asteroid_scale, "done": Semaphore.new(), "result": PackedFloat32Array()}
+	return _request(directions, count, grammar, asteroid_scale, false)["heights"]
+
+
+## Same dispatch, plus the planet feature texture per point: {heights: count floats, features: count x (base, plateau,
+## mountains, holes) floats}. Both arrays are empty if the GPU failed. Any thread.
+func heights_and_features(directions: PackedFloat32Array, count: int, grammar: int, asteroid_scale: float) -> Dictionary:
+	return _request(directions, count, grammar, asteroid_scale, true)
+
+
+func _request(directions: PackedFloat32Array, count: int, grammar: int, asteroid_scale: float, want_features: bool) -> Dictionary:
+	var request := {"directions": directions, "count": count, "grammar": grammar, "scale": asteroid_scale, "want_features": want_features,
+		"done": Semaphore.new(), "result": PackedFloat32Array(), "features": PackedFloat32Array()}
 	_queue_mutex.lock()
 	_queue.append(request)
 	_queue_mutex.unlock()
 	_work.post()
 	(request["done"] as Semaphore).wait()
-	return request["result"]
+	return {"heights": request["result"], "features": request["features"]}
 
 
 ## GPU thread only.
-func _dispatch(directions: PackedFloat32Array, count: int, grammar: int, asteroid_scale: float) -> PackedFloat32Array:
+func _dispatch(directions: PackedFloat32Array, count: int, grammar: int, asteroid_scale: float, want_features: bool) -> Dictionary:
 	var result := PackedFloat32Array()
+	var feature_result := PackedFloat32Array()
 	var done := 0
 	while done < count:
 		var batch := mini(CAPACITY, count - done)
@@ -164,7 +181,7 @@ func _dispatch(directions: PackedFloat32Array, count: int, grammar: int, asteroi
 		push.encode_u32(0, batch)
 		push.encode_u32(4, grammar)
 		push.encode_float(8, asteroid_scale)
-		push.encode_float(12, 0.0)
+		push.encode_u32(12, 1 if want_features else 0)
 		var list := _rd.compute_list_begin()
 		_rd.compute_list_bind_compute_pipeline(list, _pipeline)
 		_rd.compute_list_bind_uniform_set(list, _uniform_set, 0)
@@ -175,8 +192,13 @@ func _dispatch(directions: PackedFloat32Array, count: int, grammar: int, asteroi
 		_rd.sync()
 		var data := _rd.buffer_get_data(_heights_buffer, 0, batch * 4).to_float32_array()
 		if data.size() != batch:
-			return PackedFloat32Array()
+			return {"heights": PackedFloat32Array(), "features": PackedFloat32Array()}
 		result.append_array(data)
+		if want_features:
+			var feature_data := _rd.buffer_get_data(_features_buffer, 0, batch * 16).to_float32_array()
+			if feature_data.size() != batch * 4:
+				return {"heights": PackedFloat32Array(), "features": PackedFloat32Array()}
+			feature_result.append_array(feature_data)
 		done += batch
 		dispatch_count += 1
-	return result
+	return {"heights": result, "features": feature_result}

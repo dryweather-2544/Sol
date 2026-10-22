@@ -12,13 +12,19 @@ const LARGE := Vector2i(1280, 720)
 const SUN_ELEVATION_DEGREES := 35.0
 ## [name, altitude metres (orbit: in planet radii), camera pitch below the horizon in degrees, ship visible]
 const VIEWS := [["orbit", 1.4, 34.0, false], ["approach", 30000.0, 7.0, false], ["low", 900.0, 9.0, false], ["ground", 0.0, 2.0, true],
-	["effects", 185000.0, 0.0, true], ["sun", 900.0, -25.0, false]]
+	["effects", 185000.0, 0.0, true], ["sun", 900.0, -25.0, false], ["star", 2.0e7, 0.0, false],
+	# The descent: one shot per step down from high above to eye height, each waiting for the terrain to finish loading.
+	["descent_1", 120000.0, 15.0, false], ["descent_2", 40000.0, 15.0, false], ["descent_3", 12000.0, 15.0, false],
+	["descent_4", 3000.0, 15.0, false], ["descent_5", 800.0, 12.0, false], ["descent_6", 200.0, 10.0, false],
+	["descent_7", 40.0, 6.0, false]]
 ## The effects view holds the ship at this speed under full thrust in the top of Aurelia's air (the entry band, where
 ## Rodina's entry resistance acts; ShipDamage.entry_resistance): plumes and entry heat.
 const EFFECTS_SPEED := 9000.0
 
 ## Frames to wait for terrain at each view before shooting anyway (software rendering is slow).
 const MAX_SETTLE_FRAMES := 160
+## The descent views wait much longer: low altitudes ask for many more chunks.
+const DESCENT_MAX_SETTLE_FRAMES := 900
 
 var _main: Node
 var _frames := 0
@@ -42,13 +48,23 @@ func _initialize() -> void:
 	root.add_child(_main)
 	var filter: String = OS.get_cmdline_user_args()[1] if OS.get_cmdline_user_args().size() > 1 else ""
 	var view_filter: String = OS.get_cmdline_user_args()[2] if OS.get_cmdline_user_args().size() > 2 else ""
+	# View names may be a comma list ("descent_3,descent_5"); "descent" means every descent step.
+	var wanted_views := view_filter.split(",", false)
+	# Sites: a comma list of place numbers ("0,1,2,3"). Each site is the first one turned round the sun direction by 90
+	# degrees per number, so the sun stands at the same height over every site.
+	var sites: Array = []
+	for text in (OS.get_cmdline_user_args()[3] if OS.get_cmdline_user_args().size() > 3 else "0").split(",", false):
+		sites.append(int(text))
 	for body_id in [&"planet", &"cinder", &"verdant", &"selene", &"pebble"]:
 		if filter == "" or String(body_id).contains(filter):
 			for view in VIEWS:
 				if view[0] == "effects" and (body_id != &"planet" or view_filter != "effects"):
 					continue # only on request, and only where there is air to heat
-				if view_filter == "" or view[0] == view_filter:
-					_jobs.append([body_id, view])
+				if String(view[0]).begins_with("descent_") and not ("descent" in wanted_views or view[0] in wanted_views):
+					continue # only on request: run with the view name "descent" or a step name
+				if view_filter == "" or "descent" in wanted_views and String(view[0]).begins_with("descent_") or view[0] in wanted_views:
+					for site in sites:
+						_jobs.append([body_id, view, site])
 
 
 func _process(_delta: float) -> bool:
@@ -81,7 +97,7 @@ func _process(_delta: float) -> bool:
 
 func _shot_ready() -> bool:
 	_settled = _settled + 1 if _main.terrain == null or _main.terrain.is_settled() else 0
-	return _large_frames >= 2 and (_settled > 12 or _frames > _job_frame + MAX_SETTLE_FRAMES)
+	return _large_frames >= 2 and (_settled > 12 or _frames > _job_frame + _max_settle_frames())
 
 
 func _start_job() -> void:
@@ -96,6 +112,9 @@ func _start_job() -> void:
 	var toward_sun := -system.sun_direction_in_frame(body_id, runtime.time_seconds)
 	var tilt_axis := toward_sun.cross(Vector3.UP).normalized()
 	var up := toward_sun.rotated(tilt_axis, deg_to_rad(90.0 - SUN_ELEVATION_DEGREES))
+	var site: int = _jobs[_job][2]
+	if site != 0:
+		up = up.rotated(toward_sun, deg_to_rad(90.0 * site)) # the same height of sun over a different place
 	var ground := planet.surface_radius_xyz(up.x, up.y, up.z)
 	var altitude: float = view[1] * planet.radius if view[0] == "orbit" else view[1]
 	var on_ground: bool = view[0] == "ground"
@@ -104,6 +123,8 @@ func _start_job() -> void:
 	var sun_flat := (toward_sun - up * toward_sun.dot(up)).normalized()
 	# The "sun" view looks straight at the sun instead (to compare the star and its halo with Rodina's).
 	var forward := sun_flat if view[0] == "sun" else sun_flat.rotated(up, deg_to_rad(70.0))
+	if view[0] == "star":
+		forward = toward_sun # straight at the star from high above, to see its surface and corona
 	_hold_basis = Basis.looking_at(forward, up)
 	var ship: Ship = _main.ship
 	ship.state.position = _hold_position
@@ -185,14 +206,19 @@ func _place_camera() -> void:
 
 
 func _shot_ready_peek() -> bool:
-	return _settled > 10 or _frames > _job_frame + MAX_SETTLE_FRAMES - 2
+	return _settled > 10 or _frames > _job_frame + _max_settle_frames() - 2
+
+
+func _max_settle_frames() -> int:
+	return DESCENT_MAX_SETTLE_FRAMES if String(_jobs[_job][1][0]).begins_with("descent_") else MAX_SETTLE_FRAMES
 
 
 ## Saves the last drawn frame (rendered at LARGE for at least two frames) under this job's name, before the next
 ## job moves the camera.
 func _save() -> void:
 	var job: Array = _jobs[_job]
-	var path: String = OS.get_cmdline_user_args()[0].path_join("%s_%s_%s.png" % [VisualStyle.active(), job[0], job[1][0]])
+	var site_suffix := "" if job[2] == 0 else "_s%d" % job[2]
+	var path: String = OS.get_cmdline_user_args()[0].path_join("%s_%s_%s%s.png" % [VisualStyle.active(), job[0], job[1][0], site_suffix])
 	root.get_viewport().get_texture().get_image().save_png(path)
 	var planet: PlanetBody = _main.planet
 	var camera_world := (_main.ship as Ship).state.position.offset_by(_eye_offset)

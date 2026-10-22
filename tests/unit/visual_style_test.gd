@@ -72,13 +72,31 @@ func test_style_changes_colours_but_never_terrain_geometry() -> void:
 func test_rodina_feature_gates_pick_rock_on_cliffs_and_ice_at_the_poles() -> void:
 	VisualStyle.set_active(VisualStyle.RODINA)
 	var system := StarSystem.default_system()
-	var look := VisualStyle.look_for(system.bodies[system.home_id])
+	var look := VisualStyle._rodina_look_palette(system.bodies[system.home_id]) # uncached: this checks the hand-made palette gates, which Rodina feature colours replace
 	var profile: TerrainProfile = system.bodies[system.home_id].terrain_profile
 	var flat_equator := look.surface_color(profile, 800.0, 0.0, 0.1, Vector3(1000, 0, 0))
 	var cliff := look.surface_color(profile, 800.0, 0.3, 0.1, Vector3(1000, 0, 0))
 	var pole := look.surface_color(profile, 800.0, 0.0, 0.97, Vector3(1000, 0, 0))
 	assert_true(cliff.get_luminance() < flat_equator.get_luminance(), "cliffs are dark rock")
 	assert_true(pole.get_luminance() > flat_equator.get_luminance(), "poles are frosted")
+	_after()
+
+
+func test_rodina_style_colours_grammar_worlds_from_the_feature_texture() -> void:
+	VisualStyle.set_active(VisualStyle.RODINA)
+	var system := StarSystem.default_system()
+	for body_id in VisualStyle.RODINA_FEATURE_COLOR_BODIES:
+		if not system.bodies.has(body_id):
+			continue
+		var body: BodyDef = system.bodies[body_id]
+		var look := VisualStyle.look_for(body)
+		assert_true(look.rodina_feature_colors, "%s uses Rodina feature colours" % body_id)
+		if body.terrain_profile != null and body.terrain_profile.grammar != TerrainProfile.Grammar.LEGACY:
+			var color := look.surface_color(body.terrain_profile, 500.0, 0.0, 0.3, Vector3(0.3, 0.5, 0.8) * 6000000.0)
+			assert_true(is_finite(color.r) and is_finite(color.g) and is_finite(color.b), "%s colour is finite" % body_id)
+	VisualStyle.set_active(VisualStyle.SOL)
+	var sol_look := VisualStyle.look_for(system.bodies[system.home_id])
+	assert_true(not sol_look.rodina_feature_colors, "the Sol style never uses them")
 	_after()
 
 
@@ -136,7 +154,7 @@ func test_rodina_air_worlds_use_rodina_atmosphere_colours() -> void:
 	var cinder := VisualStyle.look_for(system.bodies[&"cinder"])
 	assert_true(cinder.sky_zenith.r > cinder.sky_zenith.g * 2.0)
 	VisualStyle.set_active(before)
-func test_speed_streaks_are_style_speed_and_gear_gated() -> void:
+func test_speed_streaks_are_off_in_every_style_and_gear() -> void:
 	VisualStyle.set_active(VisualStyle.SOL)
 	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE), 0.0, 1e-9, "Sol style has no streak field")
 	VisualStyle.set_active(VisualStyle.RODINA)
@@ -144,8 +162,8 @@ func test_speed_streaks_are_style_speed_and_gear_gated() -> void:
 	assert_near(SpeedEffects.intensity_for(500.0, PilotCommand.GEAR_DOCK), 0.0, 1e-9, "dock gear never streaks")
 	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_CRUISE), 0.0, 1e-9, "cruise keeps trails, not the combat streak field")
 	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_WARP), 0.0, 1e-9, "WARP uses its own trail; no invented combat streaks")
-	assert_true(SpeedEffects.intensity_for(450.0, PilotCommand.GEAR_COMBAT) > 0.3, "combat-band streaks appear")
-	assert_true(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_COMBAT) > 0.3, "high combat streaks appear")
+	assert_near(SpeedEffects.intensity_for(450.0, PilotCommand.GEAR_COMBAT), 0.0, 1e-9, "no streak field in combat: it was added by mistake")
+	assert_near(SpeedEffects.intensity_for(5000.0, PilotCommand.GEAR_COMBAT), 0.0, 1e-9, "nor at high combat speed")
 	_after()
 
 

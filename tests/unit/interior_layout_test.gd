@@ -27,7 +27,7 @@ func test_closed_door_blocks_and_open_door_lets_you_through() -> void:
 func test_walkers_stay_inside_the_rooms_and_slide_along_walls() -> void:
 	var layout := InteriorLayout.player_ship()
 	var body := InteriorBody.new()
-	body.place(Vector3(0, layout.floor_y, 0), 0.0)
+	body.place(Vector3(0, layout.floor_y, 1.6), 0.0) # mid-room, clear of the cabin machines beyond the tail wall
 	_walk(body, layout, Vector2(1, 0), 300) # strafe right into the side wall
 	var wall_x: float = (layout.rooms[&"engineering"] as Rect2).end.x
 	assert_true(body.position.x <= wall_x - InteriorBody.RADIUS + 1e-3, "stopped by the wall: x=%f" % body.position.x)
@@ -67,7 +67,7 @@ func test_exterior_walker_is_pushed_out_of_the_hull_but_not_off_the_ramp() -> vo
 
 func test_every_portal_joins_two_rooms_and_all_rooms_are_connected() -> void:
 	var layout := InteriorLayout.player_ship()
-	assert_eq(layout.rooms.size(), 6)
+	assert_eq(layout.rooms.size(), 9)
 	var neighbours := {}
 	for portal_id in layout.portals:
 		var joined := layout.portal_rooms(portal_id)
@@ -129,3 +129,262 @@ func test_gunner_seat_is_a_seat_with_an_interaction_point_in_the_turret_room() -
 	assert_true(manager.try_sit(&"alice", &"gunner_seat"))
 	assert_true(not manager.try_sit(&"bob", &"gunner_seat"), "one occupant per seat")
 	assert_true(manager.try_sit(&"bob", &"pilot_seat"))
+
+
+func test_looking_at_a_door_targets_it_from_either_side() -> void:
+	var layout := InteriorLayout.player_ship()
+	var eye := layout.floor_y + 1.6
+	assert_eq(layout.look_target(Vector3(0, eye, -2.0), Vector3(0, 0, -1)), &"cockpit_door", "from the cabin, looking at the cockpit door")
+	assert_eq(layout.look_target(Vector3(0, eye, -4.5), Vector3(0, 0, 1)), &"cockpit_door", "from the cockpit, looking back at it")
+	assert_eq(layout.look_target(Vector3(-2.0, eye, -2.0), Vector3(0, 0, -1)), &"", "looking at the wall beside the door")
+	assert_eq(layout.look_target(Vector3(0, eye, -0.6), Vector3(0, 0, -1)), &"cockpit_door", "2.5 m away is in reach")
+	assert_eq(layout.look_target(Vector3(0, eye, 0.9), Vector3(0, 0, -1)), &"engineering_door", "from engineering, the door behind the near wall")
+	assert_eq(layout.look_target(Vector3(0, eye, 0.9), Vector3(0, 0, -1), 0.3), &"", "too far for a short reach")
+
+
+func test_looking_picks_stations_and_not_through_walls() -> void:
+	var layout := InteriorLayout.player_ship()
+	var eye := layout.floor_y + 1.6
+	assert_eq(layout.look_target(Vector3(-3.0, eye, 1.2), Vector3(-1, 0, 0)), &"reactor_panel")
+	assert_eq(layout.look_target(Vector3(0, eye, -4.6), Vector3(0, -0.3, -1).normalized()), &"pilot_seat")
+	assert_eq(layout.look_target(Vector3(0, eye, -4.6), Vector3(1, 0, 0)), &"", "empty wall")
+	assert_eq(layout.look_target(Vector3(1.0, eye, -1.0), Vector3(-1, 0, 0), 1.0), &"", "out of reach")
+
+
+func test_plain_doors_close_by_themselves_but_never_on_a_person() -> void:
+	var systems := ShipSystems.new()
+	systems.toggle_door(&"cockpit_door")
+	systems.occupied_portals[&"cockpit_door"] = true
+	for tick in int((ShipSystems.DOOR_AUTO_CLOSE_SECONDS + 2.0) * 60.0):
+		systems.update(DELTA, ShipState.new())
+	assert_true((systems.layout.portals[&"cockpit_door"] as Portal).target_open, "stays open while someone is in the doorway")
+	systems.occupied_portals[&"cockpit_door"] = false
+	for tick in int((ShipSystems.DOOR_AUTO_CLOSE_SECONDS + 1.0) * 60.0):
+		systems.update(DELTA, ShipState.new())
+	assert_true(not (systems.layout.portals[&"cockpit_door"] as Portal).target_open, "closes after the delay")
+	assert_eq((systems.layout.portals[&"cockpit_door"] as Portal).open_factor, 0.0, "and finishes closing")
+
+
+func _landed_state() -> ShipState:
+	var state := ShipState.new()
+	state.landed = true
+	return state
+
+
+func _run_systems(systems: ShipSystems, state: ShipState, seconds: float) -> void:
+	for tick in int(seconds * 60.0):
+		systems.update(DELTA, state)
+
+
+func test_airlock_computer_cycles_in_and_out_and_never_opens_both() -> void:
+	var systems := ShipSystems.new()
+	var state := _landed_state()
+	assert_eq(systems.request_airlock(&"out", state), "", "start the trip out")
+	for tick in 600:
+		systems.update(DELTA, state)
+		assert_true(systems.airlock.is_invariant_ok(), "doors never both open")
+	assert_true(systems.airlock.outer.target_open, "outer door opened by itself")
+	assert_eq(systems.airlock_goal, &"", "goal finished")
+	assert_eq(systems.request_airlock(&"in", state), "", "start coming back in")
+	for tick in 900:
+		systems.update(DELTA, state)
+		assert_true(systems.airlock.is_invariant_ok(), "doors never both open on the way in")
+	assert_true(systems.airlock.inner.target_open and not systems.airlock.outer.target_open, "inner open, outer shut")
+
+
+func test_airlock_computer_refuses_the_outer_door_when_flying() -> void:
+	var systems := ShipSystems.new()
+	var state := ShipState.new() # not landed
+	var refused := systems.request_airlock(&"out", state)
+	_run_systems(systems, state, 5.0)
+	assert_true(not systems.airlock.outer.target_open, "outer stays shut in flight")
+	assert_true(refused != "" or systems.airlock_status != "", "the computer says why")
+	assert_eq(systems.airlock_goal, &"", "and gives up")
+
+
+func test_airlock_computer_is_in_the_airlock_and_can_be_looked_at() -> void:
+	var layout := InteriorLayout.player_ship()
+	var eye := layout.floor_y + 1.6
+	assert_eq(layout.look_target(Vector3(0.0, eye, 9.4), Vector3(-1, 0, 0)), &"airlock_computer")
+
+
+func test_living_area_and_med_bay_are_reachable_and_walkable() -> void:
+	var layout := InteriorLayout.player_ship()
+	for room_id in [&"living_area", &"medical"]:
+		assert_true(layout.rooms.has(room_id) and layout.is_pocket(room_id), "%s exists and is a pocket room" % room_id)
+	# Every room can be reached from the cockpit through plain doors (the crew never use the airlock).
+	var start := Vector2(0.0, -5.0)
+	for station in [&"bed", &"medbed", &"bathroom_door"]:
+		var spot := layout.standing_spot_for(station)
+		assert_true(spot != Vector2.INF, "%s has a place to stand" % station)
+		var route := CrewNavigator.route(layout, start, spot)
+		assert_true(not route.is_empty(), "a route from the cockpit to the %s" % station)
+		var doors := 0
+		for waypoint in route:
+			if waypoint["door"] != &"":
+				doors += 1
+		assert_true(doors >= 2, "through at least the cockpit and side doors")
+
+
+func test_side_door_leads_to_the_living_area_when_open() -> void:
+	var layout := InteriorLayout.player_ship()
+	assert_true(not layout.is_position_walkable(5.6, -1.6, 0.2), "closed side door blocks")
+	(layout.portals[&"living_door"] as Portal).open_factor = 1.0
+	assert_true(layout.is_position_walkable(5.6, -1.6, 0.2), "open side door passes")
+	assert_eq(layout.portal_rooms(&"living_door").size(), 2, "it joins two rooms")
+	assert_eq(layout.room_at(8.0, -1.8), &"living_area")
+	assert_eq(layout.room_at(8.0, 1.0), &"medical")
+	assert_eq(layout.room_at(9.0, -4.6), &"bathroom")
+
+
+func test_windows_sit_in_free_outside_walls() -> void:
+	var layout := InteriorLayout.player_ship()
+	assert_true(layout.windows.size() >= 4, "the ship has windows")
+	for window in layout.windows:
+		var room_id: StringName = window["room"]
+		var side: String = window["side"]
+		assert_true(layout.is_pocket(room_id), "%s is a pocket room, where the world shows through" % room_id)
+		var wall := layout.wall_rect(room_id, side)
+		var along_x := InteriorLayout.wall_runs_along_x(side)
+		var from_value: float = float(window["center"]) - float(window["width"]) * 0.5
+		var to_value: float = float(window["center"]) + float(window["width"]) * 0.5
+		var wall_from := wall.position.x if along_x else wall.position.y
+		var wall_to := wall.end.x if along_x else wall.end.y
+		assert_true(from_value > wall_from + 0.1 and to_value < wall_to - 0.1, "%s %s window is inside its wall" % [room_id, side])
+		assert_true(float(window["sill"]) + float(window["height"]) < layout.ceiling_y - layout.floor_y - 0.1, "window under the ceiling")
+		for portal in layout.portals.values():
+			var opening := (portal as Portal).opening
+			if opening.intersects(wall):
+				var door_from := opening.position.x if along_x else opening.position.y
+				var door_to := opening.end.x if along_x else opening.end.y
+				assert_true(to_value <= door_from or from_value >= door_to, "window does not overlap a door")
+		for other_id in layout.rooms:
+			if other_id == room_id:
+				continue
+			for other_side in ["nose", "tail", "left", "right"]:
+				var other_wall := layout.wall_rect(other_id, other_side)
+				var overlap := other_wall.intersection(wall)
+				assert_true(not (overlap.has_area() and _window_in_overlap(window, overlap, along_x)), "%s %s window is not in a wall shared with %s" % [room_id, side, other_id])
+
+
+func _window_in_overlap(window: Dictionary, overlap: Rect2, along_x: bool) -> bool:
+	var from_value: float = float(window["center"]) - float(window["width"]) * 0.5
+	var to_value: float = float(window["center"]) + float(window["width"]) * 0.5
+	var overlap_from := overlap.position.x if along_x else overlap.position.y
+	var overlap_to := overlap.end.x if along_x else overlap.end.y
+	return from_value < overlap_to and to_value > overlap_from
+
+
+func test_furniture_is_solid_but_doorways_and_stations_stay_clear() -> void:
+	var layout := InteriorLayout.player_ship()
+	assert_true(layout.obstacles.size() >= 6, "solid furniture exists")
+	assert_true(not layout.is_position_walkable(10.0, -1.5, InteriorBody.RADIUS), "cannot stand in the bed")
+	assert_true(not layout.is_position_walkable(7.7, -3.0, InteriorBody.RADIUS), "cannot stand in the desk")
+	assert_true(layout.is_position_walkable(8.2, -1.6, InteriorBody.RADIUS), "the floor between is clear")
+	# Every doorway can be walked up to from both sides (the crew's line-up points).
+	for portal_id in layout.portals:
+		var portal: Portal = layout.portals[portal_id]
+		if portal.kind != Portal.Kind.DOOR:
+			continue
+		var centre := portal.opening.get_center()
+		var along := Vector2(0.0, 1.0) if portal.opening.size.x >= portal.opening.size.y else Vector2(1.0, 0.0)
+		for side in [-1.0, 1.0]:
+			var spot: Vector2 = centre + along * side * CrewNavigator.DOORWAY_APPROACH
+			assert_true(layout.is_position_walkable(spot.x, spot.y, InteriorBody.RADIUS) or layout.is_position_walkable(spot.x, spot.y, 0.0), "%s approach is not inside furniture" % portal_id)
+	# A person can sidestep around the furniture to every station (spot exists) and every piece sits inside its room.
+	for piece in layout.furniture:
+		var at: Vector2 = piece["at"]
+		assert_true(layout.room_at(at.x, at.y) != &"", "%s is inside a room" % piece["name"])
+
+
+func test_machines_exist_are_solid_and_can_be_looked_at() -> void:
+	var layout := InteriorLayout.player_ship()
+	var eye := layout.floor_y + 1.4
+	for machine in [&"ops_computer", &"scanners", &"ftl_radio", &"battery_array", &"limnal_drive"]:
+		assert_true(layout.machine_screens.has(machine), "%s has a screen" % machine)
+		assert_true(layout.standing_spot_for(machine) != Vector2.INF, "%s can be used from somewhere" % machine)
+	assert_eq(layout.look_target(Vector3(3.3, eye, -1.6), Vector3(0, 0, 1)), &"ops_computer")
+	assert_eq(layout.look_target(Vector3(4.5, eye, -1.6), Vector3(0, 0, 1)), &"scanners")
+	assert_eq(layout.look_target(Vector3(1.6, eye, -2.5), Vector3(1, 0, 0)), &"ftl_radio")
+	assert_eq(layout.look_target(Vector3(-3.6, eye, 6.9), Vector3(-1, 0, 0)), &"battery_array")
+	assert_eq(layout.look_target(Vector3(3.4, eye, 6.9), Vector3(1, 0, 0)), &"limnal_drive")
+	assert_true(not layout.is_position_walkable(3.0, -0.45, 0.2), "the ops computer is solid")
+
+
+## Geometry audit: nothing may poke through a wall, stand on a doorway, sit on a station, or hide behind another solid piece.
+func _piece_rect(piece: Dictionary) -> Rect2:
+	var at: Vector2 = piece["at"]
+	var size: Vector3 = piece["size"]
+	return Rect2(at.x - size.x * 0.5, at.y - size.z * 0.5, size.x, size.z)
+
+
+func test_every_piece_stays_inside_its_room() -> void:
+	var layout := InteriorLayout.player_ship()
+	for piece in layout.furniture:
+		var rect := _piece_rect(piece)
+		var room_id := layout.room_at(piece["at"].x, piece["at"].y)
+		assert_true(room_id != &"", "%s stands in a room" % piece["name"])
+		if room_id == &"":
+			continue
+		var room: Rect2 = layout.rooms[room_id]
+		assert_true(room.grow(0.005).encloses(rect), "%s (%s) stays inside %s" % [piece["name"], rect, room_id])
+
+
+func test_solid_pieces_do_not_overlap_each_other_or_block_doorways() -> void:
+	var layout := InteriorLayout.player_ship()
+	var solids: Array = layout.furniture.filter(func(piece): return piece["solid"])
+	for i in solids.size():
+		for j in range(i + 1, solids.size()):
+			assert_true(not _piece_rect(solids[i]).grow(-0.01).intersects(_piece_rect(solids[j])), "%s and %s overlap" % [solids[i]["name"], solids[j]["name"]])
+		for portal_id in layout.portals:
+			var lane: Rect2 = (layout.portals[portal_id] as Portal).opening.grow(0.25)
+			assert_true(not _piece_rect(solids[i]).intersects(lane), "%s blocks the %s doorway" % [solids[i]["name"], portal_id])
+
+
+func test_machines_and_stations_are_not_buried_in_furniture() -> void:
+	var layout := InteriorLayout.player_ship()
+	for point in layout.interact_points:
+		if layout.portals.has(point["id"]) or layout.seats.has(point["id"]):
+			continue
+		var spot := Vector2(point["position"].x, point["position"].z)
+		for piece in layout.furniture:
+			if piece["solid"] and not layout.machine_screens.has(point["id"]) and point["id"] not in [&"bed", &"medbed"]:
+				assert_true(not _piece_rect(piece).has_point(spot), "the %s panel is inside %s" % [point["id"], piece["name"]])
+	# Two machines or stations never share a spot: their points are far enough apart to pick between by looking.
+	for i in layout.interact_points.size():
+		for j in range(i + 1, layout.interact_points.size()):
+			var a: Dictionary = layout.interact_points[i]
+			var b: Dictionary = layout.interact_points[j]
+			if a["id"] == b["id"] or layout.portals.has(a["id"]) or layout.portals.has(b["id"]):
+				continue
+			var gap := Vector2(a["position"].x - b["position"].x, a["position"].z - b["position"].z).length()
+			assert_true(gap > 0.9, "%s and %s are %.2f m apart" % [a["id"], b["id"], gap])
+
+
+func test_windows_fit_their_wall_and_are_not_covered() -> void:
+	var layout := InteriorLayout.player_ship()
+	var wall_height := layout.ceiling_y - layout.floor_y
+	for window in layout.windows:
+		var room: Rect2 = layout.rooms[window["room"]]
+		var along_x := InteriorLayout.wall_runs_along_x(window["side"])
+		var low: float = (room.position.x if along_x else room.position.y)
+		var high: float = (room.end.x if along_x else room.end.y)
+		var from: float = window["center"] - window["width"] * 0.5
+		var to: float = window["center"] + window["width"] * 0.5
+		assert_true(from >= low - 0.001 and to <= high + 0.001, "%s %s window fits its wall" % [window["room"], window["side"]])
+		assert_true(window["sill"] + window["height"] <= wall_height - 0.1, "%s window is under the ceiling" % window["room"])
+		var wall_line: float = {"nose": room.position.y, "tail": room.end.y, "left": room.position.x, "right": room.end.x}[window["side"]]
+		for piece in layout.furniture:
+			var rect := _piece_rect(piece)
+			var top: float = piece["lift"] + piece["size"].y
+			var touches := absf((rect.position.y if window["side"] == "nose" else (rect.end.y if window["side"] == "tail" else (rect.position.x if window["side"] == "left" else rect.end.x))) - wall_line) < 0.35
+			var piece_from := rect.position.x if along_x else rect.position.y
+			var piece_to := rect.end.x if along_x else rect.end.y
+			if touches and top > window["sill"] and piece_to > from and piece_from < to:
+				assert_true(false, "%s covers the %s %s window" % [piece["name"], window["room"], window["side"]])
+		for portal_id in layout.portals:
+			var opening := (layout.portals[portal_id] as Portal).opening
+			if opening.grow(0.1).intersects(layout.wall_rect(window["room"], window["side"])):
+				var open_from := opening.position.x if along_x else opening.position.y
+				var open_to := opening.end.x if along_x else opening.end.y
+				assert_true(open_to <= from or open_from >= to, "the %s door and the %s %s window do not overlap" % [portal_id, window["room"], window["side"]])

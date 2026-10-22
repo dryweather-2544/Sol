@@ -124,6 +124,7 @@ func test_full_loop_orbit_land_airlock_walk_return_takeoff() -> void:
 	ship.state.basis = Basis.looking_at(Vector3.UP.cross(direction).normalized(), direction)
 	_pilot = LoopPilot.new()
 	_session = GameSession.new(planet, ship, _pilot)
+	_session.systems.auto_close_enabled = false # this scripted walk leaves doors open behind it on purpose
 	assert_eq(_session.mode, GameSession.Mode.SEATED)
 
 	# 1. Descend and land.

@@ -35,9 +35,10 @@ func planet_for(frame_id: StringName) -> PlanetBody:
 func advance(delta: float) -> void:
 	time_seconds += delta
 	navigator.time_seconds = time_seconds
-	navigator.warp_factor = session.progress.warp_speed_factor()
+	var drive_online := session.progress.warp_installed or GameSettings.instance().warp_always_available
+	navigator.warp_factor = 1.0 if drive_online else session.progress.warp_speed_factor()
 	if session.planet != null:
-		session.planet.warp_allowed = session.progress.warp_installed
+		session.planet.warp_allowed = drive_online
 	session.progress.update(session, active_frame)
 
 

@@ -81,10 +81,11 @@ func test_frame_selection_uses_sphere_of_influence_with_hysteresis() -> void:
 func test_planet_bodies_carry_each_worlds_own_numbers() -> void:
 	var system := _system()
 	var moon := system.build_planet_body(&"selene")
-	assert_eq(moon.atmosphere_height, 0.0)
+	assert_eq(moon.atmosphere_height, 100000.0, "Selene has Morena's cold air")
 	assert_eq(moon.frame_id, &"selene")
 	assert_near(moon.radius, 1.7e6, 1e-6)
-	assert_true(moon.atmosphere_ratio(WorldPos.new(&"selene", 0.0, 0.0, 1.7e6 + 100.0)) == INF, "airless world has no atmosphere")
+	var rock := system.build_planet_body(&"pebble")
+	assert_true(rock.atmosphere_ratio(WorldPos.new(&"pebble", 0.0, 0.0, rock.radius + 100.0)) == INF, "airless world has no atmosphere")
 	var home := system.build_planet_body(&"planet")
 	assert_near(home.surface_gravity, 12.0, 1e-9)
 	for body_id in system.bodies:

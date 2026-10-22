@@ -15,6 +15,7 @@ var _alert_label := Label.new()
 var _mode_label := Label.new()
 var _telemetry_label := Label.new()
 var _reticle := FlightReticle.new()
+var _gear_hud := GearHud.new() ## Rodina's gear tiles and gear banner (the compact HUD, seated flight)
 var _sol_looks := {} # label -> its sol colour and size (restyle)
 var _weapon_label := Label.new()
 
@@ -87,6 +88,8 @@ func _ready() -> void:
 	add_child(_telemetry_label)
 	_reticle.visible = false
 	add_child(_reticle)
+	_gear_hud.visible = false
+	add_child(_gear_hud)
 	_weapon_label.visible = false
 	_weapon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_weapon_label.add_theme_font_size_override("font_size", 14)
@@ -129,7 +132,7 @@ func restyle() -> void:
 			label.add_theme_color_override("font_color", spec["color"])
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if ship == null:
 		return
 	_prompt_label.text = session.prompt() if session != null else ""
@@ -144,7 +147,7 @@ func _process(_delta: float) -> void:
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
 	if _use_rodina_hud():
-		_update_rodina_hud()
+		_update_rodina_hud(delta)
 		return
 	_set_debug_hud_visible(true)
 	if session != null and session.mode == GameSession.Mode.OUTSIDE:
@@ -202,12 +205,13 @@ func _set_debug_hud_visible(visible: bool) -> void:
 	_mode_label.visible = false
 	_telemetry_label.visible = false
 	_reticle.visible = false
+	_gear_hud.visible = false
 	_prompt_label.add_theme_font_size_override("font_size", 26)
 	_prompt_label.add_theme_constant_override("outline_size", 6)
 	_prompt_label.add_theme_color_override("font_color", Color.WHITE)
 
 
-func _update_rodina_hud() -> void:
+func _update_rodina_hud(delta: float) -> void:
 	_label.visible = false
 	_signal_label.visible = false
 	_mode_label.visible = true
@@ -217,12 +221,18 @@ func _update_rodina_hud() -> void:
 	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
 	var mode := session.mode
 	var seated := mode == GameSession.Mode.SEATED or mode == GameSession.Mode.SITTING
+	_reticle.visible = session.gunner_station or not seated # no crosshair at the helm: the gun is on the gunner station
 	if seated:
 		var state := ship.state
-		var modes := ["PRECISION", "COMBAT SPEED", "CRUISE SPEED", "WARP"]
-		_mode_label.text = modes[state.gear]
-		if state.selected_gear != state.gear:
-			_mode_label.text += "   %s SELECTED" % modes[state.selected_gear]
+		# Rodina shows no standing mode tab in flight: the gear tiles (top right) and a fading gear banner replace it.
+		_mode_label.text = ""
+		_gear_hud.size = viewport
+		_gear_hud.position = Vector2.ZERO
+		var hud_font := VisualStyle.hud_font(&"notification")
+		if not hud_font.is_empty() and hud_font["font"] != null:
+			_gear_hud.font = hud_font["font"]
+		_gear_hud.apply(state.gear, state.shift_pending, delta)
+		_gear_hud.visible = true
 		_telemetry_label.text = "HULL %d%%    FUEL %d%%    SPEED %s" % [
 			roundi(state.hull * 100.0), roundi(state.fuel * 100.0),
 			("%.0f m/s" % state.speed()) if state.speed() < 10000.0 else ("%.1f km/s" % (state.speed() / 1000.0))]
@@ -230,9 +240,11 @@ func _update_rodina_hud() -> void:
 		var suit := session.suit
 		_reticle.visible = false
 		_reticle.target_positions = PackedVector2Array()
+		_gear_hud.visible = false
 		_mode_label.text = "ON FOOT" if mode == GameSession.Mode.OUTSIDE else "INSIDE SHIP"
 		_telemetry_label.text = "O2 %d%%    JETPACK %d%%    HEALTH %d%%" % [
 			roundi(suit.oxygen * 100.0), roundi(suit.fuel * 100.0), roundi(suit.health * 100.0)]
+	_mode_label.visible = not seated
 	_mode_label.position = Vector2(viewport.x * 0.5 - _mode_label.size.x * 0.5, 12.0)
 	_telemetry_label.position = Vector2(viewport.x * 0.5 - _telemetry_label.size.x * 0.5, viewport.y - 38.0)
 	_objective_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.9))

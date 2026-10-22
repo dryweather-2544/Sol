@@ -66,7 +66,7 @@ func test_shutdown_zeroes_output_and_restart_waits_for_cooling() -> void:
 	power.update(1.0)
 	assert_true(power.is_shut_down())
 	assert_eq(power.output(), 0.0)
-	assert_eq(power.total_delivered(), 0.0)
+	assert_eq(power.delivered(ShipPower.Conduit.ENGINES) + power.delivered(ShipPower.Conduit.WEAPONS), 0.0, "a tripped reactor drives nothing; only the battery keeps life support going")
 	assert_eq(power.request_restart(), "Core too hot to restart")
 	while power.temperature >= ShipPower.RESTART_BELOW_TEMPERATURE:
 		power.update(TICK)
@@ -110,3 +110,32 @@ func _random_step(power: ShipPower, rng: SeedRng) -> void:
 		2: power.vent_coolant()
 		3: power.request_restart()
 	power.update(TICK)
+
+
+func test_battery_keeps_life_support_alive_after_a_trip_and_runs_flat() -> void:
+	var power := _full_draw()
+	power.temperature = 1.0
+	power.update(TICK)
+	assert_true(power.is_shut_down(), "tripped")
+	assert_true(power.on_battery(), "the battery takes over")
+	assert_eq(power.delivered(ShipPower.Conduit.ENGINES), 0.0, "engines get nothing from the battery")
+	assert_eq(power.delivered(ShipPower.Conduit.WEAPONS), 0.0, "weapons get nothing from the battery")
+	assert_true(power.delivered(ShipPower.Conduit.LIFE_SUPPORT) > 0.0, "life support is kept alive")
+	var ticks := 0
+	while power.on_battery() and ticks < 60 * 600:
+		power.temperature = 1.0 # keep the core too hot to restart so only the battery drains
+		power.update(TICK)
+		ticks += 1
+	assert_true(power.battery <= 0.0, "the battery ran flat")
+	assert_eq(power.delivered(ShipPower.Conduit.LIFE_SUPPORT), 0.0, "and then life support goes dark")
+
+
+func test_battery_recharges_while_the_reactor_runs_and_is_saved() -> void:
+	var power := ShipPower.new()
+	power.battery = 0.2
+	for tick in 60 * 10:
+		power.update(TICK)
+	assert_true(power.battery > 0.2, "recharging")
+	var restored := ShipPower.new()
+	restored.restore(power.to_dictionary())
+	assert_true(absf(restored.battery - power.battery) < 1e-6, "the charge survives a save")

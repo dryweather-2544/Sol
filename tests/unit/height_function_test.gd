@@ -69,7 +69,7 @@ func test_world_resources_choose_the_recovered_grammars() -> void:
 	assert_eq(system.bodies[&"planet"].terrain_profile.grammar, TerrainProfile.Grammar.JARILO, "Aurelia maps to Jarilo")
 	assert_eq(system.bodies[&"cinder"].terrain_profile.grammar, TerrainProfile.Grammar.PERUN, "Cinder maps to Perun")
 	assert_eq(system.bodies[&"verdant"].terrain_profile.grammar, TerrainProfile.Grammar.VELES, "Verdant maps to Veles")
-	assert_eq(system.bodies[&"selene"].terrain_profile.grammar, TerrainProfile.Grammar.ASTEROID, "Selene uses the airless asteroid grammar")
+	assert_eq(system.bodies[&"selene"].terrain_profile.grammar, TerrainProfile.Grammar.MORENA, "Selene maps to Morena (plate cracks and dunes)")
 	assert_eq(system.bodies[&"pebble"].terrain_profile.grammar, TerrainProfile.Grammar.ASTEROID, "Pebble uses the airless asteroid grammar")
 
 

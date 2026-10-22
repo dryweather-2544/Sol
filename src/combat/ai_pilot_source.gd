@@ -14,7 +14,7 @@ var preferred_range := 450.0
 var fire_range := 1100.0
 ## cos of the largest angle off-target at which the AI will pull the trigger.
 var fire_cone_cos := 0.996
-var projectile_speed := 900.0
+var projectile_speed := 10000.0 # the ship gun's muzzle speed (Weapon.ship_gun)
 ## How far off (radians, random) its aim is, so it does not hit with every shot.
 var aim_error := 0.03
 var _rng := SeedRng.new(99)

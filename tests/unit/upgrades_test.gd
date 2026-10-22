@@ -65,12 +65,10 @@ func test_each_upgrade_changes_its_number() -> void:
 	assert_near(session.suit.oxygen, 1.0 - 18.0 / (SuitState.OXYGEN_SECONDS * 1.6), 1e-9)
 	# guns
 	session.buy_upgrade(&"gun_amplifier")
-	session.ship.projectiles = session.projectiles
-	var fire := PilotCommand.new()
-	fire.fire = true
-	session.ship._fire_weapon(fire, DELTA)
-	assert_near(session.projectiles.projectiles[-1].damage, session.ship.weapon.damage * 1.5, 1e-9)
-	assert_near(session.ship.weapon.damage, Weapon.ship_gun().damage, 1e-9, "base damage is left unchanged")
+	# The pilot's trigger works the dorsal turret, which applies the amplifier per shot.
+	assert_true(session.systems.turret.fire_at_crosshair(session.ship, 1.0, session.projectiles, session.ship.upgrades.gun_damage_multiplier()))
+	assert_near(session.projectiles.projectiles[-1].damage, session.systems.turret.weapon.damage * 1.5, 1e-9)
+	assert_near(session.systems.turret.weapon.damage, Weapon.ship_gun().damage, 1e-9, "base damage is left unchanged")
 	session.ship.free()
 
 

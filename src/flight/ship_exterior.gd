@@ -48,11 +48,16 @@ const NOSE_TIP_Z := -9.25
 const DOORWAY := Rect2(-0.95, -0.95, 1.9, 2.25)
 ## Engine pod tilt pivot (port is -x). Pods are authored intake at local -z, nozzle at +z, and pitch about x:
 ## 0 = level for flight, 90 degrees = upright (nozzle down) for landing and hover.
-const POD_PIVOT := Vector3(5.0, 1.15, 7.0)
+# x 4.65: the pod's inner flat sits 0.1 m off the hull side (x 3.5..3.6), so the pods hug the hull instead of hanging out.
+const POD_PIVOT := Vector3(4.65, 1.15, 7.0)
 const POD_RADIUS := 0.95 # to the flats of the octagon
 const POD_HALF_LENGTH := 2.0
 const NOZZLE_LENGTH := 0.7
-const POD_TILT_RATE := 1.2 # radians per second
+const POD_TILT_RATE := 4.5 # radians per second
+## Thrust-vectoring range of the pods (about x): -90 degrees (nozzle straight up, thrusting down) to 180 degrees (nozzle
+## straight forward, thrusting back). 0 is level, 90 upright.
+const POD_TILT_MIN := -PI * 0.5
+const POD_TILT_MAX := PI
 const RAMP_THICKNESS := 0.12
 ## Leaf 2's hinge sits this far below leaf 1's underside so the folded leaves' stiffeners clear each other.
 const RAMP_FOLD_GAP := 0.08
@@ -78,6 +83,10 @@ var _nacelles: Array[MeshInstance3D] = []
 var _pod_tilt := PI * 0.5
 
 
+## The cockpit canopy mesh (see build); ShipVisuals keeps it visible when the rest of the hull is hidden.
+var nose_node: MeshInstance3D
+
+
 ## Builds everything under `parent`. The two nacelles (nozzle material, one exhaust disc each) are added as
 ## direct children of `parent`; `nozzle_material` and `exhaust_disc` come from ShipVisuals so the asset switch
 ## and the engine glow stay where they were.
@@ -85,14 +94,19 @@ func build(parent: Node3D, layout: InteriorLayout, turret_muzzle: Vector3, nozzl
 	_layout = layout
 	_make_materials()
 	var hull := HullMeshBuilder.new()
-	_build_pressure_hull(hull)
-	_build_canopy_nose(hull)
+	var nose := HullMeshBuilder.new()
+	_build_pressure_hull(hull, nose)
+	_build_canopy_nose(nose)
 	_build_loading_face(hull)
 	_build_stub_wings(hull)
 	_build_landing_gear(hull)
 	_build_belly_and_sides(hull)
 	_build_dorsal(hull, turret_muzzle)
 	parent.add_child(_instance(hull, "HullStatic"))
+	# The cockpit's canopy, glass and dash are a separate mesh that stays drawn from inside the pocket rooms (it ends at z -3.8,
+	# in front of them), so looking forward through the cockpit door you see the windows, not bare space.
+	nose_node = _instance(nose, "HullNose")
+	parent.add_child(nose_node)
 	for side in [-1.0, 1.0]:
 		var pivot := Node3D.new()
 		pivot.name = "PodPivot_%s" % ("port" if side < 0.0 else "starboard")
@@ -154,9 +168,23 @@ func nacelles() -> Array[MeshInstance3D]:
 	return _nacelles
 
 
+## Where the pods point for a thrust demand (ship-local, x right, y up, z back): the nozzle faces away from the push, so
+## forward thrust is level (0), up thrust upright (90 degrees), reverse swings them all the way round to face forward, down thrust
+## tips them nozzle-up. Any real demand takes them the whole way; no demand is level.
+static func pod_angle_for(thrust: Vector3) -> float:
+	var plane := Vector2(thrust.y, -thrust.z) # (up, forward)
+	var strength := clampf(plane.length() * 12.0, 0.0, 1.0)
+	if strength <= 0.0:
+		return 0.0
+	var angle := atan2(plane.x, plane.y)
+	if angle < POD_TILT_MIN:
+		angle = POD_TILT_MAX # down-and-back: the pods have swung round the long way, nozzles forward (no flip at the seam)
+	return clampf(angle, POD_TILT_MIN, POD_TILT_MAX) * strength
+
+
 ## Tilts both pods toward upright (`upright`) or level, and carries the nozzles with them. delta 0 snaps.
-func update_pods(upright: bool, delta: float) -> void:
-	var target := PI * 0.5 if upright else 0.0
+func update_pods(upright: bool, delta: float, thrust: Vector3 = Vector3.ZERO) -> void:
+	var target := PI * 0.5 if upright else pod_angle_for(thrust)
 	_pod_tilt = target if delta <= 0.0 else move_toward(_pod_tilt, target, POD_TILT_RATE * delta)
 	for index in _pod_pivots.size():
 		_pod_pivots[index].rotation.x = _pod_tilt
@@ -265,14 +293,15 @@ static func _upper_side_x(index: int, y: float) -> float:
 const PROFILE_SLOTS := [Slot.HULL, Slot.HULL, Slot.HULL, Slot.STRUCTURE, Slot.STRUCTURE, Slot.STRUCTURE, Slot.GRAPHITE]
 
 
-func _build_pressure_hull(hull: HullMeshBuilder) -> void:
+func _build_pressure_hull(hull: HullMeshBuilder, nose: HullMeshBuilder) -> void:
 	var rings := []
 	for station in STATIONS:
 		rings.append(HullMeshBuilder.mirror_ring(_half_profile(station)))
 	var slots := HullMeshBuilder.mirror_slots(PackedInt32Array(PROFILE_SLOTS))
 	# The cockpit's glass wall is gone, so the first segment (round the cockpit's front) is seen from inside too.
-	hull.add_loft([rings[0], rings[1]], _two_sided(slots))
-	hull.add_loft(rings.slice(1), slots)
+	nose.add_loft([rings[0], rings[1]], _two_sided(slots))
+	nose.add_loft([rings[1], rings[2]], slots) # up to z -3.8, still in front of the cabin
+	hull.add_loft(rings.slice(2), slots)
 
 
 static func _two_sided(slots: PackedInt32Array) -> PackedInt32Array:

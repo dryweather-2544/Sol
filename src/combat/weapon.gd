@@ -12,7 +12,14 @@ var _cooldown := 0.0
 
 
 static func ship_gun() -> Weapon:
-	return Weapon.new()
+	var weapon := Weapon.new()
+	# Rodina's ship blaster (EGWeaponBlaster): 10 000 m/s plasma fired in a rapid stream (scout cooldown 0.025 s, two
+	# barrels), 2 s lifetime. Sol fires 20 a second alternating its two barrels, with the old gun's damage per second.
+	weapon.projectile_speed = 10000.0
+	weapon.projectile_lifetime = 1.0
+	weapon.shots_per_second = 20.0
+	weapon.damage = 0.015
+	return weapon
 
 
 static func pistol() -> Weapon:

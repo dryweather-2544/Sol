@@ -7,7 +7,7 @@ extends Node3D
 ##
 ## What drives what (Rodina gear 1..4 = Sol PRECISION, COMBAT, CRUISE, WARP):
 ## - Warp gear: before LimnalActivation reaches 1, "Limnal Startup Ring" at strength LimnalActivation and "Limnal Drive
-##   Air"; from 1 on, "Limnal Drive", "Limnal Pink Air" and "LimnalShipBlur". The thrusters are off.
+##   Air"; from 1 on, "Limnal Drive" and "LimnalShipBlur" (Pink Air is not attached: it drew as dark red squares). The thrusters are off.
 ## - Other gears, unless the camera is inside the ship: the main engine ("DockAir" in precision on two aft vents; in
 ##   combat and cruise a blue flame per nozzle, see FLAME_COLORS) at the forward-thrust strength, and twelve thruster
 ##   jets for back/up/down/left/right thrust ("DockAir"/"DockAirDown" in precision, "CombatEngineSmall" in combat,
@@ -21,7 +21,9 @@ extends Node3D
 ##   velocity (Rodina metres), or the "...Cockpit" variants when the camera is inside.
 ## Sol differences: Sol's main engines are two tilting pods, so each engine effect runs at each pod nozzle along the
 ## nozzle's real axis (Rodina has one aft engine). Rodina's thruster positions are scaled by RodinaEmitter.SHIP_SCALE.
-## Rodina's coasting "Wing" trails need its clutch, which Sol does not have.
+## Clutch held (trying to shift): the thrust flame gives way to two long yellow-green streaks of squares, one per nozzle,
+## with green squares flickering off their tips (read from the owner's Rodina footage; the real material is not in the
+## extracted data). They end when the clutch is released or the shift commits.
 
 const RODINA_CRUISE_SPEED := 10000.0 # kPlayerCruiseSpeed, EGVehicle.lua:11
 
@@ -47,16 +49,29 @@ var _slots := {} # slot name -> {material name -> RodinaEmitter}
 ## screenshots and request show a blue flame out of the engines that grows with speed (N13). Colours are those
 ## materials' key colours (combat cyan -> blue; cruise blue-violet, brightened since Rodina's are near-black additive).
 const FLAME_COLORS := {
-	PilotCommand.GEAR_COMBAT: [Color(0.0, 0.7, 1.0), Color(0.0, 0.3, 1.0)],
-	PilotCommand.GEAR_CRUISE: [Color(0.5, 0.55, 1.0), Color(0.25, 0.12, 1.0)],
+	PilotCommand.GEAR_COMBAT: [Color(0.25, 0.65, 1.0), Color(0.05, 0.28, 1.0)],
+	# Footage: the cruise gear is "the purple gear" - a white-hot core inside a violet plume.
+	PilotCommand.GEAR_CRUISE: [Color(0.88, 0.75, 1.0), Color(0.52, 0.12, 1.0)],
 }
-## Flame length in metres at no thrust and the extra at full forward thrust; cruise burns longer than combat.
-const FLAME_LENGTH := {PilotCommand.GEAR_COMBAT: [2.0, 10.0], PilotCommand.GEAR_CRUISE: [3.0, 18.0]}
-## A soft glow billboard at each nozzle, so the flame reads from behind as well as from the side (metres across).
-const FLAME_GLOW_SIZE := {PilotCommand.GEAR_COMBAT: [1.5, 3.5], PilotCommand.GEAR_CRUISE: [2.0, 5.0]}
+## The exhaust's tiny squares: many of them, small, short-lived and fast, so the plume is dense and compact.
+const PIXEL_COUNT := 220
+const PIXEL_SIZE := 0.3 # metres
+const PIXEL_LIFETIME := 0.2 # seconds
+const PIXEL_SPEED_MIN := [14.0, 14.0] # m/s at no thrust, extra at full thrust
+const PIXEL_SPEED_MAX := [22.0, 26.0]
 const FLAME_RESPONSE := 8.0 # per second
-var _flames: Array[MeshInstance3D] = []
-var _flame_glows: Array[MeshInstance3D] = []
+## Clutch streaks: a thin column of squares left hanging in the world behind the engines.
+const STREAK_COUNT := 160
+const STREAK_SIZE := 0.28
+const STREAK_LIFETIME := 0.4
+var _streak_plumes: Array[CPUParticles3D] = []
+var _clutch_on := false
+var _ship_velocity := Vector3.ZERO # ship frame, m/s
+## The streak hangs in the world where it was thrown: each square is given the ship's velocity reversed (capped so it
+## stays a streak, not a line across the map), so you pull away from it. Nearly still, it falls back to a short plume.
+const STREAK_MIN_SPEED := 10.0
+const STREAK_MAX_SPEED := 45.0
+const STREAK_STILL := 3.0 # m/s below which the ship counts as still
 var _pixel_plumes: Array[CPUParticles3D] = []
 var _flame_gear := -1
 var _flame_target := 0.0
@@ -76,12 +91,14 @@ func update_effects(ship: Ship, delta: float) -> void:
 		for emitter: RodinaEmitter in slot.values():
 			emitter.begin_frame()
 	_flame_target = 0.0
+	_clutch_on = false
 	if active:
 		_drive_all(ship)
 	for slot in _slots.values():
 		for emitter: RodinaEmitter in slot.values():
 			emitter.end_frame()
 	_update_flames(delta)
+	_update_streaks()
 
 
 ## Live emitters (strength above zero this frame) by slot, for tests and the effect check tool.
@@ -101,6 +118,7 @@ func _drive_all(ship: Ship) -> void:
 	if state.hull <= 0.0:
 		return
 	# Rodina movement axes: x right, y forward, z up. Sol thrust: x right, y up, z backwards.
+	_clutch_on = state.clutch and state.gear < PilotCommand.GEAR_WARP and not camera_inside
 	var thrust := command.thrust.limit_length(1.0)
 	var right_strength := maxf(thrust.x, 0.0)
 	var left_strength := maxf(-thrust.x, 0.0)
@@ -110,10 +128,10 @@ func _drive_all(ship: Ship) -> void:
 	var down_strength := maxf(-thrust.y, 0.0)
 	var velocity_local := state.basis.transposed() * state.velocity
 	var speed := velocity_local.length()
+	_ship_velocity = velocity_local
 	if state.gear == PilotCommand.GEAR_WARP:
 		if limnal_activation >= 1.0:
 			_attach("Limnal Drive", "Limnal Drive", 1.0, Vector3.ZERO, RodinaEmitter.from_rodina(Vector3(1, 0, 0), false))
-			_attach("Limnal Air", "Limnal Pink Air", 1.0, Vector3.ZERO, RodinaEmitter.from_rodina(Vector3(0, 1, 0), false))
 			_attach("Limnal Blur", "LimnalShipBlur", 1.0, Vector3.ZERO, RodinaEmitter.from_rodina(Vector3(0, -1, 0), false))
 		else:
 			_attach("Limnal Drive", "Limnal Startup Ring", limnal_activation, Vector3.ZERO, RodinaEmitter.from_rodina(Vector3(1, 0, 0), false))
@@ -128,7 +146,7 @@ func _drive_all(ship: Ship) -> void:
 			small = "CombatEngineSmall" if state.gear == PilotCommand.GEAR_COMBAT else "CruiseEngineSmall"
 			medium = small
 			_flame_gear = state.gear
-			_flame_target = forward_strength
+			_flame_target = minf(Vector2(thrust.y, thrust.z).length(), 1.0) # the pods vector, so any fore/aft/up/down thrust burns
 		_jets("F", medium, back_strength)
 		_jets("D", small, up_strength)
 		_jets("U", small, down_strength * 0.75)
@@ -151,49 +169,80 @@ func _drive_all(ship: Ship) -> void:
 
 func _update_flames(delta: float) -> void:
 	_flame_strength = move_toward(_flame_strength, _flame_target, FLAME_RESPONSE * delta) if delta > 0.0 else _flame_target
-	if _flames.is_empty() and _flame_strength > 0.0:
-		for index in _nacelles.size():
-			_flames.append(_make_flame(index))
-			_flame_glows.append(_make_flame_glow(index))
 	if not FLAME_COLORS.has(_flame_gear):
 		_flame_strength = 0.0
-	for index in _flames.size():
-		var flame := _flames[index]
-		flame.visible = _flame_strength > 0.01
-		_flame_glows[index].visible = flame.visible
-		if not flame.visible:
-			if index < _pixel_plumes.size():
-				_pixel_plumes[index].emitting = false
-			continue
-		var lengths: Array = FLAME_LENGTH[_flame_gear]
-		var length: float = lengths[0] + lengths[1] * _flame_strength
-		var colors: Array = FLAME_COLORS[_flame_gear]
-		var material := flame.material_override as ShaderMaterial
-		material.set_shader_parameter("core_color", (colors[0] as Color).lerp(Color.WHITE, 0.35))
-		material.set_shader_parameter("edge_color", colors[1])
-		material.set_shader_parameter("intensity", 0.35 + 0.65 * _flame_strength)
-		var nozzle := _nacelles[index].transform
-		# Cone from the nozzle exit (cylinder +y = exhaust) outwards, centred half a length aft.
-		flame.transform = nozzle * Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, length, 1.0)), Vector3(0, 0.4 + length * 0.5, 0))
-		var glow := _flame_glows[index]
-		var sizes: Array = FLAME_GLOW_SIZE[_flame_gear]
-		var glow_size: float = sizes[0] + sizes[1] * _flame_strength
-		glow.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * glow_size), nozzle * Vector3(0, 0.6, 0))
-		var glow_color: Color = (colors[0] as Color).lerp(Color.WHITE, 0.2)
-		glow_color.a = 0.35 + 0.5 * _flame_strength
-		(glow.material_override as StandardMaterial3D).albedo_color = glow_color
-		# Hard-edged pixel layer on top of the source-derived flame cone. The owner asked for the
-		# same stepped language as the entry fire; the cone remains the smooth volumetric base.
-		if index >= _pixel_plumes.size():
-			var pixel := _make_pixel_plume(index)
-			_pixel_plumes.append(pixel)
+	var active := _flame_strength > 0.01
+	if active and _pixel_plumes.is_empty():
+		for index in _nacelles.size():
+			_pixel_plumes.append(_make_pixel_plume(index))
+	for index in _pixel_plumes.size():
 		var pixels := _pixel_plumes[index]
+		if not active:
+			pixels.emitting = false
+			continue
+		# The exhaust is only a dense, compact burst of tiny hard-edged squares at each nozzle: no flame beam, no glow orb.
+		var nozzle := _nacelles[index].transform
 		pixels.transform = nozzle * Transform3D(Basis.IDENTITY, Vector3(0, 0.5, 0))
 		pixels.direction = Vector3(0, 1, 0)
-		pixels.emitting = flame.visible
+		pixels.emitting = true
 		pixels.color_ramp = _pixel_ramp(_flame_gear)
-		pixels.scale_amount_min = 0.6 + 0.5 * _flame_strength
-		pixels.scale_amount_max = 1.3 + 0.8 * _flame_strength
+		pixels.initial_velocity_min = PIXEL_SPEED_MIN[0] + PIXEL_SPEED_MIN[1] * _flame_strength
+		pixels.initial_velocity_max = PIXEL_SPEED_MAX[0] + PIXEL_SPEED_MAX[1] * _flame_strength
+		pixels.scale_amount_min = 0.7
+		pixels.scale_amount_max = 1.2 + 0.5 * _flame_strength
+
+
+func _update_streaks() -> void:
+	if _clutch_on and _streak_plumes.is_empty():
+		for index in _nacelles.size():
+			_streak_plumes.append(_make_streak(index))
+	for index in _streak_plumes.size():
+		var streak := _streak_plumes[index]
+		streak.emitting = _clutch_on
+		if not _clutch_on:
+			continue
+		var nozzle := _nacelles[index].transform * Transform3D(Basis.IDENTITY, Vector3(0, 0.5, 0))
+		streak.transform = nozzle
+		# Particle motion is in the emitter's frame (local_coords): reversing the ship's own velocity there leaves the
+		# squares standing still in the world while the ship moves on.
+		var relative := nozzle.basis.inverse() * (-_ship_velocity)
+		var speed := relative.length()
+		if speed < STREAK_STILL:
+			streak.direction = Vector3(0, 1, 0)
+			streak.initial_velocity_min = STREAK_MIN_SPEED * 0.5
+			streak.initial_velocity_max = STREAK_MIN_SPEED
+		else:
+			var capped := clampf(speed, STREAK_MIN_SPEED, STREAK_MAX_SPEED)
+			streak.direction = relative / speed
+			streak.initial_velocity_min = capped * 0.97
+			streak.initial_velocity_max = capped
+
+
+func _make_streak(index: int) -> CPUParticles3D:
+	var streak := CPUParticles3D.new()
+	streak.name = "ClutchStreak%d" % (index + 1)
+	streak.amount = STREAK_COUNT
+	streak.lifetime = STREAK_LIFETIME
+	streak.local_coords = true
+	streak.mesh = _pixel_square(STREAK_SIZE)
+	streak.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	streak.emission_sphere_radius = 0.2
+	streak.direction = Vector3(0, 1, 0)
+	streak.spread = 1.0
+	streak.gravity = Vector3.ZERO
+	streak.scale_amount_min = 0.8
+	streak.scale_amount_max = 1.1
+	var ramp := Gradient.new()
+	ramp.offsets = PackedFloat32Array([0.0, 0.6, 1.0])
+	ramp.colors = PackedColorArray([Color(1.0, 0.98, 0.2, 0.95), Color(0.9, 0.95, 0.15, 0.85), Color(0.35, 0.95, 0.15, 0.0)])
+	streak.color_ramp = ramp
+	streak.emitting = false
+	add_child(streak)
+	return streak
+
+
+func clutch_streaks_active() -> bool:
+	return _clutch_on
 
 
 ## A hard-edged additive square. Used by the owner-requested pixel engine layer; the entry fire
@@ -215,18 +264,17 @@ static func _pixel_square(size: float) -> QuadMesh:
 func _make_pixel_plume(index: int) -> CPUParticles3D:
 	var pixels := CPUParticles3D.new()
 	pixels.name = "EnginePixels%d" % (index + 1)
-	pixels.amount = 30
-	pixels.lifetime = 0.32
+	pixels.amount = PIXEL_COUNT
+	pixels.lifetime = PIXEL_LIFETIME
 	pixels.local_coords = true
-	pixels.mesh = _pixel_square(1.2)
-	pixels.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINT
-	pixels.spread = 14.0
+	pixels.mesh = _pixel_square(PIXEL_SIZE)
+	pixels.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	pixels.emission_sphere_radius = 0.32
+	pixels.spread = 7.0
 	pixels.gravity = Vector3.ZERO
-	pixels.initial_velocity_min = 25.0
-	pixels.initial_velocity_max = 42.0
 	pixels.scale_amount_curve = Curve.new()
 	pixels.scale_amount_curve.add_point(Vector2(0.0, 1.0))
-	pixels.scale_amount_curve.add_point(Vector2(1.0, 0.3))
+	pixels.scale_amount_curve.add_point(Vector2(1.0, 0.25))
 	pixels.color_ramp = _pixel_ramp(PilotCommand.GEAR_COMBAT)
 	pixels.emitting = false
 	add_child(pixels)
@@ -237,57 +285,16 @@ static func _pixel_ramp(gear: int) -> Gradient:
 	var gradient := Gradient.new()
 	if gear == PilotCommand.GEAR_CRUISE:
 		gradient.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
-		gradient.colors = PackedColorArray([Color(0.75, 0.9, 1.0, 0.95), Color(0.35, 0.3, 1.0, 0.7), Color(0.05, 0.02, 0.3, 0.0)])
+		gradient.colors = PackedColorArray([Color(0.92, 0.82, 1.0, 0.95), Color(0.55, 0.2, 1.0, 0.7), Color(0.15, 0.02, 0.4, 0.0)])
 	else:
 		gradient.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
 		gradient.colors = PackedColorArray([Color(1.0, 1.0, 1.0, 0.95), Color(0.0, 0.7, 1.0, 0.7), Color(0.0, 0.2, 0.6, 0.0)])
 	return gradient
 
 
-func _make_flame(index: int) -> MeshInstance3D:
-	var cone := CylinderMesh.new()
-	cone.bottom_radius = 0.6 # at the nozzle (mesh y = -0.5)
-	cone.top_radius = 0.05
-	cone.height = 1.0
-	cone.radial_segments = 20
-	cone.rings = 6
-	var flame := MeshInstance3D.new()
-	flame.name = "EngineFlame%d" % (index + 1)
-	flame.mesh = cone
-	var material := ShaderMaterial.new()
-	material.shader = load("res://data/shaders/engine_flame.gdshader")
-	material.set_shader_parameter("seed", float(index) * 3.7)
-	flame.material_override = material
-	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	flame.visible = false
-	add_child(flame)
-	return flame
-
-
-func _make_flame_glow(index: int) -> MeshInstance3D:
-	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_texture = soft_dot()
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	material.billboard_keep_scale = true
-	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-	var glow := MeshInstance3D.new()
-	glow.name = "EngineGlow%d" % (index + 1)
-	glow.mesh = quad
-	glow.material_override = material
-	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	glow.visible = false
-	add_child(glow)
-	return glow
-
-
 ## Main engine flames now (for tests and the check tool): gear and 0..1 strength.
 func flame_state() -> Dictionary:
-	return {"gear": _flame_gear, "strength": _flame_strength, "visible": not _flames.is_empty() and _flames[0].visible}
+	return {"gear": _flame_gear, "strength": _flame_strength, "visible": _flame_strength > 0.01}
 
 
 func _jets(group: String, material_name: String, strength: float) -> void:

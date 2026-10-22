@@ -475,7 +475,7 @@ func _morena_height(p: Vector3) -> float:
 	elif big_mask_1 > 0.0 and big_mask_2 > 0.0:
 		dunes = analog(plate_cracks, 0.4, 1.0, 0.0, 1.0)
 		small_cracks *= smoothstep(0.0, 1.0, analog(plate_cracks, 0.3, 0.35, 1.0, 0.0))
-	var big_cracks := ease_out_in_sin(analog(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75
+	var big_cracks := ease_out_in_sin(analog(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75 * RodinaPlanets.MORENA_BIG_CRACK_SCALE
 	var cracks := maxf(big_cracks, small_cracks * 0.25)
 	var dune_mask := analog(dunes, 0.0, 0.15, 0.0, 1.0)
 	var plateau := lerpf(1.0, 0.0, dune_mask)
@@ -503,13 +503,13 @@ func _asteroid_height(p: Vector3) -> float:
 	# PlanetAsteroid.h (the uncommented GetPlanetFeatures) with the Asteroid GenerationVars block
 	# (EGDataPlanets.lua:1252+; later duplicates win, as in Lua). The engine's per-rock
 	# Randomize() seeds are not reproducible, so the block's own seeds (20,10,113,20) are used.
-	# Amplitudes are scaled for tiny bodies such as Pebble and kept as authored for Selene.
-	var scale := clampf(profile.radius / 1700000.0, 0.1, 1.0)
+	# Amplitudes are kept as authored down to Rodina's own 10-15 km rocks and shrunk only for smaller ones.
+	var scale := RodinaPlanets.asteroid_scale(profile.radius)
 	# The base term is base * (0 + 0 * noise) because [112] is zero, so the Voronoi and the
 	# map/feature distortions that only feed it are skipped.
 	# [4] and [6] are zero, so the plateau and mountain coordinates are p itself.
 	var plateau := analog(_r_fbm(113.0, p, 0.5, 0.5, 2.0, 12), 0.0, 1.0, 0.0, 1.0)  # seeds1.z, [7], [8]
-	var mountains := analog(_r_fbm(0.0, p, 0.5, 1.0, 2.0, 3), 0.5, 1.0, 0.0, 1.0)  # seeds2.z, [13], [14]
+	var mountains := analog(_r_fbm(0.0, p, 0.5, 1.0, 2.0, 3), RodinaPlanets.ASTEROID_MOUNTAIN_EDGE, 1.0, 0.0, 1.0)  # seeds2.z, [13], [14]
 	# mountainMask is 1 ([12] has zero width and saturates). GetPlanetHeight ([10] holes range is 1,1,1,1: holes are always 0)
 	mountains = analog(mountains, 0.0, 0.3, 0.0, 1.0)            # [100]
 	var roughness := analog(mountains, 0.0, 0.9, 0.3, 0.5)       # [101]
@@ -517,7 +517,8 @@ func _asteroid_height(p: Vector3) -> float:
 	plateau = analog(plateau, 0.0, 1.0, 0.0, 1.0)                # [105]
 	var height := -1000.0                                        # [104]
 	if mountains > 0.0:
-		height += mountains * 500.0 * _r_fbm(0.0, p, roughness, 2.5, 2.0, 10)   # [102], [103]
+		height += mountains * RodinaPlanets.ASTEROID_MOUNTAIN_AMPLITUDE * _r_fbm(0.0, p, roughness, 2.5, 2.0, 10)   # [102], [103]
+		height += mountains * RodinaPlanets.ASTEROID_CRAG_AMPLITUDE * (0.2 - absf(_r_fbm(5.0, p, 0.55, 40.0, 2.0, 6) - 0.47))
 	height += plateau * 3000.0                                   # [107]
 	return height * scale
 

@@ -62,6 +62,16 @@ var limnal_drift := Vector2.ZERO
 ## Rodina CancelLimnalDrive moves the pilot's gear down to cruise; Sol keeps the pilot's selection, so a cancelled warp
 ## stays off (this latch) until the pilot selects a lower gear and shifts up again. Transient.
 var warp_cancelled := false
+## Highest gear available here and now (environment gate, empty tank); set by Ship before the pilot is polled so a shift
+## can be refused like Rodina's GetAllowedGear. Transient.
+var allowed_gear := PilotCommand.GEAR_WARP
+## Rodina EGBehaviorPlayer.NextGear while a clutch shift is pending (chosen, not yet committed); -1 when none. Read by
+## the HUD. Transient.
+var shift_pending := -1
+## True while the drive is disconnected by the clutch (coasting). Transient.
+var clutch := false
+## Counts refused shifts (Rodina plays ShiftGrind); the audio service plays the grind on each increment. Transient.
+var shift_refusals := 0
 
 
 func speed() -> float:

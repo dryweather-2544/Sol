@@ -16,6 +16,9 @@ var target: Node3D
 var follow_distance := 0.0
 var follow_angle := 0.0
 var shake := Vector2.ZERO
+## Free look (Rodina: hold FREE_LOOK to move the view without turning the hull): radians the view is swung round the ship.
+var look_yaw := 0.0
+var look_pitch := 0.0
 var _smoothed_orientation := Quaternion.IDENTITY
 
 
@@ -56,7 +59,7 @@ func active_offset() -> Vector3:
 
 
 func _apply(_delta: float) -> void:
-	var rig_basis := Basis(_smoothed_orientation)
+	var rig_basis := Basis(_smoothed_orientation) * Basis.from_euler(Vector3(look_pitch, look_yaw, 0.0))
 	var offset := active_offset()
 	if follow_distance > 0.0:
 		offset = Vector3(0.0, sin(follow_angle), cos(follow_angle)) * follow_distance

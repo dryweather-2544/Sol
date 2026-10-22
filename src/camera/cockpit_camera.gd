@@ -7,4 +7,4 @@ func _init() -> void:
 	name = "CockpitCamera"
 	near = 0.05
 	far = 3.0e7
-	position = Vector3(0, -0.9 + 1.4, -6.4)
+	position = Vector3(0, -0.9 + 1.7, -5.8) # eye height above the dash, back from the glass so the frames stay thin

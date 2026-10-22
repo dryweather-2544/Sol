@@ -24,6 +24,12 @@ var on_foot: OnFootController
 var interior_view: InteriorView
 var chase_camera: ChaseCamera
 var cockpit_camera: CockpitCamera
+var turret_camera: Camera3D
+var _turret_zoom := 9.0 # metres behind the barrel; the mouse wheel changes it
+var _orbit_yaw := 0.0
+var _look_yaw := 0.0 # free look at the helm: right mouse held swings the view round the ship without turning it
+var _look_pitch := 0.0
+var _orbit_pitch := 0.35
 var floating_origin: FloatingOrigin
 var overlay: DebugOverlay
 var poi_manager: PoiManager
@@ -31,13 +37,15 @@ var menu: PauseMenu
 var inventory_menu: InventoryMenu
 var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
+var airlock_menu: AirlockMenu
+var machine_menu: MachineMenu
+var exploration_menu: ExplorationMenu
 var _ambush_pending := false
 var audio: AudioService
 var speed_effects: SpeedEffects
 var entry_effects: EntryEffects
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
-var exploration_menu: ExplorationMenu
 var combat_effects: CombatEffects
 var _cockpit_view := false
 ## Rodina's warp and speed camera (FOV, chase distance and angle, shake); drives the ship cameras in the rodina style.
@@ -80,6 +88,11 @@ func _ready() -> void:
 	ship.add_child(interior_view)
 	cockpit_camera = CockpitCamera.new()
 	ship.add_child(cockpit_camera)
+	turret_camera = Camera3D.new()
+	turret_camera.name = "TurretCamera"
+	turret_camera.near = 0.3
+	turret_camera.far = 40000.0
+	ship.add_child(turret_camera)
 	session.ambush_requested.connect(func(_beacon_direction: Vector3): _ambush_pending = true)
 	session.crew.add_member(session.systems, &"mara", &"engineer", &"reactor_panel")
 	session.crew.add_member(session.systems, &"kit", &"gunner", &"gunner_seat")
@@ -148,6 +161,11 @@ func _ready() -> void:
 	inventory_menu.audio = audio
 	inventory_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	add_child(inventory_menu)
+	exploration_menu = ExplorationMenu.new()
+	exploration_menu.session = session
+	exploration_menu.audio = audio
+	exploration_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	add_child(exploration_menu)
 	workbench_menu = WorkbenchMenu.new()
 	workbench_menu.session = session
 	workbench_menu.audio = audio
@@ -161,14 +179,29 @@ func _ready() -> void:
 	reactor_menu.audio = audio
 	reactor_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	session.reactor_requested.connect(func():
-	exploration_menu = ExplorationMenu.new()
-	exploration_menu.session = session
-	exploration_menu.audio = audio
-	exploration_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
-	add_child(exploration_menu)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		reactor_menu.open())
 	add_child(reactor_menu)
+	session.rest_requested.connect(func(): _save_to("autosave"))
+	airlock_menu = AirlockMenu.new()
+	airlock_menu.session = session
+	airlock_menu.audio = audio
+	airlock_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	session.airlock_requested.connect(func():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		airlock_menu.open())
+	add_child(airlock_menu)
+	machine_menu = MachineMenu.new()
+	machine_menu.session = session
+	machine_menu.audio = audio
+	machine_menu.scanner_rows = _scanner_rows
+	machine_menu.select_nav_target = _select_nav_target
+	machine_menu.current_nav_name = _current_nav_name
+	machine_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	session.machine_requested.connect(func(kind: StringName):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		machine_menu.open(kind))
+	add_child(machine_menu)
 	menu = PauseMenu.new()
 	menu.audio = audio
 	menu.resume_requested.connect(_on_menu_resume)
@@ -189,6 +222,9 @@ func _physics_process(delta: float) -> void:
 	command.run = Input.is_action_pressed("boost")
 	command.jump = Input.is_action_pressed("move_up")
 	command.jetpack = Input.is_action_pressed("move_up")
+	if airlock_menu.visible or machine_menu.visible:
+		command.move = Vector2.ZERO # the player stands at the computer while it is open
+		command.jump = false
 	var keyboard_turn := Input.get_axis("yaw_right", "yaw_left") * 2.0 * delta
 	if session.mode == GameSession.Mode.OUTSIDE:
 		command.yaw_delta = on_foot.take_pending_yaw() + keyboard_turn
@@ -196,6 +232,7 @@ func _physics_process(delta: float) -> void:
 		command.yaw_delta = interior_view.take_pending_yaw() + keyboard_turn
 	if session.mode == GameSession.Mode.OUTSIDE and Input.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		session.player_fire(-on_foot.camera.global_transform.basis.z)
+	session.gunner_trigger = session.gunner_station and Input.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	var mode_before := session.mode
 	runtime.advance(delta)
 	runtime.update_frame()
@@ -204,6 +241,8 @@ func _physics_process(delta: float) -> void:
 	_update_warp_view(delta)
 	on_foot.sync_transform()
 	interior_view.sync_view()
+	interior_view.set_lamp(session.mode == GameSession.Mode.INSIDE)
+	session.set_look(interior_view.camera.position, -interior_view.camera.basis.z)
 	if session.mode != mode_before:
 		_on_mode_changed()
 		if session.mode == GameSession.Mode.SEATED or mode_before == GameSession.Mode.OUTSIDE:
@@ -230,7 +269,7 @@ func _process(_delta: float) -> void:
 		session.apply_poi_blockers(session.nearby_pois)
 		session.apply_building_walls()
 	var far_plane := 40000.0
-	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
+	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING or session.mode == GameSession.Mode.INSIDE:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
 		# horizon (or far enough for other worlds in open space). Keeping far/near moderate avoids
 		# depth-precision and light-culler problems.
@@ -244,6 +283,9 @@ func _process(_delta: float) -> void:
 		chase_camera.far = far_plane
 		cockpit_camera.near = minf(near_plane, 0.5)
 		cockpit_camera.far = far_plane
+		turret_camera.near = minf(near_plane, 0.5)
+		turret_camera.far = far_plane
+		interior_view.camera.far = far_plane # without this the planet (many km away) is clipped out of the pocket rooms' windows
 	impostors.placement_distance = far_plane * 0.8
 	impostors.viewer_local = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else ship.position
 	var sun_direction := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds)
@@ -265,7 +307,7 @@ func _process(_delta: float) -> void:
 		var daylight := 1.0 - smoothstep(0.0, 1.0, atmosphere_ratio) if atmosphere_ratio != INF else 0.0
 		var sun_above_horizon := smoothstep(-0.1, 0.3, planet.up_at(actor_position).dot(-sun_direction))
 		impostors.hide_star = VisualStyle.is_rodina() and daylight > 0.02
-		space_environment.set_sun_elevation(planet.up_at(actor_position).dot(-sun_direction))
+		space_environment.set_sun_elevation(planet.up_at(actor_position).dot(-sun_direction), daylight)
 		var viewer_up := planet.up_at(actor_position)
 		space_environment.set_rodina_viewer(VisualStyle.is_rodina() and planet.atmosphere_height > 0.0, viewer_up * (planet.distance_from_center(actor_position) / planet.radius), planet.atmosphere_height / maxf(planet.radius, 1.0), _star_radius_angle(runtime.active_frame))
 		var viewer_altitude := 2.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground
@@ -278,9 +320,33 @@ func _process(_delta: float) -> void:
 		space_environment.set_sun_elevation(1.0)
 		space_environment.set_rodina_viewer(false)
 	overlay.frame_text = _frame_and_nav_text()
+	if session.gunner_station:
+		var turret := session.systems.turret
+		overlay.frame_text += "\nGUNNER  heat %d%%%s" % [roundi(turret.heat * 100.0), "  OVERHEATED" if turret.overheated else ""]
+		var aim := turret.manual_direction()
+		var up_hint := Vector3.UP if absf(aim.y) < 0.99 else Vector3.BACK
+		# sits behind and above the barrel, looking down its line, so the muzzle and the shots are in view
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			# right mouse held: look around the ship instead of aiming
+			var around := Vector3(sin(_orbit_yaw) * cos(_orbit_pitch), sin(_orbit_pitch), cos(_orbit_yaw) * cos(_orbit_pitch))
+			var centre := Vector3(0, 1.5, 0)
+			turret_camera.transform = Transform3D(Basis.looking_at(-around, Vector3.UP), centre + around * (_turret_zoom + 10.0))
+		else:
+			# behind the barrel, but never lower than a little above the roof, so it stays out of the hull
+			var camera_position := turret.muzzle_offset - aim * _turret_zoom
+			camera_position.y = maxf(camera_position.y, turret.muzzle_offset.y + 1.0 + 0.25 * _turret_zoom)
+			turret_camera.transform = Transform3D(Basis.looking_at(aim, up_hint) * Basis.from_euler(Vector3(warp_view.shake.y, warp_view.shake.x, 0.0)), camera_position) # the gun's shots shake the view like Rodina's fire vibration
 
 
 func _input(event: InputEvent) -> void:
+	if machine_menu.visible:
+		if event.is_action_pressed("pause") or event.is_action_pressed("interact"):
+			machine_menu.close()
+		return
+	if airlock_menu.visible:
+		if event.is_action_pressed("pause") or event.is_action_pressed("interact"):
+			airlock_menu.close()
+		return
 	if workbench_menu.visible:
 		if event.is_action_pressed("pause"):
 			workbench_menu.close()
@@ -293,7 +359,15 @@ func _input(event: InputEvent) -> void:
 		if event.is_action_pressed("inventory") or event.is_action_pressed("pause"):
 			inventory_menu.close()
 		return
+	if exploration_menu.visible:
+		if event.is_action_pressed("journal") or event.is_action_pressed("pause"):
+			exploration_menu.close()
+		return
 	if menu.visible:
+		return
+	if event.is_action_pressed("journal"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		exploration_menu.open()
 		return
 	if event.is_action_pressed("inventory"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -306,7 +380,22 @@ func _input(event: InputEvent) -> void:
 			GameSession.Mode.INSIDE:
 				interior_view.add_mouse_motion(event.relative)
 			_:
-				player_source.add_mouse_motion(event.relative)
+				if session.gunner_station and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+					_orbit_yaw = wrapf(_orbit_yaw - event.relative.x * 0.004, -PI, PI)
+					_orbit_pitch = clampf(_orbit_pitch - event.relative.y * 0.004, -1.4, 1.4)
+				elif session.gunner_station:
+					session.systems.turret.add_aim(event.relative)
+				elif Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+					_look_yaw = wrapf(_look_yaw - event.relative.x * 0.004, -PI, PI)
+					_look_pitch = clampf(_look_pitch - event.relative.y * 0.004, -1.3, 1.3)
+				else:
+					player_source.add_mouse_motion(event.relative)
+	elif session.gunner_station and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		var step := 1.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1.0
+		_turret_zoom = clampf(_turret_zoom + step * maxf(1.0, _turret_zoom * 0.12), 1.5, 80.0)
+	elif event.is_action_pressed("gunner_station"):
+		session.toggle_gunner_station()
+		_update_active_camera()
 	elif event.is_action_pressed("interact"):
 		var mode_before := session.mode
 		session.interact()
@@ -320,6 +409,8 @@ func _input(event: InputEvent) -> void:
 		session.cycle_power_preset()
 	elif event.is_action_pressed("nav_next"):
 		_cycle_nav_target()
+	elif event.is_action_pressed("scan"):
+		session.scan_pulse()
 	elif event.is_action_pressed("toggle_view"):
 		if session.mode == GameSession.Mode.OUTSIDE:
 			on_foot.third_person = not on_foot.third_person
@@ -356,19 +447,13 @@ func _update_active_camera() -> void:
 		GameSession.Mode.INSIDE:
 			interior_view.camera.current = true
 		_:
-			if _cockpit_view:
+			if session.gunner_station:
+				turret_camera.current = true
+			elif _cockpit_view:
 				cockpit_camera.current = true
 			else:
-	if exploration_menu.visible:
-		if event.is_action_pressed("journal") or event.is_action_pressed("pause"):
-			exploration_menu.close()
-		return
 				chase_camera.current = true
 
-	if event.is_action_pressed("journal"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		exploration_menu.open()
-		return
 
 func _save_to(slot: String) -> void:
 	var error := save_manager.save(slot, SaveGame.capture(session, WORLD_SEED, runtime.time_seconds))
@@ -409,8 +494,6 @@ func _autosave(reason: String) -> void:
 
 func _autosave_if_due(delta: float) -> void:
 	_seconds_since_autosave += delta
-	elif event.is_action_pressed("scan"):
-		session.scan_pulse()
 	var landed_now := ship.state.landed
 	if landed_now and not _was_landed:
 		_autosave("landed")
@@ -460,6 +543,7 @@ func _build_poi_manager() -> void:
 	var prefix := "" if runtime.active_frame == system.home_id else String(runtime.active_frame)
 	poi_manager = PoiManager.new(PoiPlanner.new(planet, SeedHash.derive(WORLD_SEED, String(runtime.active_frame)), 0.22, prefix))
 	poi_manager.threaded = true
+	poi_manager.planner.minor_density = MINOR_SITE_DENSITY
 	poi_manager.render_origin = ship.render_origin.duplicate_position()
 	poi_manager.viewer = ship.state.position
 	add_child(poi_manager)
@@ -543,7 +627,6 @@ func _nav_targets() -> Array[StringName]:
 	for body_id in system.bodies:
 		if body_id != runtime.active_frame:
 			targets.append(body_id)
-	poi_manager.planner.minor_density = MINOR_SITE_DENSITY
 	return targets
 
 
@@ -551,6 +634,31 @@ func _cycle_nav_target() -> void:
 	var targets := _nav_targets()
 	_nav_target_index = (_nav_target_index + 1) % (targets.size() + 1) # last step = no target
 	session.say("Nav target cleared" if _nav_target_index >= targets.size() else "Nav target: " + (system.bodies[targets[_nav_target_index]] as BodyDef).display_name)
+
+
+## Scanner menu data: every body but the one we are in, with its surface distance from the player.
+func _scanner_rows() -> Array:
+	var rows: Array = []
+	var here := session.player_world_position()
+	for body_id in _nav_targets():
+		var body: BodyDef = system.bodies[body_id]
+		var centre := system.convert_position(WorldPos.new(body_id, 0.0, 0.0, 0.0), runtime.active_frame, runtime.time_seconds)
+		var distance := maxf(centre.vector_from(here).length() - body.radius, 0.0)
+		var text := "%.0f m" % distance if distance < 1.0e4 else ("%.0f km" % (distance / 1000.0) if distance < 1.0e7 else "%.2e m" % distance)
+		rows.append({"id": body_id, "name": body.display_name, "distance": text})
+	return rows
+
+
+func _select_nav_target(body_id: StringName) -> void:
+	var targets := _nav_targets()
+	_nav_target_index = targets.find(body_id) if body_id != &"" else -1
+
+
+func _current_nav_name() -> String:
+	var targets := _nav_targets()
+	if _nav_target_index < 0 or _nav_target_index >= targets.size():
+		return ""
+	return (system.bodies[targets[_nav_target_index]] as BodyDef).display_name
 
 
 func _frame_and_nav_text() -> String:
@@ -587,7 +695,8 @@ func _apply_field_of_view() -> void:
 	# Rodina sets the camera FOV from the warp blend (EGDataShipPlayer.lua:325-346); at rest it is the setting.
 	var ship_fov := warp_view.field_of_view(fov) if VisualStyle.is_rodina() else fov
 	chase_camera.fov = ship_fov
-	cockpit_camera.fov = ship_fov
+	cockpit_camera.fov = minf(ship_fov + 18.0, 120.0) # wider inside the canopy so more of the windscreen is in view
+	turret_camera.fov = ship_fov
 
 
 ## Advances the Rodina warp/speed camera from the ship's real state and hands it to the ship cameras. In the sol style
@@ -598,18 +707,24 @@ func _update_warp_view(delta: float) -> void:
 			warp_view.reset()
 	else:
 		var state := ship.state
-		var fired := session.mode == GameSession.Mode.SEATED and ship.last_command.fire and state.gear <= PilotCommand.GEAR_COMBAT
+		var fired := session.gunner_station and session.systems.turret.firing # only real shots shake the view; the pilot's click fires nothing
 		warp_view.update(state.gear == PilotCommand.GEAR_WARP, state.atmosphere_resistance, fired, delta)
 	var rodina := VisualStyle.is_rodina()
 	chase_camera.follow_distance = warp_view.follow_distance() * RodinaEmitter.SHIP_SCALE if rodina else 0.0
 	chase_camera.follow_angle = deg_to_rad(warp_view.follow_angle_degrees()) if rodina else 0.0
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or session.gunner_station:
+		var settle := 1.0 - exp(-8.0 * delta) # the view swings back behind the ship when free look is released
+		_look_yaw = lerpf(_look_yaw, 0.0, settle)
+		_look_pitch = lerpf(_look_pitch, 0.0, settle)
+	chase_camera.look_yaw = _look_yaw
+	chase_camera.look_pitch = _look_pitch
 	chase_camera.shake = warp_view.shake
-	cockpit_camera.rotation = Vector3(warp_view.shake.y, warp_view.shake.x, 0.0)
+	cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0)
 	var effects := _ship_effects()
 	if effects != null:
 		effects.limnal_activation = warp_view.activation
 		var in_ship_view := session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING
-		effects.camera_inside = session.mode == GameSession.Mode.INSIDE or (in_ship_view and _cockpit_view)
+		effects.camera_inside = session.mode == GameSession.Mode.INSIDE or (in_ship_view and _cockpit_view and not session.gunner_station) # the turret camera is outside the hull
 		_update_camera_place(effects.camera_inside)
 
 

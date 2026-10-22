@@ -184,9 +184,20 @@ static func height(grammar: int, p: Vector3, radius: float) -> float:
 	return 0.0
 
 
-## Pebble-sized bodies get a tenth of the authored amplitude; Selene-sized and larger keep it.
+## Sol's tweak to Rodina's Asteroid mountains so a 15 km rock reads as craggy, not just smooth and rolling: Rodina's own values
+## are an edge of 0.5 (mountains on only a small part of the rock) and an amplitude of 500 m. Mirrored in rodina_heights.glsl
+## and HeightFunction._asteroid_height; the colour feature uses the same edge so colour and height agree.
+const ASTEROID_MOUNTAIN_EDGE := 0.1
+const ASTEROID_MOUNTAIN_AMPLITUDE := 1400.0
+## Sol-only sharp creases laid over the mountains (not in Rodina): ridged noise of about 400 m wavelength. The noise runs
+## 0..1 around 0.47, so the crease is where it crosses 0.47 and the ridge stands up to 0.2 * this amplitude.
+const ASTEROID_CRAG_AMPLITUDE := 1000.0
+
+
+## Rodina's Asteroid terrain is authored for rocks of about 10 km radius (DwarfMoon 10 km, AsteroidLarge 10 km), with up to
+## a few km of relief, so a 15 km rock keeps the full authored relief. Only much smaller rocks are shrunk to match.
 static func asteroid_scale(radius: float) -> float:
-	return clampf(radius / 1700000.0, 0.1, 1.0)
+	return clampf(radius / 15000.0, 0.1, 1.0)
 
 
 ## PlanetPerun.h with Perun's GenerationVars (EGDataPlanets.lua:286-324).
@@ -310,6 +321,12 @@ static func veles(p: Vector3) -> float:
 	return height
 
 
+## Sol's scale on Morena's big plate cracks (the long trenches along the plate boundaries, 11 km deep and dark). On Sol's
+## 1700 km Selene they read from orbit as one thin black line around the world, so they are off; the small cracks, hills and
+## dunes stay. 1.0 = Rodina's own.
+const MORENA_BIG_CRACK_SCALE := 0.0
+
+
 ## PlanetMorena.h: a hand-written cracked-plate grammar, not a GenerationVars world.
 static func morena(p: Vector3) -> float:
 	var crack_distort_big := _dv(12.0, p, 0.5, 0.5, 2.0, 8)
@@ -331,7 +348,7 @@ static func morena(p: Vector3) -> float:
 		dunes = analogue(plate_cracks, 0.4, 1.0, 0.0, 1.0)
 		small_cracks *= hsmooth(0.0, 1.0, analogue(plate_cracks, 0.3, 0.35, 1.0, 0.0))
 	# GetPlanetHeight
-	var big_cracks := ease_out_in_sin(analogue(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75
+	var big_cracks := ease_out_in_sin(analogue(plate_cracks, 0.05, 0.15, 1.0, 0.0)) * 0.75 * MORENA_BIG_CRACK_SCALE
 	var small := small_cracks * 0.25
 	var dune_mask := analogue(dunes, 0.0, 0.15, 0.0, 1.0)
 	var cracks := maxf(big_cracks, small)
@@ -365,7 +382,7 @@ static func asteroid(p: Vector3, scale: float) -> float:
 	# base * (0 + 0 * noise) because [112] is zero, and holes are always 0 because [10] is (1,1,1,1).
 	var plateau := analogue(_fp(113.0, p, 0.5, 0.5, 2.0, 12), 0.0, 1.0, 0.0, 1.0)  # seeds1.z, [7], [8]
 	var mountain_mask := analogue(_fp(20.0, p, 0.5, 0.5, 2.0, 3), -1.0, -1.0, 0.0, 1.0)  # seeds1.w, [11], [12]
-	var mountains := analogue(_fp(0.0, p, 0.5, 1.0, 2.0, 3), 0.5, 1.0, 0.0, 1.0)  # seeds2.z, [13], [14]
+	var mountains := analogue(_fp(0.0, p, 0.5, 1.0, 2.0, 3), ASTEROID_MOUNTAIN_EDGE, 1.0, 0.0, 1.0)  # seeds2.z, [13], [14]
 	mountains = mountain_mask * mountains
 	mountains = analogue(mountains, 0.0, 0.3, 0.0, 1.0)            # [100]
 	var roughness := analogue(mountains, 0.0, 0.9, 0.3, 0.5)       # [101]
@@ -373,6 +390,172 @@ static func asteroid(p: Vector3, scale: float) -> float:
 	plateau = analogue(plateau, 0.0, 1.0, 0.0, 1.0)                # [105]
 	var height := -1000.0                                          # [104]
 	if mountains > 0.0:
-		height += mountains * 500.0 * _fp(0.0, p, roughness, 2.5, 2.0, 10)  # [102], [103]
+		height += mountains * ASTEROID_MOUNTAIN_AMPLITUDE * _fp(0.0, p, roughness, 2.5, 2.0, 10)  # [102], [103]
+		height += mountains * ASTEROID_CRAG_AMPLITUDE * (0.2 - absf(_fp(5.0, p, 0.55, 40.0, 2.0, 6) - 0.47))
 	height += plateau * 3000.0                                              # [107]
 	return height * scale
+
+
+# --- Planet features and colours (PSPlanetColors + RodinaTerrain.fx:118-126) --------------------------------
+
+## The four-channel feature texture Rodina's terrain material samples: (base, plateau, mountains, holes), as written by
+## each Planet<Name>.fx PSPlanetColors (Morena packs its own channels). CPU mirror of GetPlanetFeatures: same coordinates,
+## constants and ordering as the height functions above, so colour and height always agree. Returns Vector4.ZERO for LEGACY.
+static func features(grammar: int, p: Vector3) -> Vector4:
+	match grammar:
+		TerrainProfile.Grammar.PERUN:
+			return perun_features(p)
+		TerrainProfile.Grammar.JARILO:
+			return jarilo_features(p)
+		TerrainProfile.Grammar.VELES:
+			return veles_features(p)
+		TerrainProfile.Grammar.MORENA:
+			return morena_features(p)
+		TerrainProfile.Grammar.ASTEROID:
+			return asteroid_features(p)
+	return Vector4.ZERO
+
+
+## PlanetPerun.h GetPlanetFeatures (25-100) then PlanetPerun.fx: mountains = Analogue(mountains, .1, 1, 0, 1).
+static func perun_features(p: Vector3) -> Vector4:
+	var mask_distort := p - _dv(10.0, p, 1.0, 1.0, 2.0, 2)
+	var distort := p - _dv(0.0, p, 1.0, 1.0, 2.0, 9)
+	var mask_coord := (p + mask_distort * 0.05 + distort * 0.005).normalized()
+	var base_coords := (p + distort * 0.02).normalized()
+	var mountain_distort := mask_coord - _dv(10.0, mask_coord, 1.0, 2.0, 2.0, 2)
+	var mountain_coord1 := (mask_coord + mountain_distort * 0.2).normalized()
+	var mountain_coords := (p + distort * 0.001).normalized()
+	var base := voronoi2(base_coords, 0.5, 0.5, 0.25)
+	var holes := _holes(_fp(0.0, mountain_coords, 0.5, 128.0, 2.0, 4), Vector4(0.275, 0.375, 0.375, 0.55))
+	var plateau := analogue(_fp(10.0, mask_coord, 0.56, 3.0, 2.0, 12), 0.5, 0.675, 0.0, 1.0)
+	var mountain_mask := analogue(_fp(10.0, mountain_coord1, 0.6, 3.0, 2.0, 5), 0.45, 0.6, 0.0, 1.0)
+	var mountains := analogue(_fp(0.0, mountain_coords, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0)
+	return Vector4(base, plateau, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes)
+
+
+## PlanetJarilo.h GetPlanetFeatures (25-97) then PlanetJarilo.fx.
+static func jarilo_features(p: Vector3) -> Vector4:
+	var map_distort := p - _dv(10.0, p, 1.0, 1.0, 2.0, 2)
+	var feature_distort := p - _dv(0.0, p, 1.0, 1.0, 2.0, 9)
+	var base_coords := (p + map_distort * 0.06 + feature_distort * 0.02).normalized()
+	var base := voronoi2(base_coords, 0.5, 0.5, 0.2)
+	var plateau_coord := (p + map_distort * 0.05).normalized()
+	var plateau := analogue(_fp(20.0, plateau_coord, 0.5, 2.0, 2.0, 16), 0.4, 0.8, 0.0, 1.0)
+	var mountain_coords := (p + feature_distort * 0.001).normalized()
+	var mountain_mask := analogue(_fp(20.0, plateau_coord, 0.5, 2.0, 2.0, 5), 0.1, 0.4, 0.0, 1.0)
+	var mountains := analogue(_fp(0.0, mountain_coords, 1.0, 1.0, 2.0, 9), 0.45, 0.8, 0.0, 1.0)
+	var holes := _holes(_fp(0.0, p, 0.5, 2500.0, 2.0, 4), Vector4(0.0, 0.0, 0.375, 0.5))
+	return Vector4(base, plateau, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes)
+
+
+## PlanetVeles.h GetPlanetFeatures (25-71; warps commented out, so every coordinate is p) then PlanetVeles.fx.
+static func veles_features(p: Vector3) -> Vector4:
+	var base := voronoi(p, 0.25)
+	var half_mask := analogue(p.x, -0.9, 0.0, 0.3, 2.0)
+	var holes := _fp(0.0, p, 0.5, 128.0, 2.0, 4)
+	if holes <= 0.375:
+		holes = hsmooth(0.275, 0.375, holes)
+	else:
+		holes = hsmooth(0.55, 0.375, holes)
+	var plate_cracks := analogue(absf(0.5 - _fp(10.0, p, 0.56, 10.0, 2.0, 10)), 0.0, 0.025, 1.0, 0.25)
+	var plate_mask := _fp(10.0, p, 0.6, 1.0, 2.0, 10) * half_mask
+	var plate := analogue(plate_mask, 0.4, 0.41, 0.0, 1.0)
+	var mountain_mask := analogue(plate_mask, 0.375, 0.45, 0.0, 1.0)
+	var mountains := analogue(_fp(0.0, p, 1.0, 1.0, 2.0, 9), 0.4, 0.7, 0.0, 1.0)
+	return Vector4(base, plate - plate_cracks, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes)
+
+
+## PlanetMorena.h GetPlanetFeatures (25-89) then PlanetMorena.fx, which repacks them:
+## (FractalPerlin(8, p, .5, 8, 2, 8), pow(Analogue(plateCracks, 0, .5, 1, 0), 1.5), hills, Analogue(dunes, 0, .75, 0, 1)).
+static func morena_features(p: Vector3) -> Vector4:
+	var crack_distort_big := _dv(12.0, p, 0.5, 0.5, 2.0, 8)
+	var crack_distort := _dv(10.0, p, 0.5, 2.0, 2.0, 8)
+	var crack_coord := (p + crack_distort_big * 0.05 + crack_distort * 0.075).normalized()
+	var plate_perlin := _fp(10.0, p, 0.6, 60.0, 2.0, 7)
+	var big_mask_1 := plate_perlin - cos(maxf(minf(30.0 * (0.9 * crack_coord.z + 0.3 * crack_coord.y), 8.0 * 3.14159), -8.0 * 3.14159))
+	var big_mask_2 := plate_perlin - cos(maxf(minf(30.0 * (1.0 * crack_coord.z + 0.0 * crack_coord.y), 8.0 * 3.14159), -8.0 * 3.14159))
+	var plate_cracks := minf(absf(big_mask_1), absf(big_mask_2))
+	var small_cracks := _fp(0.0, p, 0.56, 25.0, 2.0, 10)
+	small_cracks = minf(absf(0.46 - small_cracks), minf(absf(0.5 - small_cracks), absf(0.54 - small_cracks)))
+	small_cracks = hsmooth(0.0, 1.0, analogue(small_cracks, 0.003, 0.010, 1.0, 0.0))
+	var hills := 0.0
+	var dunes := 0.0
+	if big_mask_1 < 0.0 or big_mask_2 < 0.0:
+		hills = analogue(plate_cracks, 0.35, 1.0, 0.0, 1.0)
+		small_cracks *= hsmooth(0.0, 1.0, analogue(plate_cracks, 0.3, 0.5, 1.0, 0.0))
+	elif big_mask_1 > 0.0 and big_mask_2 > 0.0:
+		dunes = analogue(plate_cracks, 0.4, 1.0, 0.0, 1.0)
+		small_cracks *= hsmooth(0.0, 1.0, analogue(plate_cracks, 0.3, 0.35, 1.0, 0.0))
+	var big_cracks := pow(analogue(plate_cracks, 0.0, 0.5, 1.0, 0.0), 1.5) * MORENA_BIG_CRACK_SCALE
+	return Vector4(_fp(8.0, p, 0.5, 8.0, 2.0, 8), big_cracks, hills, analogue(dunes, 0.0, 0.75, 0.0, 1.0))
+
+
+## PlanetAsteroid.h GetPlanetFeatures (26-98) with the Asteroid GenerationVars (later duplicate keys win) then PlanetAsteroid.fx.
+## The engine's per-rock Randomize seeds are not reproducible, so the block's own seeds (20, 10, 113, 20) are used.
+static func asteroid_features(p: Vector3) -> Vector4:
+	var map_distort := p - _dv(20.0, p, 1.0, 1.0, 2.0, 2)          # seeds1.x, [1]
+	var feature_distort := p - _dv(0.0, p, 1.0, 1.0, 2.0, 9)       # seeds2.x, [2]
+	var base_coords := (p + map_distort * 0.1 + feature_distort * 0.005).normalized()  # [5]
+	var base := voronoi2(base_coords, 0.5, 0.5, 0.25)              # [15]
+	var plateau := analogue(_fp(113.0, p, 0.5, 0.5, 2.0, 12), 0.0, 1.0, 0.0, 1.0)  # [4] = 0: plateau coord is p
+	var mountain_mask := analogue(_fp(20.0, p, 0.5, 0.5, 2.0, 3), -1.0, -1.0, 0.0, 1.0)  # [6] = 0
+	var mountains := analogue(_fp(0.0, p, 0.5, 1.0, 2.0, 3), ASTEROID_MOUNTAIN_EDGE, 1.0, 0.0, 1.0)
+	var holes := _holes(_fp(0.0, p, 0.5, 128.0, 2.0, 4), Vector4(1.0, 1.0, 1.0, 1.0))  # [9], [10] = (1,1,1,1)
+	return Vector4(base, plateau, analogue(mountain_mask * mountains, 0.1, 1.0, 0.0, 1.0), holes)
+
+
+## Scripts/EGUtility.lua EGHueSaturateValue(h, s, v): high = v, low = v * (1 - s), six hue sectors. Deliberately unclamped:
+## several Rodina colours use negative or above-one values (they subtract from, or brighten, the base colour).
+static func hue_saturate_value(hue: float, saturation: float, value: float) -> Color:
+	var high := value
+	var low := value * (1.0 - saturation)
+	var h := fposmod(hue, 360.0)
+	if h < 60.0:
+		return Color(high, analogue(h, 0.0, 60.0, low, high), low)
+	if h < 120.0:
+		return Color(analogue(h, 60.0, 120.0, high, low), high, low)
+	if h < 180.0:
+		return Color(low, high, analogue(h, 120.0, 180.0, low, high))
+	if h < 240.0:
+		return Color(low, analogue(h, 180.0, 240.0, high, low), high)
+	if h < 300.0:
+		return Color(analogue(h, 240.0, 300.0, low, high), low, high)
+	return Color(high, low, analogue(h, 300.0, 360.0, high, low))
+
+
+## EGDataPlanets.lua PlanetFeatureColor1a/1b/2/3/4 for a grammar's world. Perun 274-278, Jarilo 548-554 (a duplicated
+## block: the later lines win), Veles 433-437, Morena 718-722, Asteroid 1246-1250. Empty for LEGACY.
+static func feature_colors(grammar: int) -> Dictionary:
+	match grammar:
+		TerrainProfile.Grammar.PERUN:
+			return {"c1a": Color(0.25, 0.2, 0.2), "c1b": Color(0.125, 0.1, 0.1), "c2": hue_saturate_value(1.0, 0.0, 0.25),
+				"c3": hue_saturate_value(1.0, 0.0, 0.325), "c4": hue_saturate_value(1.0, 0.0, -0.002)}
+		TerrainProfile.Grammar.JARILO:
+			return {"c1a": hue_saturate_value(45.0, 0.5, 0.61), "c1b": hue_saturate_value(30.0, 0.5, 1.0), "c2": hue_saturate_value(0.0, 0.0, -0.8),
+				"c3": hue_saturate_value(0.0, 0.0, -0.66), "c4": hue_saturate_value(0.0, 0.0, 0.0)}
+		TerrainProfile.Grammar.VELES:
+			return {"c1a": hue_saturate_value(27.0, 0.7, 0.2), "c1b": hue_saturate_value(27.0, 0.7, 0.1), "c2": hue_saturate_value(0.0, 0.0, 0.35),
+				"c3": hue_saturate_value(0.0, 0.0, 0.3), "c4": hue_saturate_value(0.0, 0.0, -0.002)}
+		TerrainProfile.Grammar.MORENA:
+			return {"c1a": hue_saturate_value(230.0, 0.4, 1.2), "c1b": hue_saturate_value(230.0, 0.0, 1.2), "c2": hue_saturate_value(13.0, 1.0, -0.4),
+				"c3": hue_saturate_value(0.0, 0.2, 0.25), "c4": hue_saturate_value(0.0, 0.0, 0.15)}
+		TerrainProfile.Grammar.ASTEROID:
+			return {"c1a": hue_saturate_value(45.0, 0.0, 0.0), "c1b": hue_saturate_value(30.0, 0.2, 0.3), "c2": hue_saturate_value(0.0, 0.0, 0.0),
+				"c3": hue_saturate_value(180.0, 0.1, -0.5), "c4": hue_saturate_value(0.0, 0.0, 0.0)}
+	return {}
+
+
+## RodinaTerrain.fx:118-126, unclamped: lerp(1a, 1b, base) + plateau*2 + mountains*3 + holes*4. 1a is the colour at base = 0.
+static func feature_color(grammar: int, feature: Vector4) -> Color:
+	var colors := feature_colors(grammar)
+	if colors.is_empty():
+		return Color(0.5, 0.5, 0.5)
+	var a: Color = colors["c1a"]
+	var b: Color = colors["c1b"]
+	var c2: Color = colors["c2"]
+	var c3: Color = colors["c3"]
+	var c4: Color = colors["c4"]
+	return Color(
+		lerpf(a.r, b.r, feature.x) + feature.y * c2.r + feature.z * c3.r + feature.w * c4.r,
+		lerpf(a.g, b.g, feature.x) + feature.y * c2.g + feature.z * c3.g + feature.w * c4.g,
+		lerpf(a.b, b.b, feature.x) + feature.y * c2.b + feature.z * c3.b + feature.w * c4.b)

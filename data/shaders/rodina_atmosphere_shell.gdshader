@@ -8,6 +8,8 @@ render_mode unshaded, blend_premul_alpha, cull_back, depth_draw_never, shadows_d
 uniform vec3 planet_centre = vec3(0.0); // render space, metres
 uniform float planet_radius = 1.0;      // metres
 uniform vec3 sun_direction = vec3(0.0, 0.0, -1.0); // direction the light travels
+// Sol's own brightening of the glow seen against space (not Rodina's: its atmospheres are very dark from orbit).
+uniform float atm_glow_gain = 1.0;
 
 varying vec3 world_position;
 
@@ -28,6 +30,10 @@ void fragment() {
 	if (ground.x > 0.0) {
 		air.a = rodina_ground_density(eye + dir * ground.x, eye, max(ground.x - max(rodina_sphere_hits(eye, dir, 1.0 + atm_height).x, 0.0), 0.0)) * clamp(atm_density, 0.0, 1.0);
 	}
-	ALBEDO = rodina_to_linear(air.rgb * air.a); // display-space colour added over the scene
+	vec3 glow = air.rgb * air.a;
+	if (ground.x <= 0.0) {
+		glow *= atm_glow_gain;
+	}
+	ALBEDO = rodina_to_linear(glow); // display-space colour added over the scene
 	ALPHA = clamp(clamp(atm_density - 1.0, 0.0, 1.0) * air.a, 0.0, 1.0);
 }

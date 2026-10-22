@@ -14,6 +14,20 @@ var family: StringName = &"sol"
 ## whatever coverage remains. Colours are linear (they become vertex colours).
 var features: Array[Dictionary] = []
 var base_color := Color(0.5, 0.5, 0.5)
+## Rodina's own terrain colour: the four-channel planet feature texture (base, plateau, mountains, holes) from the world's
+## height grammar, coloured by the world's PlanetFeatureColor1a/1b/2/3/4 (RodinaPlanets.feature_color, RodinaTerrain.fx:118-126).
+## When on (and the world has a Rodina grammar) it replaces `features`/palette colouring; off keeps everything as it was.
+var rodina_feature_colors := false
+## With rodina_feature_colors: also composite the world's terrain features (cliff rock, ice caps, dunes, ...: RodinaTerrainBlend)
+## over the feature colour. Off = just the feature colour.
+var rodina_terrain_gates := true
+## Sol's brightness gain on Rodina's terrain colours: Rodina's Perun and Asteroid worlds are authored very dark (colours of
+## 0.1 to 0.3) and look nearly black here, so those worlds are lifted a little. 1 = Rodina's colours exactly.
+var rodina_albedo_gain := 1.0
+## Sol's patchy colour variation on top of Rodina's colours (0 = none): large, slow patches and finer mottling that lighten and
+## darken the ground a little, so wide flat plains are not one flat colour. Rodina gets this from its albedo texture tiers,
+## which are not ported yet.
+var rodina_color_variation := 0.0
 ## Ground hue seen from orbit; the terrain shader leans toward it as the viewer climbs (orbit_mix_* below).
 var orbit_color := Color(0.5, 0.5, 0.5)
 var orbit_mix_max := 0.0
@@ -94,6 +108,8 @@ var _mask_noise: FastNoiseLite
 ## Terrain colour at one vertex. height: metres above the reference radius; steepness: 1 - cos(slope);
 ## latitude: |sin(latitude)|; world: position in the planet frame (for the noise masks).
 func surface_color(profile: TerrainProfile, height: float, steepness: float, latitude: float, world: Vector3) -> Color:
+	if rodina_feature_colors and profile.grammar != TerrainProfile.Grammar.LEGACY:
+		return rodina_surface_color(profile.grammar, world, height, 1.0 - steepness)
 	if features.is_empty():
 		return ChunkMesher._color_for(profile, height, steepness, latitude)
 	var coverage := 1.0
@@ -118,6 +134,48 @@ func surface_color(profile: TerrainProfile, height: float, steepness: float, lat
 		if coverage <= 0.001:
 			break
 	return Color(red + base_color.r * coverage, green + base_color.g * coverage, blue + base_color.b * coverage)
+
+
+## Rodina terrain colour at a planet-frame position. The shader's colours are display values with no gamma step, so they
+## are converted to linear once here (vertex colours are linear). Clamped: vertex colours cannot be negative or above one.
+func rodina_surface_color(grammar: int, world: Vector3, height := 0.0, slope_cos := 1.0) -> Color:
+	var direction := world.normalized()
+	return rodina_terrain_to_color(grammar, RodinaPlanets.features(grammar, direction), height, direction, slope_cos, world)
+
+
+## The same colour from an already computed feature texel (the GPU path hands these over). Plain: the world's PlanetFeatureColor
+## formula only, no terrain features.
+func rodina_feature_to_color(grammar: int, feature: Vector4) -> Color:
+	# The feature texture is a render target, so its channels are 0..1 (Veles' plateau minus cracks can dip below 0).
+	var raw := RodinaPlanets.feature_color(grammar, _clamp_feature(feature))
+	return _display_to_linear(raw)
+
+
+## RodinaTerrain.fx's colour: the world's terrain features composited over the feature-texture colour (RodinaTerrainBlend),
+## or just the plain feature colour when rodina_terrain_gates is off.
+func rodina_terrain_to_color(grammar: int, feature: Vector4, height: float, direction: Vector3, slope_cos: float, world: Vector3) -> Color:
+	if not rodina_terrain_gates:
+		return rodina_feature_to_color(grammar, feature)
+	var raw := RodinaTerrainBlend.color(grammar, _clamp_feature(feature), height, direction, slope_cos, world)
+	return _display_to_linear(_vary(raw, world))
+
+
+## Patchy lightening and darkening (rodina_color_variation): warm and light, or cool and dark.
+func _vary(raw: Color, world: Vector3) -> Color:
+	if rodina_color_variation <= 0.0:
+		return raw
+	var patch := mask_value(world, 30000.0, 11) * 0.65 + mask_value(world, 2500.0, 12) * 0.35
+	var amount := rodina_color_variation * patch
+	return Color(raw.r * (1.0 + amount), raw.g * (1.0 + amount * 0.75), raw.b * (1.0 + amount * 0.5), raw.a)
+
+
+## Sol's own brightness gain on a Rodina colour (rodina_albedo_gain), then clamped and converted to linear.
+func _display_to_linear(raw: Color) -> Color:
+	return Color(clampf(raw.r * rodina_albedo_gain, 0.0, 1.0), clampf(raw.g * rodina_albedo_gain, 0.0, 1.0), clampf(raw.b * rodina_albedo_gain, 0.0, 1.0)).srgb_to_linear()
+
+
+static func _clamp_feature(feature: Vector4) -> Vector4:
+	return Vector4(clampf(feature.x, 0.0, 1.0), clampf(feature.y, 0.0, 1.0), clampf(feature.z, 0.0, 1.0), clampf(feature.w, 0.0, 1.0))
 
 
 ## A smooth noise in -1..1 sampled at the planet-frame position divided by `scale_metres`.

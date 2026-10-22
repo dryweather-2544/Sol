@@ -57,6 +57,22 @@ func _init() -> void:
 			lowest = minf(lowest, cpu_heights[index])
 			highest = maxf(highest, cpu_heights[index])
 		worst_overall = maxf(worst_overall, worst)
+		# Feature texture (base, plateau, mountains, holes): GPU against the CPU functions, and what asking for it costs.
+		var both := gpu.heights_and_features(floats, count, grammar, scale)
+		var feature_started := Time.get_ticks_usec()
+		for repeat in 10:
+			both = gpu.heights_and_features(floats, count, grammar, scale)
+		var feature_ms := float(Time.get_ticks_usec() - feature_started) / 10000.0
+		var feature_worst := [0.0, 0.0, 0.0, 0.0]
+		var feature_total := 0.0
+		var features: PackedFloat32Array = both["features"]
+		for index in count:
+			var expected := RodinaPlanets.features(grammar, directions[index])
+			for channel in 4:
+				var channel_difference := absf(features[index * 4 + channel] - expected[channel])
+				feature_total += channel_difference
+				feature_worst[channel] = maxf(feature_worst[channel], channel_difference)
+		print("%-8s features GPU-CPU mean %.4f worst (base %.3f plateau %.3f mountains %.3f holes %.3f) | GPU heights+features %.2f ms per %d points" % [GRAMMARS[grammar], feature_total / (count * 4), feature_worst[0], feature_worst[1], feature_worst[2], feature_worst[3], feature_ms, count])
 		print("%-8s heights %9.0f..%9.0f m | GPU-CPU mean %.3f m worst %.2f m, %d of %d differ by >1 m | CPU %.0f us/sample, GPU %.2f ms per %d points" % [GRAMMARS[grammar], lowest, highest, total / count, worst, over_one, count, cpu_us, gpu_ms, count])
 	# One real chunk, GPU against CPU only.
 	var planet := PlanetBody.new()

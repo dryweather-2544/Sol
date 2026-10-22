@@ -16,12 +16,18 @@ const PASSIVE_COOLING_PER_SECOND := 0.016
 const RESTART_BELOW_TEMPERATURE := 0.5
 const COOLANT_PER_VENT := 0.25
 const HEAT_REMOVED_PER_VENT := 0.3
+## The battery array (Rodina's Items.BatteryArray): while the reactor is tripped it keeps life support alive, and nothing else,
+## until it runs flat. It tops itself up while the reactor runs. Untuned: a full array carries a 15 unit load for ~2 minutes.
+const BATTERY_UNIT_SECONDS := 1800.0
+const BATTERY_RECHARGE_PER_SECOND := 0.01
 
 ## Scales what the reactor can make; set from the reactor subsystem's health.
 var output_factor := 1.0
 var temperature := 0.0
 var coolant := 1.0
 var _shut_down := false
+## Battery charge, 0..1.
+var battery := 1.0
 var _limits := [1.0, 1.0, 1.0]
 ## Life support always draws a little, so an idle ship still uses power.
 var _requests := [0.0, 0.0, 15.0]
@@ -54,13 +60,14 @@ func satisfaction(conduit: Conduit) -> float:
 
 
 func to_dictionary() -> Dictionary:
-	return {"temperature": temperature, "coolant": coolant, "shut_down": _shut_down, "limits": _limits.duplicate()}
+	return {"temperature": temperature, "coolant": coolant, "shut_down": _shut_down, "limits": _limits.duplicate(), "battery": battery}
 
 
 func restore(data: Dictionary) -> void:
 	temperature = float(data.get("temperature", 0.0))
 	coolant = float(data.get("coolant", 1.0))
 	_shut_down = bool(data.get("shut_down", false))
+	battery = clampf(float(data.get("battery", 1.0)), 0.0, 1.0)
 	var saved_limits: Array = data.get("limits", [1.0, 1.0, 1.0])
 	for conduit in 3:
 		_limits[conduit] = clampf(float(saved_limits[conduit]), 0.0, 1.0) if conduit < saved_limits.size() else 1.0
@@ -83,6 +90,11 @@ func is_shut_down() -> bool:
 	return _shut_down
 
 
+## True while the tripped reactor's life support is running off the battery array.
+func on_battery() -> bool:
+	return _shut_down and battery > 0.0
+
+
 func vent_coolant() -> String:
 	if coolant < COOLANT_PER_VENT - 0.0001:
 		return "No coolant left"
@@ -103,7 +115,12 @@ func request_restart() -> String:
 
 func update(delta: float) -> void:
 	_distribute()
-	var heat := HEAT_PER_SECOND_AT_FULL_OUTPUT * total_delivered() / MAX_OUTPUT
+	if on_battery():
+		battery = maxf(0.0, battery - _delivered[Conduit.LIFE_SUPPORT] * delta / BATTERY_UNIT_SECONDS)
+	elif not _shut_down:
+		battery = minf(1.0, battery + BATTERY_RECHARGE_PER_SECOND * delta)
+	_distribute() # the battery may just have run flat
+	var heat := 0.0 if on_battery() else HEAT_PER_SECOND_AT_FULL_OUTPUT * total_delivered() / MAX_OUTPUT # a tripped core makes no heat
 	temperature = maxf(0.0, temperature + (heat - PASSIVE_COOLING_PER_SECOND) * delta)
 	if temperature >= 1.0 and not _shut_down:
 		_shut_down = true
@@ -113,6 +130,9 @@ func update(delta: float) -> void:
 ## Each conduit gets what it asks for up to its limit; if that adds up to more than the reactor makes,
 ## everyone is cut back by the same fraction.
 func _distribute() -> void:
+	if on_battery():
+		_delivered = [0.0, 0.0, minf(_requests[Conduit.LIFE_SUPPORT], MAX_OUTPUT)]
+		return
 	var available := output()
 	var wanted := [0.0, 0.0, 0.0]
 	var total_wanted := 0.0

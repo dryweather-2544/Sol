@@ -90,3 +90,74 @@ func test_player_gear_shift_can_reach_warp() -> void:
 	var command := source.poll(state, 1.0 / 60.0)
 	Input.action_release("gear_up")
 	assert_eq(command.gear, PilotCommand.GEAR_WARP, "the player can select warp above cruise")
+
+
+func _release_all_shift_inputs() -> void:
+	for action in ["clutch", "thrust_forward", "thrust_back", "gear_up", "gear_down"]:
+		Input.action_release(action)
+
+
+func test_clutch_then_w_shifts_up_on_release_and_disconnects_the_drive() -> void:
+	var source := PlayerPilotSource.new()
+	var state := ShipState.new()
+	state.selected_gear = PilotCommand.GEAR_COMBAT
+	state.allowed_gear = PilotCommand.GEAR_WARP
+	Input.action_press("clutch")
+	var held := source.poll(state, 1.0 / 60.0)
+	assert_true(held.lock_linear and held.clutch, "clutch held: the drive is disconnected")
+	Input.action_press("thrust_forward")
+	held = source.poll(state, 1.0 / 60.0)
+	assert_eq(held.gear, PilotCommand.GEAR_COMBAT, "the shift is pending, not committed, while W is held")
+	assert_eq(state.shift_pending, PilotCommand.GEAR_CRUISE, "the HUD sees the gear being shifted to")
+	assert_eq(held.thrust, Vector3.ZERO, "W is a shift key, not thrust, under the clutch")
+	Input.action_release("thrust_forward")
+	var committed := source.poll(state, 1.0 / 60.0)
+	assert_eq(committed.gear, PilotCommand.GEAR_CRUISE, "releasing W commits the shift")
+	_release_all_shift_inputs()
+	source.poll(state, 1.0 / 60.0)
+
+
+func test_clutch_s_shifts_down_and_one_shift_per_press() -> void:
+	var source := PlayerPilotSource.new()
+	var state := ShipState.new()
+	state.selected_gear = PilotCommand.GEAR_CRUISE
+	state.allowed_gear = PilotCommand.GEAR_WARP
+	Input.action_press("clutch")
+	Input.action_press("thrust_back")
+	for tick in 10:
+		source.poll(state, 1.0 / 60.0)
+	assert_eq(state.shift_pending, PilotCommand.GEAR_COMBAT, "holding S does not run on to a second gear")
+	Input.action_release("thrust_back")
+	assert_eq(source.poll(state, 1.0 / 60.0).gear, PilotCommand.GEAR_COMBAT)
+	_release_all_shift_inputs()
+	source.poll(state, 1.0 / 60.0)
+
+
+func test_clutch_shift_to_an_unavailable_gear_is_refused() -> void:
+	var source := PlayerPilotSource.new()
+	var state := ShipState.new()
+	state.selected_gear = PilotCommand.GEAR_CRUISE
+	state.allowed_gear = PilotCommand.GEAR_CRUISE # no warp drive / near a planet
+	Input.action_press("clutch")
+	Input.action_press("thrust_forward")
+	for tick in 5:
+		source.poll(state, 1.0 / 60.0)
+	assert_eq(state.shift_refusals, 1, "one refusal (the grind), not one per tick")
+	assert_eq(state.shift_pending, -1)
+	Input.action_release("thrust_forward")
+	assert_eq(source.poll(state, 1.0 / 60.0).gear, PilotCommand.GEAR_CRUISE)
+	_release_all_shift_inputs()
+	source.poll(state, 1.0 / 60.0)
+
+
+func test_without_the_clutch_w_still_thrusts_and_gear_is_unchanged() -> void:
+	var source := PlayerPilotSource.new()
+	var state := ShipState.new()
+	state.selected_gear = PilotCommand.GEAR_COMBAT
+	_release_all_shift_inputs()
+	Input.action_press("thrust_forward")
+	var command := source.poll(state, 1.0 / 60.0)
+	Input.action_release("thrust_forward")
+	assert_true(not command.lock_linear and not command.clutch)
+	assert_eq(state.shift_pending, -1, "no clutch, no pending shift")
+	assert_true(command.thrust.z != 0.0, "W is forward thrust")

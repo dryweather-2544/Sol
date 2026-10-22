@@ -48,6 +48,7 @@ func _shots_in_two_seconds(weapons_health: float, weapons_power_limit: float) ->
 	for tick in 120:
 		var command := PilotCommand.new()
 		command.fire = true
+		command.gear = PilotCommand.GEAR_COMBAT # guns only work in combat gear
 		commands.append(command)
 	ship.controller.request_control(ScriptedPilotSource.new(commands), &"pilot_seat")
 	var shots := 0
@@ -68,6 +69,12 @@ func test_dead_or_unpowered_weapons_never_fire_and_weak_ones_fire_slower() -> vo
 	assert_eq(_shots_in_two_seconds(1.0, 0.0), 0, "weapons conduit limited to zero")
 	var half := _shots_in_two_seconds(0.5, 1.0)
 	assert_true(half > 0 and half < full, "half health fires slower: %d vs %d" % [half, full])
+
+
+func test_guns_fire_in_combat_gear_only() -> void:
+	assert_true(Ship.gear_allows_fire(PilotCommand.GEAR_COMBAT), "combat")
+	for gear in [PilotCommand.GEAR_DOCK, PilotCommand.GEAR_CRUISE, PilotCommand.GEAR_WARP]:
+		assert_true(not Ship.gear_allows_fire(gear), "gear %d cannot fire" % gear)
 
 
 func test_hit_direction_picks_the_subsystem() -> void:

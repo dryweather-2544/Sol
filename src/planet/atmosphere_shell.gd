@@ -34,8 +34,16 @@ func update_rodina(planet_radius: float, atmosphere_height: float, centre: Vecto
 	position = centre
 	scale = Vector3.ONE * (planet_radius + atmosphere_height) * 1.005
 	for parameter in parameters:
+		if String(parameter).begins_with("shell_"):
+			continue # shell-only overrides, applied below
 		var value: Variant = parameters[parameter]
 		_rodina_material.set_shader_parameter(parameter, Vector3(value.r, value.g, value.b) if value is Color else value)
+	# Sol's brighter glow colours for the view from space (the sky from inside keeps Rodina's own colours).
+	for pair in [["shell_scatter1", "atm_scatter1"], ["shell_scatter2", "atm_scatter2"]]:
+		if parameters.has(pair[0]):
+			var colour: Color = parameters[pair[0]]
+			_rodina_material.set_shader_parameter(pair[1], Vector3(colour.r, colour.g, colour.b))
+	_rodina_material.set_shader_parameter("atm_glow_gain", float(parameters.get("shell_glow_gain", 1.0)))
 	_rodina_material.set_shader_parameter("rodina_atmosphere", true)
 	_rodina_material.set_shader_parameter("planet_centre", centre)
 	_rodina_material.set_shader_parameter("planet_radius", planet_radius)

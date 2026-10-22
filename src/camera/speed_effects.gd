@@ -25,13 +25,9 @@ func _init() -> void:
 
 ## Pure gate used by tests and the live layer. Sol-style views and slow flight have no streaks.
 static func intensity_for(speed: float, gear: int) -> float:
-	# The labelled reference sequence is COMBAT SPEED. CRUISE has the olive exhaust trails, not this
-	# blue-white field, so do not leave the two effects layered together.
-	if not VisualStyle.is_rodina() or gear != PilotCommand.GEAR_COMBAT:
-		return 0.0
-	# COMBAT is the labelled reference mode and tops out around 500 m/s. Use that real band rather
-	# than a cruise/warp-scale fade that would leave the field invisible in actual combat.
-	return smoothstep(180.0, 500.0, speed) * 0.82
+	# Disabled on purpose: the streak field was added by mistake from footage of missiles, not of the ship's own speed.
+	# Rodina shows no screen streaks in any gear (the owner confirmed). The layer and shader are kept, dormant.
+	return 0.0
 
 
 func _process(delta: float) -> void:

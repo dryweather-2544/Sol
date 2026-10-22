@@ -122,6 +122,11 @@ func _build_settings() -> void:
 	invert.button_pressed = settings.invert_pitch
 	invert.toggled.connect(func(pressed): settings.invert_pitch = pressed)
 	_box.add_child(invert)
+	var warp_unlocked := CheckBox.new()
+	warp_unlocked.text = "Warp drive available from the start (off: needs the story's Warp coil)"
+	warp_unlocked.button_pressed = settings.warp_always_available
+	warp_unlocked.toggled.connect(func(pressed): settings.warp_always_available = pressed)
+	_box.add_child(warp_unlocked)
 	var style_label := Label.new()
 	style_label.text = "Visual style"
 	_box.add_child(style_label)

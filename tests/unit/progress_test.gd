@@ -106,3 +106,22 @@ func test_warp_gear_is_gated_by_the_installed_drive_and_open_space() -> void:
 	navigator.warp_factor = 1.0
 	navigator.fill_environment(state, environment)
 	assert_eq(environment.max_gear, PilotCommand.GEAR_WARP, "installed drive can select warp")
+
+
+func test_warp_setting_brings_the_drive_online_without_the_coil() -> void:
+	var settings := GameSettings.instance()
+	var saved := settings.warp_always_available
+	var system := StarSystem.default_system()
+	var session := _session()
+	var runtime := WorldRuntime.new(system, session, &"planet")
+	assert_true(not session.progress.warp_installed)
+	settings.warp_always_available = true
+	runtime.advance(DELTA)
+	assert_eq(runtime.navigator.warp_factor, 1.0, "drive works from the start")
+	assert_true(session.planet.warp_allowed, "and WARP is allowed above the air")
+	settings.warp_always_available = false
+	runtime.advance(DELTA)
+	assert_near(runtime.navigator.warp_factor, 0.0005, 1e-12, "story gate restored")
+	assert_true(not session.planet.warp_allowed)
+	settings.warp_always_available = saved
+	session.ship.free()
