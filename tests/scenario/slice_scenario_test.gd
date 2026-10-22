@@ -164,7 +164,7 @@ func test_mayday_on_selene_from_ambush_to_takeoff() -> void:
 	var spot := _session.systems.layout.standing_spot_for(&"engine_station")
 	_session.interior_body.place(Vector3(spot.x, _session.systems.layout.floor_y, spot.y), 0.0)
 	_tick(&"selene")
-	assert_eq(_session.prompt(), "F: engine station (install a part)")
+	assert_eq(_session.prompt(), "F — Engine station (install a part)")
 	_session.interact()
 	_tick(&"selene")
 	assert_eq(_session.progress.current, 6)

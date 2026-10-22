@@ -39,6 +39,12 @@ var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
 var airlock_menu: AirlockMenu
 var machine_menu: MachineMenu
+## Walking up or down the ramp: the first-person view eases from the old camera's pose to the new one instead of snapping upright.
+const CAMERA_BLEND_SECONDS := 0.5
+var _blend_camera := Camera3D.new()
+var _blend_from := Transform3D.IDENTITY
+var _blend_time := CAMERA_BLEND_SECONDS
+var _blend_target: Camera3D
 var exploration_menu: ExplorationMenu
 var _ambush_pending := false
 var audio: AudioService
@@ -82,6 +88,9 @@ func _ready() -> void:
 	runtime = WorldRuntime.new(system, session, system.home_id)
 	runtime.frame_changed.connect(_on_frame_changed)
 	add_child(ship)
+	for child in ship.get_children():
+		if child is ShipVisuals:
+			(child as ShipVisuals).session = session # the scanners screen shows the pulse cooldown
 
 	interior_view = InteriorView.new()
 	interior_view.body = session.interior_body
@@ -244,13 +253,15 @@ func _physics_process(delta: float) -> void:
 	interior_view.set_lamp(session.mode == GameSession.Mode.INSIDE)
 	session.set_look(interior_view.camera.position, -interior_view.camera.basis.z)
 	if session.mode != mode_before:
+		_begin_camera_blend(mode_before)
 		_on_mode_changed()
 		if session.mode == GameSession.Mode.SEATED or mode_before == GameSession.Mode.OUTSIDE:
 			_autosave("boarded")
 	_autosave_if_due(delta)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_camera_blend(delta)
 	_apply_field_of_view()
 	if VisualStyle.revision != _style_revision:
 		_restyle()
@@ -269,23 +280,34 @@ func _process(_delta: float) -> void:
 		session.apply_poi_blockers(session.nearby_pois)
 		session.apply_building_walls()
 	var far_plane := 40000.0
-	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING or session.mode == GameSession.Mode.INSIDE:
+	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
-		# horizon (or far enough for other worlds in open space). Keeping far/near moderate avoids
-		# depth-precision and light-culler problems.
+		# horizon (or far enough for other worlds in open space). CameraRange keeps far/near inside what
+		# the engine's float32 projection can hold, so frustum culling never throws the scene away.
 		var altitude := maxf(ship.state.altitude_above_ground, 1.0)
 		var near_plane := clampf(altitude * 0.002, 0.3, 2.0)
 		if planet != null:
 			far_plane = clampf(sqrt(2.0 * planet.radius * altitude) * 2.0 + 5000.0, 20000.0, 3.0e7)
 		else:
 			far_plane = 4.0e6
+		var close_near := minf(near_plane, 0.5) # cockpit and turret: the canopy and the gun are close
+		far_plane = CameraRange.clamp_far(close_near, far_plane)
 		chase_camera.near = near_plane
 		chase_camera.far = far_plane
-		cockpit_camera.near = minf(near_plane, 0.5)
+		cockpit_camera.near = close_near
 		cockpit_camera.far = far_plane
-		turret_camera.near = minf(near_plane, 0.5)
+		turret_camera.near = close_near
 		turret_camera.far = far_plane
-		interior_view.camera.far = far_plane # without this the planet (many km away) is clipped out of the pocket rooms' windows
+	if session.mode == GameSession.Mode.INSIDE:
+		# The pocket rooms' windows look at the world, so the walking camera sees to the horizon too. Its near plane rises
+		# only as far as that needs (at most 0.25 m, still inside a person's 0.3 m radius from any wall) and its far plane is
+		# capped to what that near plane allows (CameraRange: the 2f9b74e far plane with near 0.05 m culled the whole ship).
+		var altitude_inside := maxf(ship.state.altitude_above_ground, 1.0)
+		var wanted_far := clampf(sqrt(2.0 * planet.radius * altitude_inside) * 2.0 + 5000.0, 40000.0, 3.0e7) if planet != null else 4.0e6
+		var inside_near := CameraRange.near_for(wanted_far, 0.05, 0.25)
+		far_plane = CameraRange.clamp_far(inside_near, wanted_far)
+		interior_view.camera.near = inside_near
+		interior_view.camera.far = far_plane
 	impostors.placement_distance = far_plane * 0.8
 	impostors.viewer_local = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else ship.position
 	var sun_direction := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds)
@@ -427,6 +449,45 @@ func _input(event: InputEvent) -> void:
 			menu.open_pause()
 	elif event is InputEventMouseButton and event.pressed and not menu.visible:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Remember where the old first-person camera was when the walker crosses the doorway, so the new one can ease in from there.
+func _begin_camera_blend(mode_before: int) -> void:
+	var walking := [GameSession.Mode.OUTSIDE, GameSession.Mode.INSIDE]
+	if not (mode_before in walking and session.mode in walking):
+		return
+	var old_camera := get_viewport().get_camera_3d()
+	if old_camera == null:
+		return
+	_blend_from = old_camera.global_transform
+	_blend_time = 0.0
+
+
+## For half a second after crossing the ramp threshold a transition camera slides from the old pose to the new camera's pose
+## (the new camera keeps updating underneath), then hands over. This replaces the snap upright between planet-up and ship-up.
+func _update_camera_blend(delta: float) -> void:
+	if _blend_time >= CAMERA_BLEND_SECONDS:
+		return
+	var target: Camera3D = null
+	if session.mode == GameSession.Mode.INSIDE:
+		target = interior_view.camera
+	elif session.mode == GameSession.Mode.OUTSIDE:
+		target = on_foot.camera
+	_blend_time += delta
+	if target == null or _blend_time >= CAMERA_BLEND_SECONDS:
+		_blend_time = CAMERA_BLEND_SECONDS
+		_update_active_camera()
+		return
+	if _blend_camera.get_parent() == null:
+		_blend_camera.name = "TransitionCamera"
+		add_child(_blend_camera)
+	var weight := smoothstep(0.0, 1.0, _blend_time / CAMERA_BLEND_SECONDS)
+	_blend_camera.global_transform = _blend_from.interpolate_with(target.global_transform, weight)
+	_blend_camera.fov = target.fov
+	_blend_camera.near = target.near
+	_blend_camera.far = target.far
+	_blend_camera.cull_mask = target.cull_mask # ADR 0013: the ship layers this place draws
+	_blend_camera.current = true
 
 
 func _on_mode_changed() -> void:
@@ -750,10 +811,19 @@ func _update_camera_place(camera_inside: bool) -> void:
 	if camera == null:
 		return
 	var local := ship.global_transform.affine_inverse() * camera.global_position
-	var room_id := session.systems.layout.room_at(local.x, local.z) if camera_inside else &""
+	var room_id := session.systems.layout.room_for_view(local.x, local.z) if camera_inside else &""
 	for child in ship.get_children():
 		if child is ShipVisuals:
-			(child as ShipVisuals).set_camera_place(camera_inside, room_id)
+			var visuals := child as ShipVisuals
+			visuals.set_camera_place(camera_inside, room_id)
+			# ADR 0013: every camera gets the cull mask for where it is, every tick, whichever one is current. Nothing is hidden.
+			var eye_local := interior_view.camera.position
+			interior_view.camera.cull_mask = visuals.cull_mask_for(true, session.systems.layout.room_for_view(eye_local.x, eye_local.z))
+			cockpit_camera.cull_mask = visuals.cull_mask_for(true, &"cockpit")
+			var outside_mask := visuals.cull_mask_for(false, &"")
+			chase_camera.cull_mask = outside_mask
+			turret_camera.cull_mask = outside_mask
+			on_foot.camera.cull_mask = outside_mask
 		elif child is CrewView:
 			(child as CrewView).pocket_visible = camera_inside
 

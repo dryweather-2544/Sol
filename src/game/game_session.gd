@@ -190,9 +190,9 @@ func airlock_command(goal: StringName) -> String:
 func _door_prompt(portal_id: StringName) -> String:
 	var open: bool = (systems.layout.portals[portal_id] as Portal).target_open
 	match portal_id:
-		&"airlock_inner": return "F: close the inner airlock door" if open else "F: open the inner airlock door"
-		&"airlock_outer": return "F: close the outer door and stow the ramp" if open else "F: open the outer door"
-	return "F: close door" if open else "F: open door"
+		&"airlock_inner": return "F — Close inner airlock door" if open else "F — Open inner airlock door"
+		&"airlock_outer": return "F — Close outer door and stow ramp" if open else "F — Open outer door"
+	return "F — Close door" if open else "F — Open door"
 
 
 ## The context-sensitive action key.
@@ -237,7 +237,7 @@ func prompt() -> String:
 func _context_prompt() -> String:
 	match mode:
 		Mode.SEATED:
-			return "F: stand up"
+			return "F — Stand up"
 		Mode.SITTING:
 			return "Sitting down...  (F to cancel)"
 		Mode.INSIDE:
@@ -247,21 +247,21 @@ func _context_prompt() -> String:
 			if systems.layout.portals.has(nearest):
 				return _door_prompt(nearest)
 			match nearest:
-				&"pilot_seat": return "F: sit in the pilot seat"
-				&"reactor_panel": return "F: reactor panel"
-				&"extinguisher_locker": return "F: take the fire extinguisher"
-				&"engine_station": return "F: engine station (install a part)"
-				&"gunner_seat": return "F: " + STATION_NAMES[nearest]
-				&"workbench": return "F: workbench (upgrades)"
-				&"airlock_computer": return "F: airlock computer"
-				&"ops_computer": return "F: operations computer"
-				&"scanners": return "F: scanners"
-				&"ftl_radio": return "F: pilot wave radio"
-				&"battery_array": return "F: battery array"
-				&"limnal_drive": return "F: limnal drive"
-				&"bed": return "F: rest (saves the game)"
-				&"medbed": return "F: use the med bay"
-				&"repair_panel": return "F: repair hull" if not repairing else "F: stop repairing"
+				&"pilot_seat": return "F — Sit in pilot seat"
+				&"reactor_panel": return "F — Reactor control"
+				&"extinguisher_locker": return "F — Take fire extinguisher"
+				&"engine_station": return "F — Engine station (install a part)"
+				&"gunner_seat": return "F — Tactical console (dorsal gun)"
+				&"workbench": return "F — Workbench (upgrades)"
+				&"airlock_computer": return "F — Airlock computer"
+				&"ops_computer": return "F — Operations computer"
+				&"scanners": return "F — Scanners"
+				&"ftl_radio": return "F — Pilot wave radio"
+				&"battery_array": return "F — Battery array"
+				&"limnal_drive": return "F — Limnal drive"
+				&"bed": return "F — Rest (saves the game)"
+				&"medbed": return "F — Use med bay"
+				&"repair_panel": return "F — Repair hull" if not repairing else "F — Stop repairing"
 		Mode.OUTSIDE:
 			var crate := _nearest_crate()
 			if not crate.is_empty():
@@ -407,8 +407,8 @@ func _interact_inside() -> void:
 				mode = Mode.SITTING
 				_sit_start_position = interior_body.position
 				_sit_elapsed = 0.0
-		&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door":
-			failure = systems.toggle_door(point)
+		_ when systems.layout.portals.has(point) and (systems.layout.portals[point] as Portal).kind == Portal.Kind.DOOR:
+			failure = systems.toggle_door(point) # every plain door, side rooms included, opens by looking at it and pressing F
 		&"reactor_panel":
 			reactor_requested.emit()
 		&"extinguisher_locker":
@@ -417,7 +417,7 @@ func _interact_inside() -> void:
 		&"engine_station":
 			failure = _use_engine_station()
 		&"gunner_seat":
-			failure = "Gunner seat: sit at the helm and press H to man the dorsal gun"
+			_say(_tactical_report(), 4.0) # a status read-out, not a fake control: the gun is fired from the helm (H)
 		&"airlock_inner":
 			failure = systems.toggle_inner_door()
 		&"workbench":
@@ -446,6 +446,14 @@ func _interact_inside() -> void:
 	if failure != "":
 		_say(failure)
 		interaction_refused.emit(point, failure)
+
+
+## What the tactical console reports about the real dorsal gun (ShipTurret) and the gear that arms it.
+func _tactical_report() -> String:
+	var turret := systems.turret
+	var armed := Ship.gear_allows_fire(ship.state.gear)
+	var state := "OVERHEATED" if turret.overheated else ("armed" if armed else "safe (combat gear arms it)")
+	return "Dorsal gun %s, heat %d%%. Fire it from the pilot seat: H mans the gun." % [state, roundi(turret.heat * 100.0)]
 
 
 ## Ramp end height so the walkway meets the ground (ship-local y), clamped to a usable range.

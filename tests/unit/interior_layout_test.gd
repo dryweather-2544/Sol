@@ -388,3 +388,51 @@ func test_windows_fit_their_wall_and_are_not_covered() -> void:
 				var open_from := opening.position.x if along_x else opening.position.y
 				var open_to := opening.end.x if along_x else opening.end.y
 				assert_true(open_to <= from or open_from >= to, "the %s door and the %s %s window do not overlap" % [portal_id, window["room"], window["side"]])
+
+
+## The gunner seat used to stand in the walkway in front of the cargo door, so looking at the door picked the seat.
+func test_turret_room_walkway_is_clear_and_the_cargo_door_can_be_looked_at() -> void:
+	var layout := InteriorLayout.player_ship()
+	var eye := layout.floor_y + InteriorBody.EYE_HEIGHT
+	assert_eq(layout.look_target(Vector3(0, eye, 4.0), Vector3(0, -0.1, 1).normalized()), &"cargo_door", "the cargo door, not the gunner seat")
+	assert_eq(layout.look_target(Vector3(0, eye, 4.0), Vector3(1, 0, 0)), &"", "nothing on the east side of the walkway")
+	assert_eq(layout.look_target(Vector3(-2.4, eye, 3.9), Vector3(0, -0.4, 1).normalized()), &"gunner_seat", "the seat at the tactical console")
+	for z in [3.8, 4.2, 4.6, 5.2]:
+		assert_true(layout.is_position_walkable(0.0, z, InteriorBody.RADIUS), "walkway clear at z=%.1f" % z)
+
+
+## Every plain door opens with F while you look at it, including the side rooms' doors (they used to say "Nothing to use here").
+func test_f_opens_every_plain_door_you_look_at() -> void:
+	var planet := PlanetBody.new()
+	var ship := Ship.new()
+	ship.planet = planet
+	ship.render_origin = WorldPos.new(planet.frame_id)
+	var session := GameSession.new(planet, ship, PilotSource.new())
+	session.mode = GameSession.Mode.INSIDE
+	var layout := session.systems.layout
+	var eye := layout.floor_y + InteriorBody.EYE_HEIGHT
+	var looks := {&"living_door": [Vector3(4.6, eye, -2.0), Vector3(1, 0, 0)], &"medical_door": [Vector3(8.2, eye, -1.2), Vector3(0, 0, 1)],
+		&"bathroom_door": [Vector3(9.5, eye, -2.6), Vector3(0, 0, -1)], &"cargo_door": [Vector3(0, eye, 4.4), Vector3(0, 0, 1)]}
+	for door_id in looks:
+		var look: Array = looks[door_id]
+		session.interior_body.place(Vector3(look[0].x, layout.floor_y, look[0].z), 0.0)
+		session.set_look(look[0], look[1])
+		assert_eq(session.interaction_target(), door_id, "looking at %s" % door_id)
+		assert_eq(session.prompt(), "F — Open door")
+		session.interact()
+		assert_true((layout.portals[door_id] as Portal).target_open, "%s opened with F" % door_id)
+		assert_eq(session.prompt(), "F — Close door")
+
+
+func test_reactor_core_is_solid_and_the_reactor_panel_still_reachable() -> void:
+	var layout := InteriorLayout.player_ship()
+	var at: Vector2 = layout.reactor_core["at"]
+	assert_eq(layout.room_at(at.x, at.y), &"engineering")
+	assert_true(not layout.is_position_walkable(at.x, at.y, InteriorBody.RADIUS), "nobody walks through the core")
+	assert_true(layout.standing_spot_for(&"reactor_panel") != Vector2.INF)
+	for portal_id in [&"engineering_door", &"turret_door"]:
+		var lane: Rect2 = (layout.portals[portal_id] as Portal).opening.grow(0.25)
+		assert_true(not lane.intersects(Rect2(at - Vector2.ONE, Vector2.ONE * 2.0)), "the core is clear of the %s lane" % portal_id)
+	var room: Rect2 = layout.rooms[&"engineering"]
+	assert_true(room.encloses(Rect2(at - Vector2.ONE * (InteriorLayout.REACTOR_RADIUS + 0.2), Vector2.ONE * (InteriorLayout.REACTOR_RADIUS + 0.2) * 2.0)),
+		"the plinth stays inside engineering")

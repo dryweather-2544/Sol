@@ -1,5 +1,11 @@
 # Known issues (Sol)
 
+## Ship interior invisible while walking inside — fixed 2026-10-22, confirm on the Mac
+- Cause: near 0.05 m with a far plane of up to 4,000 km made Godot's float32 projection degenerate and frustum culling
+  dropped every mesh (ADR 0013). Reproduced and fixed in the cloud renderer; `CameraRange` now guards every camera.
+- Mac check: open `tools/interior_tour.tscn` in the editor and Run Current Scene (F6); pictures and `progress.log`
+  (camera, near/far, cull mask, meshes drawn) go to `tests/visual/out/interior_tour/`.
+
 ## Other planets cannot be reached (noted 2026-10-21)
 - Flying toward another planet, the ship slows down as it gets near. Cause not investigated yet.
 - Reported by the owner; no work done on it. Start by checking planet gravity/drag/atmosphere-speed limits and the

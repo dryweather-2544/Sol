@@ -40,6 +40,14 @@ var ramp_end_y := -2.0
 const POCKET_HALF_WIDTH := 5.5
 ## Wall panels stand this far in from a side wall's inner face.
 const PANEL_INSET := 0.3
+## The gunner seat and tactical console stand west of the turret room's walkway.
+const GUNNER_X := -2.4
+## Engineering's centrepiece (PULSAR's reactor room): the reactor core, a glass column in the room's aft starboard corner,
+## where it blocks no straight line between a doorway and a station (CrewNavigator walks straight lines inside a room).
+## ShipVisuals draws it and lights it from ShipPower; a lit power bus runs from it across the floor to the reactor panel.
+const REACTOR_AT := Vector2(4.8, 2.5)
+const REACTOR_RADIUS := 0.45
+var reactor_core := {}
 
 static func player_ship() -> InteriorLayout:
 	var layout := InteriorLayout.new()
@@ -77,7 +85,9 @@ static func player_ship() -> InteriorLayout:
 	layout.portals[&"airlock_outer"] = Portal.new(&"airlock_outer", Portal.Kind.AIRLOCK_OUTER, Rect2(-0.7, 10.6, 1.4, 0.2))
 	layout.ramp_rect = Rect2(-0.9, 10.8, 1.8, 4.2)
 	layout.seats[&"pilot_seat"] = {"position": Vector3(0, layout.floor_y, -5.4), "exit_position": Vector3(0, layout.floor_y, -4.95), "facing_yaw": 0.0}
-	layout.seats[&"gunner_seat"] = {"position": Vector3(0, layout.floor_y, 4.7), "exit_position": Vector3(0, layout.floor_y, 4.1), "facing_yaw": PI}
+	# The gunner's seat faces the tactical console on the turret room's tail wall, west of the walkway, so the line from the
+	# turret door to the cargo door is clear and looking at the cargo door targets the door, not the seat.
+	layout.seats[&"gunner_seat"] = {"position": Vector3(GUNNER_X, layout.floor_y, 4.6), "exit_position": Vector3(GUNNER_X, layout.floor_y, 3.95), "facing_yaw": PI}
 	# Panels on both sides of each door; radii chosen so neighbouring panels do not overlap much.
 	var floor_level := layout.floor_y
 	layout.interact_points = [
@@ -111,7 +121,7 @@ static func player_ship() -> InteriorLayout:
 		{"id": &"reactor_panel", "position": Vector3(-panel_x, floor_level, 1.2), "radius": 1.1},
 		{"id": &"engine_station", "position": Vector3(panel_x, floor_level, 1.2), "radius": 1.1},
 		{"id": &"extinguisher_locker", "position": Vector3(-panel_x, floor_level, 2.7), "radius": 0.9},
-		{"id": &"gunner_seat", "position": Vector3(0, floor_level, 4.7), "radius": 1.0},
+		{"id": &"gunner_seat", "position": Vector3(GUNNER_X, floor_level, 4.6), "radius": 1.0},
 		{"id": &"pilot_seat", "position": Vector3(0, floor_level, -5.4), "radius": 1.2}]
 	# Who works where (research PULSAR 06: roles own stations). Crew AI and the HUD read this.
 	layout.stations = {
@@ -179,8 +189,14 @@ static func _add_machines(layout: InteriorLayout) -> void:
 	layout.add_piece(&"battery_array_body", Vector2(-5.1, 6.9), Vector3(0.7, 1.2, 1.6), &"steel", true)
 	layout.machine_screens[&"battery_array"] = {"position": Vector3(-4.73, floor_level + 0.8, 6.9), "size": Vector3(0.04, 0.3, 1.2)}
 	layout.add_piece(&"limnal_drive_body", Vector2(5.0, 6.9), Vector3(1.0, 1.8, 1.6), &"console", true)
-	layout.add_piece(&"limnal_drive_ring", Vector2(5.0, 6.9), Vector3(1.0, 0.12, 1.7), &"glow_teal", false, 1.2)
+	layout.add_piece(&"limnal_drive_ring", Vector2(4.98, 6.9), Vector3(1.04, 0.12, 1.7), &"glow_teal", false, 1.2)
 	layout.machine_screens[&"limnal_drive"] = {"position": Vector3(4.48, floor_level + 0.8, 6.9), "size": Vector3(0.04, 0.35, 0.8)}
+	# Tactical console (turret room tail wall) in front of the gunner seat; its screen shows the real dorsal gun (ShipTurret).
+	layout.add_piece(&"tactical_console_body", Vector2(GUNNER_X, 5.32), Vector3(1.4, 0.95, 0.5), &"console", true)
+	layout.machine_screens[&"tactical"] = {"position": Vector3(GUNNER_X, floor_level + 1.3, 5.57), "size": Vector3(1.0, 0.5, 0.04)}
+	# The reactor core: a solid footprint (square, a little bigger than the column) so nobody walks through it.
+	layout.reactor_core = {"at": REACTOR_AT, "radius": REACTOR_RADIUS, "height": layout.ceiling_y - layout.floor_y}
+	layout.obstacles.append(Rect2(REACTOR_AT - Vector2.ONE * (REACTOR_RADIUS + 0.1), Vector2.ONE * (REACTOR_RADIUS + 0.1) * 2.0))
 
 
 ## Where a person stands to use an interaction point: the closest floor spot (clear of walls) that still counts
@@ -281,6 +297,23 @@ func room_at(x: float, z: float) -> StringName:
 		if (rooms[room_id] as Rect2).has_point(Vector2(x, z)):
 			return room_id
 	return &""
+
+
+## The room a camera at (x, z) is drawn as being in. Standing in a doorway (inside the wall's thickness, in no room rectangle)
+## counts as the neighbouring pocket room if there is one: the hull must stay hidden there or the outside shows through the
+## pocket's walls (ADR 0013). Falls back to any neighbouring room, then &"".
+func room_for_view(x: float, z: float) -> StringName:
+	var exact := room_at(x, z)
+	if exact != &"":
+		return exact
+	var fallback := &""
+	for room_id in rooms:
+		if (rooms[room_id] as Rect2).grow(0.35).has_point(Vector2(x, z)):
+			if is_pocket(room_id):
+				return room_id
+			if fallback == &"":
+				fallback = room_id
+	return fallback
 
 
 ## Nearest interaction point within its radius of a ship-local position, or &"" if none.

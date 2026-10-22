@@ -495,8 +495,8 @@ func _on_projectile_hit(projectile: ProjectileSim.Projectile, _target: Projectil
 
 
 func _on_interaction_refused(point_id: StringName, _reason: String) -> void:
-	if point_id in [&"cockpit_door", &"engineering_door", &"turret_door", &"cargo_door", &"airlock_inner", &"airlock_outer"]:
-		play_sample("sfx_int_door_deny")
+	if session != null and session.systems.layout.portals.has(point_id):
+		play_sample("sfx_int_door_deny") # any door that refused (someone in the doorway, airlock interlock)
 
 
 func _inventory_total() -> int:

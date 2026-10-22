@@ -353,10 +353,14 @@ legal state with no softlock (scenario test).
   approach per `08` §0). Decide by the spike, record in `docs/decisions/`.
 
 - **Bigger on the inside (ADR 0012).** Rooms listed in `InteriorLayout.pocket_rooms` may be larger than the hull.
-  `ShipVisuals` builds them under a `pocket` node; `main.gd` reports where the camera is each frame
-  (`set_camera_place`): the pocket is drawn only with the camera inside the ship, and the hull is hidden while the
-  camera is in a pocket room. The cockpit and airlock (the threshold) fit in the hull and are always drawn; the
-  airlock interlock means nobody outside can see past them.
+  `ShipVisuals` builds them under a `pocket` node. What a camera draws is decided by render layers, not by hiding
+  nodes (ADR 0013): pocket rooms are on layer 2, the hull on layer 3, the cockpit and airlock shells on layers 4 and 5,
+  and `main.gd` gives every camera its cull mask each physics tick (`ShipVisuals.cull_mask_for`): outside cameras leave
+  out the pocket, a camera in a pocket room leaves out the hull (and a threshold shell unless its door is open). The
+  cockpit and airlock (the threshold) fit in the hull and are always drawn; the airlock interlock means nobody outside
+  can see past them. Pocket lamps sit on layer 2 too, so they light nothing for an outside camera.
+- **Camera planes (ADR 0013).** Every camera's near/far goes through `CameraRange` (far / near <= 4e6): beyond that
+  Godot's float32 projection degenerates and frustum culling drops every mesh (the 2f9b74e invisible interior).
 
 ### 7.2 Layout and state
 
