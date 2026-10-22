@@ -125,7 +125,7 @@ static func hull_tint() -> Color:
 ## Multiplier on the ship's interior materials (Sol: none). Rodina interiors measure dark grey/green, HSV value
 ## 0.11-0.26 (palette_report.csv: #1a1818, #3e3e3e, #0f180f, #1d1c1e).
 static func interior_tint() -> Color:
-	return Color(0.42, 0.42, 0.42) if is_rodina() else Color.WHITE
+	return Color(0.6, 0.6, 0.6) if is_rodina() else Color.WHITE
 
 
 ## Rodina's ceiling lights (Scripts/DataGameplay/EGDataItems.lua:212-260): White (1, 1, 1) radius 8, Soft (.7, .6, .6),
@@ -147,14 +147,14 @@ const RODINA_ROOM_LIGHTS := {
 static func room_light(room_id: StringName) -> Dictionary:
 	if is_rodina():
 		var light: Dictionary = RODINA_ROOM_LIGHTS.get(room_id, RODINA_ROOM_LIGHTS[&"cabin"])
-		return {"color": (light["color"] as Color).srgb_to_linear(), "energy": 1.0, "range": light["range"]}
+		return {"color": (light["color"] as Color).srgb_to_linear(), "energy": 1.35, "range": light["range"]}
 	return {"color": Color.WHITE, "energy": 1.6, "range": 5.5}
 
 
 ## Ambient light inside the ship as a fraction of the outside ambient: Rodina's scenes use SetAmbientLight(.05, .05, .05)
 ## (EGSceneSolar.lua:28), so interiors are lit almost only by their lamps.
 static func interior_ambient_factor() -> float:
-	return 0.15 if is_rodina() else 1.0
+	return 0.3 if is_rodina() else 1.0
 
 
 ## Chase-camera offset for the Rodina-inspired presentation (from the N13 visual pass). The reference keeps the ship as a

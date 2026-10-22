@@ -19,6 +19,8 @@ var _station_screens := {} # station id -> StandardMaterial3D (emission shows th
 var _smoke_nodes := {}    # room id -> CPUParticles3D
 var _scorch_decals := {}  # room id -> Decal, hidden until the room has had a fire this session (not saved: saves may not change in N9)
 var exterior := ShipExterior.new()
+## The detail pass over the rooms (panelling, ceiling ribs, pipes, hatches, screen graphics): src/interior/interior_detail.gd.
+var detail := InteriorDetail.new()
 ## Rodina-style plumes and entry heat (hidden in the sol style).
 var effects := ShipEffects.new()
 ## Doors slide sideways (+x) into the wall beside the opening; sliding up would push them out through the roof.
@@ -107,6 +109,7 @@ func _ready() -> void:
 	add_child(effects)
 	effects.setup(exterior.nacelles())
 	_build_lights(layout)
+	detail.build(self, layout)
 	restyle()
 	if _wall_material != _hull_material:
 		_build_reflection_probe(layout)
@@ -641,7 +644,8 @@ func _build_furniture(layout: InteriorLayout) -> void:
 		&"glow_teal": _emissive(Color(0.2, 0.9, 0.8), 2.0),
 		&"glow_green": _emissive(Color(0.2, 1.0, 0.5), 2.0),
 		&"glass": _window_glass_material,
-		&"mirror": _material(Color(0.8, 0.85, 0.9), 0.05, 0.9)}
+		&"mirror": _material(Color(0.8, 0.85, 0.9), 0.05, 0.9),
+		&"crate": _material(Color(0.42, 0.36, 0.22), 0.75, 0.15)}
 	for piece in layout.furniture:
 		var size: Vector3 = piece["size"]
 		var at: Vector2 = piece["at"]

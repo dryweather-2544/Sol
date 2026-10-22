@@ -16,6 +16,8 @@ const DEFAULT_FIELD_OF_VIEW := 75.0
 var field_of_view := DEFAULT_FIELD_OF_VIEW
 var master_volume := 0.8
 var sfx_volume := 1.0
+## The adaptive soundtrack (MusicDirector, Music bus). 0 silences the music; nothing else changes.
+var music_volume := 0.7
 var ambience_volume := 1.0
 ## N9 kill switches for the integrated art and audio (assets/sol). Each one off, or its file missing, means the original
 ## placeholder is used (code materials, the old terrain/sky shaders, SoundSynth). Settings only, never saved in game saves.
@@ -57,6 +59,7 @@ func save_to_file() -> String:
 	config.set_value("video", "field_of_view", field_of_view)
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
+	config.set_value("audio", "music_volume", music_volume)
 	config.set_value("audio", "ambience_volume", ambience_volume)
 	config.set_value("assets", "asset_materials", asset_materials)
 	config.set_value("assets", "decals", decals)
@@ -81,6 +84,7 @@ func load_from_file() -> void:
 	field_of_view = clampf(float(config.get_value("video", "field_of_view", field_of_view)), 50.0, 110.0)
 	master_volume = clampf(float(config.get_value("audio", "master_volume", master_volume)), 0.0, 1.0)
 	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", sfx_volume)), 0.0, 1.0)
+	music_volume = clampf(float(config.get_value("audio", "music_volume", music_volume)), 0.0, 1.0)
 	ambience_volume = clampf(float(config.get_value("audio", "ambience_volume", ambience_volume)), 0.0, 1.0)
 	asset_materials = bool(config.get_value("assets", "asset_materials", asset_materials))
 	decals = bool(config.get_value("assets", "decals", decals))

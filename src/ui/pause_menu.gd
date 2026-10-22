@@ -115,6 +115,7 @@ func _build_settings() -> void:
 	_add_slider("Ship horizon levelling (roll only, in atmosphere; 0 = off)", settings.ship_horizon_levelling, 0.0, 1.0, func(value): settings.ship_horizon_levelling = value)
 	_add_slider("Field of view", settings.field_of_view, 50.0, 110.0, func(value): settings.field_of_view = value)
 	_add_slider("Master volume", settings.master_volume, 0.0, 1.0, func(value): settings.master_volume = value)
+	_add_slider("Music volume", settings.music_volume, 0.0, 1.0, func(value): settings.music_volume = value)
 	_add_slider("Effects volume", settings.sfx_volume, 0.0, 1.0, func(value): settings.sfx_volume = value)
 	_add_slider("Ambience volume", settings.ambience_volume, 0.0, 1.0, func(value): settings.ambience_volume = value)
 	var invert := CheckBox.new()

@@ -35,6 +35,8 @@ var overlay: DebugOverlay
 var poi_manager: PoiManager
 var menu: PauseMenu
 var inventory_menu: InventoryMenu
+var hangar_menu: HangarMenu
+var _fighter_node: Ship ## the player's separate fighter while one exists (flying or parked); freed when the session lets go of it
 var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
 var airlock_menu: AirlockMenu
@@ -54,6 +56,14 @@ var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
 var combat_effects: CombatEffects
 var _cockpit_view := false
+## The fighter's own view setting: you start in its cockpit, V swings out to the chase view (kept apart from the mothership's).
+var _fighter_cockpit_view := true
+var _gear_hint_cooldown := 0.0
+## Degrees added to the fighter's field of view with the mouse wheel (in the cockpit) and a middle click (wide view on/off).
+var _fighter_zoom_fov := 0.0
+const FIGHTER_ZOOM_MIN := -22.0
+const FIGHTER_ZOOM_MAX := 26.0
+const FIGHTER_WIDE_FOV := 20.0
 ## Rodina's warp and speed camera (FOV, chase distance and angle, shake); drives the ship cameras in the rodina style.
 var warp_view := LimnalWarpView.new()
 var _welcomed := false
@@ -163,6 +173,7 @@ func _ready() -> void:
 	audio = AudioService.new()
 	audio.session = session
 	audio.ship = ship
+	audio.runtime = runtime
 	add_child(audio)
 	session.player_lost.connect(_on_player_lost)
 	inventory_menu = InventoryMenu.new()
@@ -170,6 +181,12 @@ func _ready() -> void:
 	inventory_menu.audio = audio
 	inventory_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	add_child(inventory_menu)
+	hangar_menu = HangarMenu.new()
+	hangar_menu.audio = audio
+	hangar_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	hangar_menu.spawn_requested.connect(_on_fighter_spawn)
+	hangar_menu.recall_requested.connect(_on_fighter_recall)
+	add_child(hangar_menu)
 	exploration_menu = ExplorationMenu.new()
 	exploration_menu.session = session
 	exploration_menu.audio = audio
@@ -213,6 +230,9 @@ func _ready() -> void:
 	add_child(machine_menu)
 	menu = PauseMenu.new()
 	menu.audio = audio
+	if audio.music != null:
+		audio.music.menu = menu
+		overlay.music = audio.music
 	menu.resume_requested.connect(_on_menu_resume)
 	menu.load_requested.connect(func(): _load_from("quicksave"); _on_menu_resume())
 	menu.continue_requested.connect(func(): _load_from("autosave"); _on_menu_resume())
@@ -247,6 +267,17 @@ func _physics_process(delta: float) -> void:
 	runtime.update_frame()
 	_update_mission()
 	session.tick(delta, command)
+	# The player's fighter is ticked here, after the mothership and before the camera nodes, never by its own _physics_process (which
+	# would run after the chase camera and leave the view one tick behind the ship).
+	if _fighter_node != null and is_instance_valid(_fighter_node) and not _fighter_node.is_queued_for_deletion():
+		_fighter_node.simulate_tick(delta)
+	_gear_hint_cooldown = maxf(0.0, _gear_hint_cooldown - delta)
+	if session.mode == GameSession.Mode.FIGHTER and _gear_hint_cooldown <= 0.0 and Input.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		var fighter_gear := session.active_ship().state.gear
+		if not Ship.gear_allows_fire(fighter_gear):
+			_gear_hint_cooldown = 3.0
+			session.say("Guns are safe in this gear: [ ] to shift to COMBAT")
+	_sync_fighter()
 	_update_warp_view(delta)
 	on_foot.sync_transform()
 	interior_view.sync_view()
@@ -272,7 +303,7 @@ func _process(delta: float) -> void:
 	var actor_position := session.player_world_position()
 	if terrain != null:
 		terrain.viewer = actor_position
-		terrain.viewer_velocity = ship.state.velocity if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING else Vector3.ZERO
+		terrain.viewer_velocity = _flown().state.velocity if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING or session.mode == GameSession.Mode.FIGHTER else Vector3.ZERO
 	if poi_manager != null:
 		poi_manager.viewer = actor_position
 		session.check_discovery(poi_manager.known_instances())
@@ -280,11 +311,11 @@ func _process(delta: float) -> void:
 		session.apply_poi_blockers(session.nearby_pois)
 		session.apply_building_walls()
 	var far_plane := 40000.0
-	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING:
+	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING or session.mode == GameSession.Mode.FIGHTER:
 		# Near plane small enough for the ship (11 m ahead of the camera); far plane just past the
 		# horizon (or far enough for other worlds in open space). CameraRange keeps far/near inside what
 		# the engine's float32 projection can hold, so frustum culling never throws the scene away.
-		var altitude := maxf(ship.state.altitude_above_ground, 1.0)
+		var altitude := maxf(_flown().state.altitude_above_ground, 1.0)
 		var near_plane := clampf(altitude * 0.002, 0.3, 2.0)
 		if planet != null:
 			far_plane = clampf(sqrt(2.0 * planet.radius * altitude) * 2.0 + 5000.0, 20000.0, 3.0e7)
@@ -298,6 +329,9 @@ func _process(delta: float) -> void:
 		cockpit_camera.far = far_plane
 		turret_camera.near = close_near
 		turret_camera.far = far_plane
+		if _fighter_node != null and _fighter_node.cockpit_camera != null:
+			_fighter_node.cockpit_camera.near = minf(close_near, 0.1) # a canopy a metre away
+			_fighter_node.cockpit_camera.far = CameraRange.clamp_far(_fighter_node.cockpit_camera.near, far_plane)
 	if session.mode == GameSession.Mode.INSIDE:
 		# The pocket rooms' windows look at the world, so the walking camera sees to the horizon too. Its near plane rises
 		# only as far as that needs (at most 0.25 m, still inside a person's 0.3 m radius from any wall) and its far plane is
@@ -309,7 +343,7 @@ func _process(delta: float) -> void:
 		interior_view.camera.near = inside_near
 		interior_view.camera.far = far_plane
 	impostors.placement_distance = far_plane * 0.8
-	impostors.viewer_local = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else ship.position
+	impostors.viewer_local = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else _flown().position
 	var sun_direction := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds)
 	if runtime.active_frame == StarSystem.SYSTEM_FRAME:
 		var to_star := system.body_position(system.star_id, runtime.time_seconds)
@@ -332,8 +366,8 @@ func _process(delta: float) -> void:
 		space_environment.set_sun_elevation(planet.up_at(actor_position).dot(-sun_direction), daylight)
 		var viewer_up := planet.up_at(actor_position)
 		space_environment.set_rodina_viewer(VisualStyle.is_rodina() and planet.atmosphere_height > 0.0, viewer_up * (planet.distance_from_center(actor_position) / planet.radius), planet.atmosphere_height / maxf(planet.radius, 1.0), _star_radius_angle(runtime.active_frame))
-		var viewer_altitude := 2.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground
-		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position), 0.0 if session.mode == GameSession.Mode.OUTSIDE else ship.state.altitude_above_ground)
+		var viewer_altitude := 2.0 if session.mode == GameSession.Mode.OUTSIDE else _flown().state.altitude_above_ground
+		space_environment.set_daylight(daylight * sun_above_horizon, planet.up_at(actor_position), 0.0 if session.mode == GameSession.Mode.OUTSIDE else _flown().state.altitude_above_ground)
 		if terrain != null:
 			terrain.set_viewer_altitude(viewer_altitude)
 	else:
@@ -377,6 +411,8 @@ func _input(event: InputEvent) -> void:
 		if event.is_action_pressed("pause"):
 			reactor_menu.close()
 		return
+	if hangar_menu.visible:
+		return # the hangar closes itself (Esc or Y)
 	if inventory_menu.visible:
 		if event.is_action_pressed("inventory") or event.is_action_pressed("pause"):
 			inventory_menu.close()
@@ -386,6 +422,17 @@ func _input(event: InputEvent) -> void:
 			exploration_menu.close()
 		return
 	if menu.visible:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Y and (session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.OUTSIDE or session.mode == GameSession.Mode.FIGHTER) and not session.gunner_station:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		hangar_menu.in_fighter_form = session.mode == GameSession.Mode.FIGHTER
+		hangar_menu.open()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B and (session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.FIGHTER):
+		if enemy_director != null: # skirmish mode: needs a planet frame, like every encounter (see EnemyDirector.spawn_skirmish)
+			enemy_director.spawn_skirmish()
+		else:
+			session.say("No fighters out here: skirmishes need a planet's space")
 		return
 	if event.is_action_pressed("journal"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -415,6 +462,11 @@ func _input(event: InputEvent) -> void:
 	elif session.gunner_station and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 		var step := 1.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1.0
 		_turret_zoom = clampf(_turret_zoom + step * maxf(1.0, _turret_zoom * 0.12), 1.5, 80.0)
+	elif session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_MIDDLE):
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			_fighter_zoom_fov = 0.0 if _fighter_zoom_fov > 8.0 else FIGHTER_WIDE_FOV # click: snap between the normal and the wide view
+		else:
+			_fighter_zoom_fov = clampf(_fighter_zoom_fov + (3.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -3.0), FIGHTER_ZOOM_MIN, FIGHTER_ZOOM_MAX)
 	elif event.is_action_pressed("gunner_station"):
 		session.toggle_gunner_station()
 		_update_active_camera()
@@ -436,6 +488,9 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("toggle_view"):
 		if session.mode == GameSession.Mode.OUTSIDE:
 			on_foot.third_person = not on_foot.third_person
+		elif session.mode == GameSession.Mode.FIGHTER:
+			_fighter_cockpit_view = not _fighter_cockpit_view
+			_update_active_camera()
 		else:
 			_cockpit_view = not _cockpit_view
 			_update_active_camera()
@@ -491,14 +546,44 @@ func _update_camera_blend(delta: float) -> void:
 
 
 func _on_mode_changed() -> void:
-	floating_origin.anchor = on_foot if session.mode == GameSession.Mode.OUTSIDE else ship
+	_retarget()
 	if session.mode == GameSession.Mode.OUTSIDE:
 		on_foot.render_origin = ship.render_origin.duplicate_position()
 	on_foot.sync_transform()
 	on_foot.reset_physics_interpolation()
-	if session.mode == GameSession.Mode.SEATED:
+	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.FIGHTER:
 		chase_camera.snap_to_target()
 	_update_active_camera()
+
+
+## Whatever the player is flying: the mothership, or the separate fighter.
+func _flown() -> Ship:
+	return session.active_ship()
+
+
+## Points the camera, anchor, HUD, effects and audio at the ship the player is flying now.
+func _retarget() -> void:
+	var flown := _flown()
+	floating_origin.anchor = on_foot if session.mode == GameSession.Mode.OUTSIDE else flown
+	chase_camera.target = flown
+	chase_camera.view_scale = maxf(0.45, flown.fighter.size / FighterDef.REFERENCE_SIZE) if flown.fighter != null else 1.0
+	chase_camera.rigid_follow = flown.fighter != null # a fighter's camera is pinned to the hull; the mothership's swings in turns
+	speed_effects.ship = flown
+	entry_effects.ship = flown
+	overlay.ship = flown
+	audio.ship = flown
+
+
+## Keeps the fighter's scene node in step with the session: freed when the session lets go of it, lost when destroyed.
+func _sync_fighter() -> void:
+	if session.mode == GameSession.Mode.FIGHTER and session.fighter_craft != null and session.fighter_craft.state.hull <= 0.0:
+		session.say("The %s was destroyed" % session.fighter_craft.fighter.display_name)
+		session.lose_fighter()
+		_on_mode_changed()
+		_begin_camera_blend(GameSession.Mode.FIGHTER)
+	if _fighter_node != null and _fighter_node != session.fighter_craft:
+		_fighter_node.queue_free()
+		_fighter_node = null
 
 
 func _update_active_camera() -> void:
@@ -510,7 +595,10 @@ func _update_active_camera() -> void:
 		_:
 			if session.gunner_station:
 				turret_camera.current = true
-			elif _cockpit_view:
+			elif session.mode == GameSession.Mode.FIGHTER and _fighter_node != null and _fighter_node.cockpit_camera != null and _fighter_cockpit_view:
+				_fighter_node.cockpit_camera.cull_mask = chase_camera.cull_mask | FighterCockpit.LAYER_MASK
+				_fighter_node.cockpit_camera.current = true
+			elif _cockpit_view and session.mode != GameSession.Mode.FIGHTER:
 				cockpit_camera.current = true
 			else:
 				chase_camera.current = true
@@ -527,6 +615,7 @@ func _load_from(slot: String) -> void:
 		session.say("Load failed: " + String(loaded["error"]))
 		return
 	var saved_data: Dictionary = loaded["data"]
+	session.abandon_fighter() # the fighter is not saved: loading puts you back where you boarded from
 	runtime.time_seconds = float(saved_data["world"]["time"])
 	runtime.navigator.time_seconds = runtime.time_seconds
 	var saved_frame := StringName(String(saved_data["ship"]["position"]["frame_id"]))
@@ -567,9 +656,12 @@ func _autosave_if_due(delta: float) -> void:
 
 ## Everything that lives in render space is re-centred on the ship (after a load or frame switch).
 func _recentre_everything_on_ship() -> void:
-	var new_origin := session.ship.state.position.duplicate_position()
-	ship.render_origin = new_origin
+	var new_origin := _flown().state.position.duplicate_position()
+	ship.render_origin = new_origin.duplicate_position()
 	ship.apply_origin_shift(Vector3.ZERO)
+	if session.fighter_craft != null:
+		session.fighter_craft.render_origin = new_origin.duplicate_position()
+		session.fighter_craft.apply_origin_shift(Vector3.ZERO)
 	if terrain != null:
 		terrain.render_origin = new_origin.duplicate_position()
 		terrain.apply_origin_shift(Vector3.ZERO)
@@ -577,10 +669,79 @@ func _recentre_everything_on_ship() -> void:
 		poi_manager.render_origin = new_origin.duplicate_position()
 		poi_manager.apply_origin_shift(Vector3.ZERO)
 	projectile_view.render_origin = new_origin.duplicate_position()
+	combat_effects.render_origin = new_origin.duplicate_position() # hit flashes asserted "different frames" after a world change
 	if enemy_director != null:
 		enemy_director.render_origin = new_origin.duplicate_position()
 	on_foot.planet = planet
 	on_foot.render_origin = new_origin.duplicate_position()
+
+
+## Hangar: the player's ship becomes the chosen fighter (hull, fuel and position carry over).
+func _on_fighter_spawn(def: FighterDef) -> void:
+	if session.mode != GameSession.Mode.SEATED and session.mode != GameSession.Mode.OUTSIDE and session.mode != GameSession.Mode.FIGHTER:
+		return
+	var craft := Ship.new()
+	craft.name = "Fighter_%s" % String(def.id)
+	craft.planet = planet
+	craft.free_space = runtime.navigator if planet == null else null
+	craft.player_controlled = true
+	craft.auto_tick = false # ticked from _physics_process so the chase camera never reads it a tick late
+	craft.configure_fighter(def)
+	craft.radar_contacts = func() -> Array: # the cockpit radar: every live hostile ship, as an offset in the fighter's own frame
+		var contacts: Array = []
+		for target in session.enemy_targets:
+			if target is ShipCombatant and (target as ShipCombatant).is_alive():
+				var offset := ((target as ShipCombatant).combat_position() as WorldPos).vector_from(craft.state.position)
+				contacts.append(craft.state.basis.transposed() * offset)
+		return contacts
+	craft.render_origin = ship.render_origin.duplicate_position()
+	var from_state := _flown().state if session.mode != GameSession.Mode.OUTSIDE else ship.state
+	var up_from := session.exterior_body.position if session.mode == GameSession.Mode.OUTSIDE else from_state.position
+	var up := planet.up_at(up_from) if planet != null else from_state.basis.y
+	if session.mode == GameSession.Mode.OUTSIDE:
+		# beside the walker, hovering, nose where the walker is looking
+		var heading := (-on_foot.camera.global_transform.basis.z * Vector3(1, 0, 1))
+		heading = heading.normalized() if heading.length() > 0.01 else -from_state.basis.z
+		var ahead := session.exterior_body.position.offset_by(heading * (def.size + 6.0) + up * 3.0)
+		craft.state.position = ahead
+		craft.state.basis = Basis.looking_at(heading, up)
+		craft.state.gear = PilotCommand.GEAR_DOCK
+		craft.state.selected_gear = PilotCommand.GEAR_DOCK
+	else:
+		var forward := -from_state.basis.z
+		craft.state.position = from_state.position.offset_by(forward * 45.0 + from_state.basis.y * 6.0)
+		craft.state.basis = from_state.basis
+		craft.state.velocity = from_state.velocity
+		# A fighter is for flying and shooting: it starts in the combat gear (guns work there) unless the mothership is already in
+		# cruise. From the ground it is put higher up, since the combat gear does not hover by itself.
+		craft.state.gear = PilotCommand.GEAR_CRUISE if from_state.gear == PilotCommand.GEAR_CRUISE else PilotCommand.GEAR_COMBAT
+		craft.state.selected_gear = craft.state.gear
+		if from_state.landed:
+			craft.state.position = from_state.position.offset_by(forward * 45.0 + from_state.basis.y * 30.0)
+	craft.state.fuel = 1.0
+	craft.state.hull = 1.0
+	if _fighter_node != null: # a fighter already out there is replaced
+		if session.mode == GameSession.Mode.FIGHTER:
+			session.return_to_mothership() # releases it; the next sync frees the node
+		_fighter_node.queue_free()
+		_fighter_node = null
+		session.fighter_craft = null
+	add_child(craft)
+	_fighter_node = craft
+	var mode_before := session.mode
+	session.board_fighter(craft)
+	_fighter_cockpit_view = true # you start in the cockpit
+	_begin_camera_blend(mode_before)
+	_on_mode_changed()
+	session.say("Flying the %s - V for the chase view, Y for the hangar" % def.display_name)
+
+
+## Y > Return: back to where the player boarded (the helm, or on foot). A fighter in the air is gone; one on the ground stays.
+func _on_fighter_recall() -> void:
+	session.return_to_mothership()
+	_sync_fighter()
+	_on_mode_changed()
+	session.say("Back at the %s" % ("helm" if session.mode == GameSession.Mode.SEATED else "spot you took off from"))
 
 
 ## Mission glue: put the Mayday beacon on Selene once the ambush has fixed where it is, and spawn the raider.
@@ -755,8 +916,10 @@ func _apply_field_of_view() -> void:
 		(camera as Camera3D).fov = fov
 	# Rodina sets the camera FOV from the warp blend (EGDataShipPlayer.lua:325-346); at rest it is the setting.
 	var ship_fov := warp_view.field_of_view(fov) if VisualStyle.is_rodina() else fov
-	chase_camera.fov = ship_fov
+	chase_camera.fov = clampf(ship_fov + _fighter_zoom_fov, 35.0, 120.0) if session.mode == GameSession.Mode.FIGHTER else ship_fov
 	cockpit_camera.fov = minf(ship_fov + 18.0, 120.0) # wider inside the canopy so more of the windscreen is in view
+	if _fighter_node != null and _fighter_node.cockpit_camera != null:
+		_fighter_node.cockpit_camera.fov = clampf(ship_fov + 12.0 + _fighter_zoom_fov, 35.0, 120.0) # wider than the base so more of the world is in view; wheel zooms, middle click snaps wide
 	turret_camera.fov = ship_fov
 
 
@@ -767,7 +930,7 @@ func _update_warp_view(delta: float) -> void:
 		if warp_view.spacewarp != 0.0 or warp_view.limnal_timer != 0.0 or warp_view.shake != Vector2.ZERO:
 			warp_view.reset()
 	else:
-		var state := ship.state
+		var state := _flown().state
 		var fired := session.gunner_station and session.systems.turret.firing # only real shots shake the view; the pilot's click fires nothing
 		warp_view.update(state.gear == PilotCommand.GEAR_WARP, state.atmosphere_resistance, fired, delta)
 	var rodina := VisualStyle.is_rodina()
@@ -781,6 +944,8 @@ func _update_warp_view(delta: float) -> void:
 	chase_camera.look_pitch = _look_pitch
 	chase_camera.shake = warp_view.shake
 	cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0)
+	if _fighter_node != null and _fighter_node.cockpit_camera != null:
+		_fighter_node.cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0) # right mouse looks round the cockpit
 	var effects := _ship_effects()
 	if effects != null:
 		effects.limnal_activation = warp_view.activation
@@ -823,6 +988,8 @@ func _update_camera_place(camera_inside: bool) -> void:
 			var outside_mask := visuals.cull_mask_for(false, &"")
 			chase_camera.cull_mask = outside_mask
 			turret_camera.cull_mask = outside_mask
+			if _fighter_node != null and _fighter_node.cockpit_camera != null:
+				_fighter_node.cockpit_camera.cull_mask = outside_mask | FighterCockpit.LAYER_MASK # the fighter's own cockpit sits on its own layer
 			on_foot.camera.cull_mask = outside_mask
 		elif child is CrewView:
 			(child as CrewView).pocket_visible = camera_inside

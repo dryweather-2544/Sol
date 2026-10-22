@@ -19,6 +19,11 @@ var shake := Vector2.ZERO
 ## Free look (Rodina: hold FREE_LOOK to move the view without turning the hull): radians the view is swung round the ship.
 var look_yaw := 0.0
 var look_pitch := 0.0
+## Scales the follow offset: 1 for the 20 m player ship, less for the small fighters (set by main.gd).
+var view_scale := 1.0
+## True for the small fighters (set by main.gd): the view is pinned to the hull, so the ship stays put in frame however hard
+## it turns. False keeps the mothership's lagging view that swings round the ship in turns.
+var rigid_follow := false
 var _smoothed_orientation := Quaternion.IDENTITY
 
 
@@ -35,6 +40,9 @@ func apply_origin_shift(_shift: Vector3) -> void:
 
 func _ready() -> void:
 	add_to_group("origin_shift")
+	# Run after every ship has moved this tick (a fighter ticks itself), whatever the order of the nodes in the tree. A camera
+	# that reads the ship before it moves trails it by one tick: at a fighter's 500+ m/s that is 8 m or more, and it jitters.
+	process_physics_priority = 100
 
 
 func snap_to_target() -> void:
@@ -48,8 +56,12 @@ func snap_to_target() -> void:
 func _physics_process(delta: float) -> void:
 	if target == null:
 		return
-	var follow_amount := 1.0 - exp(-orientation_stiffness * delta)
-	_smoothed_orientation = _smoothed_orientation.slerp(Quaternion(target.global_basis.orthonormalized()), follow_amount)
+	var target_orientation := Quaternion(target.global_basis.orthonormalized())
+	if rigid_follow:
+		_smoothed_orientation = target_orientation
+	else:
+		var follow_amount := 1.0 - exp(-orientation_stiffness * delta)
+		_smoothed_orientation = _smoothed_orientation.slerp(target_orientation, follow_amount)
 	_apply(delta)
 
 
@@ -63,6 +75,7 @@ func _apply(_delta: float) -> void:
 	var offset := active_offset()
 	if follow_distance > 0.0:
 		offset = Vector3(0.0, sin(follow_angle), cos(follow_angle)) * follow_distance
+	offset *= view_scale
 	var camera_position := target.global_position + rig_basis * offset
 	var look_target := target.global_position + rig_basis * Vector3(0.0, 0.0, -look_ahead_distance)
 	var view_basis := Basis.looking_at(look_target - camera_position, rig_basis.y)

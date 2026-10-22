@@ -158,7 +158,9 @@ func _init(planet_body: PlanetBody = null) -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS # keeps loading chunks behind the title screen / pause menu
 	planet = planet_body
 	planner = LodPlanner.new(planet_body)
-	max_builds_in_flight = clampi(OS.get_processor_count() - 2, 2, 10)
+	# Half the cores, not all but two: on Apple silicon (4 fast + 6 slow cores) eight busy builders starve the main, render and
+	# physics threads and the frame time collapses to 40-120 ms whenever a burst of chunks is wanted.
+	max_builds_in_flight = clampi(int(OS.get_processor_count() * 0.5), 2, 6)
 	_material.vertex_color_use_as_albedo = true
 	_material.roughness = 1.0
 	_material.cull_mode = BaseMaterial3D.CULL_DISABLED

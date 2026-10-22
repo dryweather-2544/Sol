@@ -443,6 +443,9 @@ truncated file fails safely and falls back to `.bak`; v1 fixture loads in every 
   *(N9: recorded samples via `AudioLibrary` replace the synthesised sounds when `GameSettings.sample_audio` is on, with `SoundSynth`
   as the fallback; buses `Ship`, `Suit`, `Radio` are added (UI exists), all following the SFX slider; Interior low-pass is 1200 Hz with
   samples. Ship-placed loops are 2D, scaled by distance to the player, not 3D players. See `docs/N9_STATUS.md`.)*
+  *(ADR 0014: music is `MusicDirector`, a child of `AudioService`, on the `Music` bus (`GameSettings.music_volume`). It reads
+  game state into contexts (menu, deep space, approach, atmosphere, ascent, surface, interior, discovery, danger, combat) and
+  plays pools defined in `data/music/soundtrack.json`. See `docs/MUSIC.md`.)*
 - **Feedback:** camera shake on touchdown/reentry, FOV with speed, reentry glow.
 - **Visual style** *(ADR 0007)*: `VisualStyle` selects `sol` (original look) or `rodina` (Rodina-inspired) from
   `SOL_VISUAL_STYLE`, then `GameSettings.visual_style`; each world gets a `PlanetLook` (terrain colours, detail tiling,

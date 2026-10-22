@@ -18,6 +18,11 @@ const ENTRY_SPEED := 5000.0
 const ENTRY_DAMAGE_START := 0.85
 const ENTRY_DAMAGE_RATE := 0.15
 const REPAIR_PER_SECOND := 0.15
+## A star's heat: nothing beyond one star radius above its surface, ramping up (squared) to STAR_HEAT_RATE of the hull per
+## second at the surface, and STAR_CORE_RATE (certain death within a second) once the ship is inside the star.
+const STAR_HEAT_REACH := 1.0
+const STAR_HEAT_RATE := 0.6
+const STAR_CORE_RATE := 10.0
 
 
 ## Fraction of the hull lost in one impact. incidence is the ground-normal dot velocity direction
@@ -48,3 +53,14 @@ static func entry_resistance(velocity: Vector3, toward_planet: Vector3, atmosphe
 ## Hull fraction lost per second at this entry resistance.
 static func entry_damage_rate(resistance: float) -> float:
 	return clampf((resistance - ENTRY_DAMAGE_START) / (1.0 - ENTRY_DAMAGE_START), 0.0, 1.0) * ENTRY_DAMAGE_RATE
+
+
+## Hull fraction lost per second to a star's heat, from the ship's distance to the star's centre.
+static func star_heat_rate(distance_to_centre: float, star_radius: float) -> float:
+	var edge := star_radius * (1.0 + STAR_HEAT_REACH)
+	if star_radius <= 0.0 or distance_to_centre >= edge:
+		return 0.0
+	if distance_to_centre <= star_radius:
+		return STAR_CORE_RATE
+	var closeness := (edge - distance_to_centre) / (star_radius * STAR_HEAT_REACH)
+	return STAR_HEAT_RATE * closeness * closeness

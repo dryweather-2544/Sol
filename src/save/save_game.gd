@@ -16,6 +16,8 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 		var portal: Portal = systems.layout.portals[portal_id]
 		portals[String(portal_id)] = {"target_open": portal.target_open, "open_factor": portal.open_factor}
 	var saved_mode := session.mode
+	if saved_mode == GameSession.Mode.FIGHTER:
+		saved_mode = session.mode_before_fighter # the fighter itself is not saved: loading puts you back where you boarded from
 	if saved_mode == GameSession.Mode.SITTING:
 		saved_mode = GameSession.Mode.INSIDE # sitting down is transient; resume standing at the seat
 	var interior_position := session.interior_body.position

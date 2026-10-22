@@ -25,18 +25,36 @@ var team_id := 0
 var upgrades := ShipUpgrades.new()
 var hull_color := Color(0.62, 0.66, 0.72)
 var weapon := Weapon.ship_gun()
+## Set by configure_fighter for the small single-seat fighters (AI ships); null for the player's ship and plain placeholders.
+var fighter: FighterDef
+## True for the fighter the player flies: it uses the player's flight settings and gets a cockpit camera.
+var player_controlled := false
+## The pilot's view from the fighter's canopy (null unless player_controlled); main.gd makes it current.
+var cockpit_camera: Camera3D
+## The fighter's cockpit interior (FighterCockpit), drawn only while cockpit_camera is the current camera.
+var cockpit: FighterCockpit
+## Optional, set by main.gd for the player's fighter: returns the hostile ships as ship-local offsets (Array of Vector3) for the cockpit radar.
+var radar_contacts := Callable()
 ## Nose of the ship, where shots leave (ship-local).
 var muzzle_offset := Vector3(0, -0.2, -7.6)
 ## Rodina's player ship has two gun barrels (GunBarrelLeft/Right); shots alternate between them.
-const BARREL_X := 1.2
+var barrel_x := 1.2
 ## False on the player's ship: its main gun is the dorsal turret (ShipTurret). Other ships keep the nose guns.
 var nose_gun_enabled := true
 ## Both barrels are angled to cross at this range ahead of the nose, so a burst closes on the reticle (the camera looks
 ## along the ship's nose) instead of running parallel and off to the sides.
 const CONVERGENCE := 600.0
+## Fighters answer the stick faster than the mothership: the combat gear's turn push (RotationHardness) is multiplied by this,
+## so full stick reaches the top turn rate in about half a second instead of over a second.
+const FIGHTER_TURN_RESPONSE := 2.5
+## The gun on the fighter the player flies: AI fighters keep their low per-def numbers (a nuisance, not an instant kill),
+## but the player's gun has to feel like a gun: about 0.24 hull a second, so a plain fighter dies in around four seconds.
+const PLAYER_FIGHTER_GUN_RATE := 12.0
+const PLAYER_FIGHTER_GUN_DAMAGE := 0.02
 var _next_barrel := -1.0
 
 signal destroyed
+
 
 const FUEL_CRUISE_PER_SECOND := 0.002
 const FUEL_WARP_PER_SECOND := 0.01
@@ -55,6 +73,24 @@ func _ready() -> void:
 		var visuals := ShipVisuals.new()
 		visuals.ship = self
 		add_child(visuals)
+	elif fighter != null:
+		FighterModel.build(self, fighter)
+		var flames := FighterEngineFlames.new()
+		add_child(flames)
+		flames.setup(fighter, self)
+		if player_controlled:
+			cockpit_camera = Camera3D.new()
+			cockpit_camera.name = "CockpitCamera"
+			cockpit_camera.position = fighter.cockpit
+			cockpit_camera.near = 0.05
+			cockpit_camera.far = CameraRange.clamp_far(0.05, 3.0e7) # main.gd sets both every frame
+			add_child(cockpit_camera)
+			cockpit = FighterCockpit.new()
+			cockpit.position = fighter.cockpit
+			add_child(cockpit)
+			cockpit.setup(self, fighter)
+		else:
+			destroyed.connect(func(): visible = false) # no wreck model yet: a destroyed hostile just vanishes
 	else:
 		PlaceholderShipMesh.build(self, hull_color)
 	_sync_transform()
@@ -71,7 +107,7 @@ func simulate_tick(delta: float) -> void:
 	elif free_space != null:
 		free_space.fill_environment(state, environment)
 	# The player's ship (the one with interior systems) uses the player's levelling setting; others Rodina's default.
-	environment.horizon_levelling = GameSettings.instance().ship_horizon_levelling if systems != null else 1.0
+	environment.horizon_levelling = GameSettings.instance().ship_horizon_levelling if systems != null or player_controlled else 1.0
 	var tank_empty := state.fuel <= 0.0
 	state.allowed_gear = mini(environment.max_gear, PilotCommand.GEAR_COMBAT if tank_empty else PilotCommand.GEAR_WARP)
 	var command := controller.poll_command(state, delta)
@@ -99,6 +135,27 @@ func simulate_tick(delta: float) -> void:
 		if takeoff_block != "":
 			state.status_message = "Takeoff blocked: " + takeoff_block
 	_sync_transform()
+
+
+## Turns this ship into the given fighter: its handling, gun, hit radius source and model. Call before add_child.
+func configure_fighter(def: FighterDef) -> void:
+	fighter = def
+	hull_color = def.hull_color
+	tuning.gear_max_speed[PilotCommand.GEAR_COMBAT] *= def.speed_scale
+	tuning.rotation_speed *= def.turn_scale
+	tuning.gear_rotation_hardness[PilotCommand.GEAR_COMBAT] *= FIGHTER_TURN_RESPONSE
+	var size_ratio := def.size / FighterDef.REFERENCE_SIZE
+	var points := PackedVector3Array()
+	for point in tuning.support_points:
+		points.append(point * size_ratio)
+	tuning.support_points = points
+	weapon.damage = def.gun_damage
+	weapon.shots_per_second = def.gun_rate
+	if player_controlled: # set before this call (main.gd)
+		weapon.damage = PLAYER_FIGHTER_GUN_DAMAGE
+		weapon.shots_per_second = PLAYER_FIGHTER_GUN_RATE
+	muzzle_offset = def.muzzle_offset()
+	barrel_x = def.barrel_x()
 
 
 func _sync_transform() -> void:
@@ -134,6 +191,18 @@ func _take_damage(delta: float) -> void:
 		destroyed.emit()
 
 
+## Hull fraction burned off by a star's heat this tick (ShipDamage.star_heat_rate). Cooks the reactor like atmospheric entry.
+func apply_heat(loss: float) -> void:
+	if loss <= 0.0 or state.hull <= 0.0:
+		return
+	loss *= upgrades.damage_taken_multiplier()
+	if systems != null:
+		systems.damage_subsystem(ShipSubsystems.Id.REACTOR, loss)
+	state.hull = maxf(0.0, state.hull - loss)
+	if state.hull <= 0.0:
+		destroyed.emit()
+
+
 func _burn_fuel(command: PilotCommand, delta: float) -> void:
 	var burn := 0.0
 	if state.gear == PilotCommand.GEAR_CRUISE and command.thrust != Vector3.ZERO:
@@ -154,7 +223,7 @@ func _fire_weapon(command: PilotCommand, delta: float) -> void:
 	weapon.update(delta)
 	if not nose_gun_enabled or projectiles == null or not command.fire or state.hull <= 0.0 or not Ship.gear_allows_fire(state.gear):
 		return
-	var local_muzzle := muzzle_offset + Vector3(_next_barrel * BARREL_X, 0.0, 0.0)
+	var local_muzzle := muzzle_offset + Vector3(_next_barrel * barrel_x, 0.0, 0.0)
 	var muzzle := state.position.offset_by(state.basis * local_muzzle)
 	var aim := state.basis * (Vector3(0.0, 0.0, -CONVERGENCE) - local_muzzle).normalized()
 	var base_damage := weapon.damage

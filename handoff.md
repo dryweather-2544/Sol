@@ -4,6 +4,36 @@ Godot 4.7.2 recreation of Rodina, in `~/Dev/Sol`, branch `n14-rodina-parity`. La
 is uncommitted in the working tree (see "Files"). Run tests with `./tools/run_tests.sh`: 477 tests, 0 failures in the cloud
 (Linux Godot 4.7.2) after this work.
 
+## Fighters (2026-10-22, written in a later session; NOT run: no Godot was available, run `./tools/run_tests.sh` first)
+- 9 small fighters from `~/Downloads/3D_spaceships_pack.zip` (GLB, nose at +z in the file, scaled to `FighterDef.size`, turned to -z by `FighterModel`)
+  in `assets/fighters/` (git-ignored, licence unknown; see ATTRIBUTION.md). Open the project in the editor once so Godot imports them.
+- New: `src/combat/fighter_def.gd`, `fighter_catalog.gd`, `src/flight/fighter_model.gd`, `tests/unit/fighter_catalog_test.gd`.
+  Changed: `Ship` (`fighter`, `configure_fighter`, `barrel_x` var instead of `BARREL_X`), `ShipCombatant` (toughness), `EnemyDirector`
+  (guards/raider are fighters; `spawn_skirmish`; scripted encounters drop when all dead or 8 km away), `scenes/main.gd` (B = skirmish), PLAYING.md.
+- Check by eye: nose direction (if a fighter flies tail-first flip `FighterModel.MODEL_YAW`), sizes, that the heavies are slower to kill and the
+  waves are fair, and that the textures look right under Forward+ lighting. Destroyed hostile fighters vanish (no wreck effect yet).
+
+## Fighter hangar, redone as separate ships (same session, also NOT run)
+- **Y** at the helm, on foot or in a fighter opens `HangarMenu` (list, turntable preview, stats, Spawn / Return). Spawn creates a real second `Ship`
+  (`player_controlled`, `configure_fighter`) via `main.gd::_on_fighter_spawn`: 45 m ahead of the mothership with its velocity, or hovering ahead of the
+  walker. `GameSession.board_fighter` sets `Mode.FIGHTER` + `fighter_craft`; `active_ship()` is what camera, floating origin, HUD, audio, effects and
+  enemy aim follow (`main.gd::_retarget`). The mothership is held by an idle `AIPilotSource` (`_parked_ai`) unless landed; turret and crew carry on.
+- `return_to_mothership` / `lose_fighter` / `climb_out_of_fighter` (F on the ground) / `fighter_in_reach` (F on foot beside a parked one) / `abandon_fighter` (load).
+  `mode_before_fighter` (SEATED or OUTSIDE) is what a save records; the fighter itself is not saved. `main.gd::_sync_fighter` frees the node.
+- No interior: `FighterEngineFlames` (src/flight/fighter_engine_flames.gd, CPUParticles3D at `FighterDef.engines`, strength from throttle/boost/gear) and a
+  cockpit `Camera3D` at `FighterDef.cockpit` (V toggles chase/canopy). **Both positions were measured from the mesh and are approximate: check by eye.**
+- `WorldRuntime` converts and recentres both ships on frame changes and keys the frame off the flown ship.
+- Check: spawn from the helm and on foot, flames and canopy view per model, F climb-out/boarding, Y > Return, destroyed fighter, load while in a fighter,
+  and that enemies shoot at the fighter. Tests: new ones in `fighter_catalog_test.gd` replace the old form test.
+
+## Fighter cockpit (built from the owner's reference pictures, NOT run)
+- `FighterCockpit` (src/flight/fighter_cockpit.gd) + `FighterRadar` (fighter_radar.gd, drawn in a SubViewport onto the hex screen): procedural boxes/screens in the
+  graphite / warm metal / interior grey / amber / cyan palette; child of the player's fighter at `FighterDef.cockpit`, on render layer 10 (`LAYER_MASK`), which only
+  the fighter's cockpit camera includes (`main.gd` sets that mask). Shown, and the hull model hidden, while that camera is current. `Ship.radar_contacts` (set by `main.gd`)
+  feeds the radar. Scale is `size / 11` (0.75-1.4).
+- Check by eye: framing from `FighterDef.cockpit` per model (dash height, struts), Label3D text legibility and orientation, the radar texture (flip/mirror), light levels
+  (the cockpit has two omni lights on its own layer), and the stick's tilt direction.
+
 ## Open problems (start here)
 1. **Confirm the invisible-interior fix on the Mac.** Root cause found and fixed (ADR 0013): near 0.05 m with the
    flight far plane (up to 4,000 km) made Godot's float32 projection degenerate, and frustum culling dropped every mesh.

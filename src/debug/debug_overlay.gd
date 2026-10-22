@@ -7,6 +7,8 @@ var terrain: PlanetTerrain
 var session: GameSession
 var poi_manager: PoiManager
 var frame_text := ""
+## Optional: shows the music context and piece (adaptive soundtrack check).
+var music: MusicDirector
 var _label := Label.new()
 var _prompt_label := Label.new()
 var _signal_label := Label.new()
@@ -145,6 +147,9 @@ func _process(delta: float) -> void:
 		_alert_label.position = Vector2(get_viewport().get_visible_rect().size.x * 0.5 - _alert_label.size.x * 0.5, 54.0)
 	_objective_label.text = "Objective: " + session.progress.current_text() if session != null else ""
 	_signal_label.text = _nearest_signal_text() + ("\n" + frame_text if frame_text != "" else "")
+	if music != null and music.context != "":
+		var piece := music.current_track()
+		_signal_label.text += "\nmusic: %s - %s" % [music.context.replace("_", " "), piece if piece != "" else "silence"]
 	_prompt_label.position.x = get_viewport().get_visible_rect().size.x * 0.5 - _prompt_label.size.x * 0.5
 	if _use_rodina_hud():
 		_update_rodina_hud(delta)
@@ -220,8 +225,8 @@ func _update_rodina_hud(delta: float) -> void:
 	_reticle.visible = true
 	_reticle.position = viewport * 0.5 - _reticle.size * 0.5
 	var mode := session.mode
-	var seated := mode == GameSession.Mode.SEATED or mode == GameSession.Mode.SITTING
-	_reticle.visible = session.gunner_station or not seated # no crosshair at the helm: the gun is on the gunner station
+	var seated := mode == GameSession.Mode.SEATED or mode == GameSession.Mode.SITTING or mode == GameSession.Mode.FIGHTER
+	_reticle.visible = session.gunner_station or mode == GameSession.Mode.FIGHTER or not seated # no crosshair at the helm: the gun is on the gunner station
 	if seated:
 		var state := ship.state
 		# Rodina shows no standing mode tab in flight: the gear tiles (top right) and a fading gear banner replace it.

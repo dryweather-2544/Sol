@@ -13,6 +13,7 @@ var navigator: SystemNavigator
 var time_seconds := 0.0
 var active_frame: StringName
 var _planets := {} # body id -> PlanetBody (cached)
+var _star_heat_warned := false
 
 
 func _init(star_system: StarSystem, game_session: GameSession, start_frame: StringName) -> void:
@@ -40,11 +41,33 @@ func advance(delta: float) -> void:
 	if session.planet != null:
 		session.planet.warp_allowed = drive_online
 	session.progress.update(session, active_frame)
+	_apply_star_heat(delta)
+
+
+## Flying close to a star burns the hull (ShipDamage.star_heat_rate); inside it, the ship is lost in moments.
+func _apply_star_heat(delta: float) -> void:
+	var ship := session.active_ship()
+	if ship.state.hull <= 0.0:
+		return
+	var position := system.convert_position(ship.state.position, StarSystem.SYSTEM_FRAME, time_seconds)
+	var distance := sqrt(position.x * position.x + position.y * position.y + position.z * position.z)
+	for body_id in system.bodies:
+		var body: BodyDef = system.bodies[body_id]
+		if not body.is_star:
+			continue
+		var rate := ShipDamage.star_heat_rate(distance, body.radius)
+		if rate > 0.0:
+			if not _star_heat_warned:
+				session.say("Solar heat! Pull away from the star!")
+			_star_heat_warned = true
+			ship.apply_heat(rate * delta)
+			return
+	_star_heat_warned = false
 
 
 ## Check whether the ship has crossed into another frame and switch if so. Returns true if it did.
 func update_frame() -> bool:
-	var wanted := system.frame_for(session.ship.state.position, time_seconds, active_frame)
+	var wanted := system.frame_for(session.active_ship().state.position, time_seconds, active_frame)
 	if wanted == active_frame:
 		return false
 	switch_frame(wanted)
@@ -53,10 +76,11 @@ func update_frame() -> bool:
 
 func switch_frame(new_frame: StringName) -> void:
 	var old_frame := active_frame
-	var ship_state := session.ship.state
-	ship_state.velocity = system.convert_velocity(ship_state.velocity, old_frame, new_frame, time_seconds)
-	ship_state.position = system.convert_position(ship_state.position, new_frame, time_seconds)
-	if session.mode == GameSession.Mode.OUTSIDE:
+	for craft in _ships():
+		var ship_state := craft.state
+		ship_state.velocity = system.convert_velocity(ship_state.velocity, old_frame, new_frame, time_seconds)
+		ship_state.position = system.convert_position(ship_state.position, new_frame, time_seconds)
+	if session.mode == GameSession.Mode.OUTSIDE or (session.mode == GameSession.Mode.FIGHTER and session.mode_before_fighter == GameSession.Mode.OUTSIDE):
 		session.exterior_body.position = system.convert_position(session.exterior_body.position, new_frame, time_seconds)
 		session.exterior_body.velocity = system.convert_velocity(session.exterior_body.velocity, old_frame, new_frame, time_seconds)
 	active_frame = new_frame
@@ -81,12 +105,21 @@ func recentre_ship_after_restore() -> void:
 
 ## The ship's render origin lives in a frame too: restart it at the ship's (converted) position.
 func _recentre_ship() -> void:
-	var ship := session.ship
-	ship.render_origin = ship.state.position.duplicate_position()
-	ship.apply_origin_shift(Vector3.ZERO)
+	for ship in _ships():
+		ship.render_origin = ship.state.position.duplicate_position()
+		ship.apply_origin_shift(Vector3.ZERO)
+
+
+## The mothership plus the player's fighter, when there is one (both live in the active frame).
+func _ships() -> Array[Ship]:
+	var list: Array[Ship] = [session.ship]
+	if session.fighter_craft != null:
+		list.append(session.fighter_craft)
+	return list
 
 
 func _apply_bodies(planet: PlanetBody) -> void:
 	session.planet = planet
-	session.ship.planet = planet
-	session.ship.free_space = navigator if planet == null else null
+	for craft in _ships():
+		craft.planet = planet
+		craft.free_space = navigator if planet == null else null

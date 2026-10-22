@@ -10,6 +10,8 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 |---|---|
 | Flying | **W/S** thrust forward/back, **A/D** strafe, **Space/C** up/down, **mouse** (or arrow keys) pitch and yaw, **Q/E** roll, **Shift** boost, **X** brake, **right mouse (or Z) + W/S** change gear like Rodina's clutch: hold the clutch (the drive disconnects and you coast), tap **W** to shift up or **S** to shift down, release to commit; a refused shift grinds. **[ ]** still shift directly (DOCK / COMBAT / CRUISE / WARP), **V** cockpit view, **click or Ctrl** fire |
 | Walking (inside or outside) | **WASD** move, **Shift** run, **Space** jump (outside; hold in the air for the jetpack), **mouse** look, **click or Ctrl** fire the pistol (outside) |
+| Hangar (piloting, on foot or in a fighter) | **Y** opens the fighter hangar: pick a fighter, watch it turn on the pad, **Spawn and fly** (or **Return**). **Esc/Y** closes |
+| Skirmish (flying, near a planet) | **B** sends a wing of small AI fighters at you; clear it and the next wave is bigger and tougher. 1 scrap per kill |
 | Captain's orders | **R** engineer: fix everything (press again to cancel), **G** gunner: man the turret, **P** cycle the reactor's power split (balanced / engines / weapons) |
 | Anywhere | **F** use (stand up, sit, door panels, repair panel, open crates), **Tab** inventory, **N** scanner pulse (flying, inside or on foot), **J** exploration log, **T** cycle nav target, **F5/F9** quicksave/quickload, **Esc** menu |
 
@@ -48,6 +50,28 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 - Do the guard ships/drones at outposts feel fair? (They are not tuned.)
 - Anything that looks wrong: floating props, holes in terrain, flicker, wrong lighting.
 - Sound: engine/wind/doors/footsteps all exist but nobody has heard them yet.
+
+## Fighters and skirmishes
+
+Hostile ships are small single-seat fighters (`src/combat/fighter_catalog.gd`, models in `assets/fighters/`): Dart and Wasp (fast, fragile),
+Talon, Mantis and Raptor (all-rounders), Bulwark and Brick (slow, tough, heavy guns), Specter and Nova (aces: accurate, quick, hard to kill).
+Outpost guards are a random pair of interceptors/fighters; the Mayday raider is a Talon. For some singleplayer fun press **B** while piloting
+near a planet: wave 1 is two fighters, then 3, 4, 5 (heavies from wave 3, an ace in every wave from wave 5). One wave at a time; kills pay 1 scrap.
+
+### Flying a fighter
+
+Press **Y** at the helm *or on foot* for the hangar, pick a fighter and **Spawn and fly**. A fighter is its own ship: it appears 45 m ahead of the
+mothership (or hovering in front of you on foot), the mothership stays where it is (an autopilot holds it; the turret and crew keep working) and you
+climb in. It has no interior, doors or crew: just a cockpit (**V** swaps between the chase view and the canopy), engine flames, and a nose gun
+(click or Ctrl, COMBAT gear). **F** on the ground climbs out beside it; a parked fighter can be boarded again with **F**. **Y > Return** puts you
+back where you boarded (the helm, or on foot); a fighter in the air is gone, one on the ground stays. If it is destroyed you are back where you
+boarded. Fighters are not saved: loading puts you back in the mothership. Skirmishes (**B**) work from a fighter too.
+
+### The fighter cockpit
+
+**V** in a fighter puts you in the cockpit: canopy struts, a hex radar (hostile ships as amber blips, ahead is up), a hull-integrity strip, fuel (F) and speed (S)
+gauges, a status screen (gear, speed, altitude), a guns-armed/safe screen, a target-distance screen, a joystick that follows your steering, and the seat behind you.
+Amber lamps blink on the gauge pillars when the hull is under 35% or fuel under 15%. The fighter's outside hull is hidden in this view. Right mouse looks round.
 
 ## The ship (since phase 2)
 

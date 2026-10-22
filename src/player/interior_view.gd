@@ -34,6 +34,14 @@ func add_mouse_motion(relative_pixels: Vector2) -> void:
 	_pitch = clampf(_pitch - relative_pixels.y * MOUSE_RADIANS_PER_PIXEL * GameSettings.instance().mouse_sensitivity * GameSettings.instance().pitch_sign(), -1.4, 1.4)
 
 
+func get_pitch() -> float:
+	return _pitch
+
+
+func set_pitch(value: float) -> void:
+	_pitch = clampf(value, -1.4, 1.4)
+
+
 func set_lamp(on: bool) -> void:
 	lamp.visible = on
 

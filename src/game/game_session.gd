@@ -5,7 +5,7 @@ extends RefCounted
 ## (stand up, sit, airlock, walkway, walk out, walk in) as a continuous change of frame, never a
 ## teleport. Scenes only feed it commands and draw the result, so the full loop is testable headless.
 
-enum Mode { SEATED, SITTING, INSIDE, OUTSIDE }
+enum Mode { SEATED, SITTING, INSIDE, OUTSIDE, FIGHTER } ## FIGHTER: flying the separate single-seat fighter (fighter_craft); saved as mode_before_fighter
 
 const ACTOR := &"player"
 const PILOT_SEAT := &"pilot_seat"
@@ -79,6 +79,15 @@ const EXTINGUISHER_STRENGTH := 0.35
 var extinguisher_charges := 0
 var _burning_room_count := 0
 var mode := Mode.SEATED
+## The player's own small single-seat fighter: a separate Ship (null while none exists). In Mode.FIGHTER the player flies it;
+## the mothership is then parked (held in place by an idle autopilot unless it is landed) and the seat and walking bodies stay
+## where they were. Boarding and leaving it are board_fighter / return_to_mothership / climb_out_of_fighter.
+var fighter_craft: Ship
+var mode_before_fighter := Mode.SEATED
+## How close (m, plus half the fighter's length) a walker must be to a parked fighter to board it with F.
+const FIGHTER_REACH := 12.0
+var _parked_ai: AIPilotSource
+var _fighter_target: ShipCombatant
 ## The player's view ray inside the ship (ship-local), set by the scene each frame. While `has_look` is true, interacting
 ## and the prompt use what you are looking at (press F on the door itself); without it (headless tests, tools) they use
 ## the nearest interaction point to the player's feet.
@@ -162,6 +171,8 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	_update_suit(delta)
 	pistol.update(delta)
 	var targets: Array = [_player_ship_target, _player_foot_target]
+	if mode == Mode.FIGHTER and _fighter_target != null:
+		targets.append(_fighter_target)
 	targets.append_array(enemy_targets)
 	projectiles.step(delta, targets)
 
@@ -207,8 +218,16 @@ func interact() -> void:
 		Mode.INSIDE:
 			_interact_inside()
 		Mode.OUTSIDE:
-			if not _try_open_crate():
+			if _try_open_crate():
+				return
+			if fighter_in_reach():
+				board_fighter(fighter_craft)
+			else:
 				_say("Walk up the ramp to board")
+		Mode.FIGHTER:
+			var refusal := climb_out_of_fighter()
+			if refusal != "":
+				_say(refusal)
 
 
 ## Captain's hotkeys: orders to the crew and the reactor's power split.
@@ -262,10 +281,14 @@ func _context_prompt() -> String:
 				&"bed": return "F — Rest (saves the game)"
 				&"medbed": return "F — Use med bay"
 				&"repair_panel": return "F — Repair hull" if not repairing else "F — Stop repairing"
+		Mode.FIGHTER:
+			return "F — Climb out" if fighter_craft != null and fighter_craft.state.landed else "Y — Hangar    land to climb out (F)"
 		Mode.OUTSIDE:
 			var crate := _nearest_crate()
 			if not crate.is_empty():
 				return PoiDefinition.ACTION_PROMPTS[(crate["poi"] as PoiInstance).type]
+			if fighter_in_reach():
+				return "F — Board the %s" % fighter_craft.fighter.display_name
 			if systems.walkway.is_deployed():
 				return "Walk up the ramp to board"
 	return ""
@@ -275,6 +298,8 @@ func _context_prompt() -> String:
 func player_world_position() -> WorldPos:
 	if mode == Mode.OUTSIDE:
 		return exterior_body.position
+	if mode == Mode.FIGHTER and fighter_craft != null:
+		return fighter_craft.state.position
 	var inside_like := mode == Mode.INSIDE or mode == Mode.SITTING
 	return ShipFrame.world_from_local(ship.state, interior_body.position if inside_like else _seat_local_position())
 
@@ -349,6 +374,118 @@ func _gunner_ai_target(velocity: bool):
 	return enemy.combat_velocity() if velocity else enemy.combat_position()
 
 
+## The ship the player is flying: the fighter in Mode.FIGHTER, otherwise the mothership.
+func active_ship() -> Ship:
+	return fighter_craft if mode == Mode.FIGHTER and fighter_craft != null else ship
+
+
+## A parked fighter is close enough to the walking player to board.
+func fighter_in_reach() -> bool:
+	if mode != Mode.OUTSIDE or fighter_craft == null or fighter_craft.state.hull <= 0.0:
+		return false
+	return fighter_craft.state.position.distance_to(exterior_body.position) <= FIGHTER_REACH + fighter_craft.fighter.size * 0.5
+
+
+## Gets in `craft` (a fighter already placed in the world): from the helm, on foot, or from another fighter (a swap). The
+## mothership is parked; the player's own bodies stay where they are.
+func board_fighter(craft: Ship) -> void:
+	if craft == null or craft.fighter == null:
+		return
+	if mode == Mode.FIGHTER:
+		if fighter_craft != null and fighter_craft != craft:
+			fighter_craft.controller.release_control(pilot_source)
+	else:
+		if mode != Mode.SEATED and mode != Mode.OUTSIDE:
+			return
+		mode_before_fighter = mode
+		if mode == Mode.SEATED:
+			_end_gunner_station()
+			ship.controller.release_control(pilot_source)
+			_park_mothership()
+	fighter_craft = craft
+	craft.team_id = 0
+	craft.projectiles = projectiles
+	craft.controller.request_control(pilot_source, &"fighter_seat")
+	_fighter_target = ShipCombatant.new(craft, 0, craft.fighter.hit_radius(), craft.fighter.toughness)
+	mode = Mode.FIGHTER
+	_say("Flying the %s" % craft.fighter.display_name)
+
+
+## Back to where you boarded from (the helm, or the spot on foot). A fighter that is not on the ground is gone
+## (fighter_craft becomes null: the scene frees the node); one on the ground stays parked where it is.
+func return_to_mothership() -> void:
+	if mode != Mode.FIGHTER:
+		return
+	_stop_flying_fighter()
+	if fighter_craft != null and not fighter_craft.state.landed:
+		fighter_craft = null
+
+
+## The fighter was destroyed: you are back where you boarded from.
+func lose_fighter() -> void:
+	if mode == Mode.FIGHTER:
+		_stop_flying_fighter()
+	_fighter_target = null
+	fighter_craft = null
+
+
+## Drops the fighter without ceremony (loading a save): the saved state decides the mode afterwards.
+func abandon_fighter() -> void:
+	if fighter_craft != null:
+		fighter_craft.controller.release_control(pilot_source)
+	_fighter_target = null
+	if mode == Mode.FIGHTER:
+		mode = mode_before_fighter
+	_unpark_mothership()
+	fighter_craft = null
+
+
+## F in the fighter: step out beside it. Only on the ground. Returns the reason it was refused, or "".
+func climb_out_of_fighter() -> String:
+	if mode != Mode.FIGHTER or fighter_craft == null:
+		return ""
+	if planet == null or not fighter_craft.state.landed:
+		return "Land first to climb out (Y: return to the mothership)"
+	var craft_state := fighter_craft.state
+	var spot := craft_state.position.offset_by(craft_state.basis.x * (fighter_craft.fighter.size * 0.5 + 2.0))
+	exterior_body.place_on_ground(planet, spot, -craft_state.basis.z)
+	exterior_body.velocity = Vector3.ZERO
+	fighter_craft.controller.release_control(pilot_source)
+	_fighter_target = null
+	if mode_before_fighter == Mode.SEATED:
+		systems.seats.reset() # the pilot seat is empty now
+		_unpark_mothership()
+	player_state.restore(PlayerState.Posture.STANDING, PlayerState.Location.EXTERIOR, PlayerState.Authority.NONE)
+	mode = Mode.OUTSIDE
+	_say("Climbed out")
+	return ""
+
+
+func _stop_flying_fighter() -> void:
+	if fighter_craft != null:
+		fighter_craft.controller.release_control(pilot_source)
+	_fighter_target = null
+	mode = mode_before_fighter
+	if mode == Mode.SEATED:
+		_unpark_mothership()
+		ship.controller.request_control(pilot_source, PILOT_SEAT)
+
+
+## While the pilot is away in a fighter an idle autopilot holds the mothership in place, unless it is on the ground.
+func _park_mothership() -> void:
+	if ship.state.landed or _parked_ai != null:
+		return
+	_parked_ai = AIPilotSource.new(AIPilotSource.Mode.IDLE)
+	ship.controller.request_control(_parked_ai, &"parked")
+
+
+func _unpark_mothership() -> void:
+	if _parked_ai == null:
+		return
+	ship.controller.release_control(_parked_ai)
+	_parked_ai = null
+
+
 func _stand_up() -> void:
 	_end_gunner_station()
 	if not systems.seats.stand(ACTOR):
@@ -370,6 +507,7 @@ func _on_seat_occupied(_seat_id: StringName, actor_id: StringName) -> void:
 		player_state.try_finish_sit()
 		mode = Mode.SEATED
 		interior_body.position = _seat_local_position()
+		_unpark_mothership()
 		ship.controller.request_control(pilot_source, PILOT_SEAT)
 		if systems.takeoff_block_reason() != "":
 			systems.secure_for_takeoff()
@@ -511,7 +649,13 @@ func _maybe_walk_in() -> void:
 	var facing_local := ship.state.basis.transposed() * exterior_body.heading
 	var yaw := atan2(-facing_local.x, -facing_local.z)
 	var velocity_local := ship.state.basis.transposed() * exterior_body.velocity
-	interior_body.place(Vector3(local.x, systems.layout.floor_height_at(local.x, local.z), local.z), yaw)
+	# The outer door is narrower than the ramp, and the interior body is checked by its corners: stepping in off-centre
+	# (|x| between door half-width minus radius and the ramp edge) left a corner in the wall and pinned the walker in the
+	# doorway. Slide them into the clear part of the door as they cross.
+	var outer_door: Portal = systems.layout.portals[&"airlock_outer"]
+	var door_half_clear: float = outer_door.opening.size.x * 0.5 - InteriorBody.RADIUS
+	var enter_x := clampf(local.x, -door_half_clear, door_half_clear)
+	interior_body.place(Vector3(enter_x, systems.layout.floor_height_at(enter_x, local.z), local.z), yaw)
 	interior_body.velocity = Vector2(velocity_local.x, velocity_local.z)
 	mode = Mode.INSIDE
 
@@ -592,6 +736,7 @@ func _say(text: String, seconds: float = 2.5) -> void:
 ## Puts the session into a saved mode. Interior/exterior bodies and ship state must already be set.
 func restore_mode(saved_mode: int) -> void:
 	_end_gunner_station()
+	_unpark_mothership()
 	var seat_position: Vector3 = systems.layout.seats[PILOT_SEAT]["position"]
 	ship.controller.release_control(pilot_source)
 	systems.seats.reset()
@@ -629,6 +774,9 @@ func check_discovery(known_pois: Array) -> void:
 ## Forward direction of the player in the planet frame (for pointing at things).
 func forward_vector() -> Vector3:
 	match mode:
+		Mode.FIGHTER:
+			if fighter_craft != null:
+				return -fighter_craft.state.basis.z
 		Mode.OUTSIDE:
 			return exterior_body.heading
 		Mode.INSIDE, Mode.SITTING:

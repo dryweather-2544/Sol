@@ -170,6 +170,10 @@ static func _add_furniture(layout: InteriorLayout) -> void:
 	layout.add_piece(&"shower_tray", Vector2(7.7, -4.3), Vector3(1.2, 0.08, 1.2), &"white")
 	layout.add_piece(&"shower_glass", Vector2(8.32, -4.3), Vector3(0.04, 1.9, 1.2), &"glass", false, 0.08)
 	layout.add_piece(&"shower_head", Vector2(7.2, -4.3), Vector3(0.05, 0.05, 0.35), &"steel", false, 2.0)
+	# Cargo: freight crates against the tail wall either side of the airlock door, clear of the walkway and both machines.
+	layout.add_piece(&"crate_a", Vector2(-2.2, 7.45), Vector3(1.2, 0.9, 1.0), &"crate", true)
+	layout.add_piece(&"crate_b", Vector2(2.0, 7.5), Vector3(1.0, 0.7, 0.9), &"crate", true)
+	layout.add_piece(&"crate_c", Vector2(2.0, 7.5), Vector3(0.7, 0.5, 0.6), &"crate", false, 0.7)
 
 
 ## Rodina's Machines (Items.ShipStatus / Scanners / FTL_Radio / BatteryArray / LimnalDrive) as solid wall units with a screen each.

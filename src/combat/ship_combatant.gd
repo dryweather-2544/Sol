@@ -5,12 +5,15 @@ extends ProjectileSim.Target
 var ship: Ship
 var team := 0
 var radius := 9.0
+## Incoming damage is divided by this (tougher ships take more hits to kill).
+var toughness := 1.0
 
 
-func _init(target_ship: Ship, team_id_value: int, hit_radius: float = 9.0) -> void:
+func _init(target_ship: Ship, team_id_value: int, hit_radius: float = 9.0, toughness_value: float = 1.0) -> void:
 	ship = target_ship
 	team = team_id_value
 	radius = hit_radius
+	toughness = maxf(0.01, toughness_value)
 
 
 func combat_position() -> WorldPos:
@@ -29,9 +32,10 @@ func team_id() -> int:
 	return team
 
 
-func apply_damage(amount: float, source: Object) -> void:
+func apply_damage(raw_amount: float, source: Object) -> void:
 	if ship.state.hull <= 0.0:
 		return
+	var amount := raw_amount / toughness
 	if ship.systems != null:
 		ship.systems.take_ambush_hit()
 		var subsystems := ship.systems.subsystems

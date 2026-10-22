@@ -39,6 +39,15 @@ func add_mouse_motion(relative_pixels: Vector2) -> void:
 	camera.rotation.x = _look_pitch
 
 
+func get_pitch() -> float:
+	return _look_pitch
+
+
+func set_pitch(value: float) -> void:
+	_look_pitch = clampf(value, -1.5, 1.5)
+	camera.rotation.x = _look_pitch
+
+
 func take_pending_yaw() -> float:
 	var yaw := pending_yaw
 	pending_yaw = 0.0

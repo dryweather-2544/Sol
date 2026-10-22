@@ -22,6 +22,11 @@ var hide_star := false
 
 ## How many star radii the corona quad reaches from the centre.
 const STAR_CORONA_REACH := 4.0
+## The active planet is real terrain, which the camera's far plane cuts off once the viewer is far above it (CameraRange
+## caps far/near, so the far plane is only about 2,000 km at the cockpit's near plane). Past this many times the
+## impostor distance (0.8 x far plane) of altitude, it is drawn as a sphere like every other body, so a planet never
+## vanishes between the end of its terrain and the frame switch at its sphere of influence.
+const TERRAIN_HANDOFF := 1.1
 
 
 func _ready() -> void:
@@ -84,20 +89,24 @@ func _process(_delta: float) -> void:
 	for body_id in _nodes:
 		var node: MeshInstance3D = _nodes[body_id]
 		var body: BodyDef = system.bodies[body_id]
-		node.visible = body_id != runtime.active_frame and not (body.is_star and hide_star)
+		var center := system.body_position(body_id, runtime.time_seconds)
+		var offset := Vector3(center.x - viewer_system.x, center.y - viewer_system.y, center.z - viewer_system.z)
+		var distance := offset.length()
+		var terrain_drawn: bool = body_id == runtime.active_frame and distance - body.radius <= placement_distance * TERRAIN_HANDOFF
+		node.visible = not terrain_drawn and not (body.is_star and hide_star)
 		if _shells.has(body_id):
 			(_shells[body_id] as Node3D).visible = node.visible
 		if not node.visible:
 			continue
-		var center := system.body_position(body_id, runtime.time_seconds)
-		var offset := Vector3(center.x - viewer_system.x, center.y - viewer_system.y, center.z - viewer_system.z)
-		var distance := offset.length()
 		if distance <= placement_distance:
 			node.position = viewer_local + offset
 			node.scale = Vector3.ONE * body.radius
 			_update_shell(body_id, body, node.position, 1.0)
 		else:
-			var scale_factor := placement_distance / distance
+			# Bodies this far out are squeezed in front of the far plane. Keep their true front-to-back order (a moon in front
+			# of the star must stay in front of it) by spreading them over a thin band instead of one shared distance.
+			var draw_distance := placement_distance * (1.0 + 0.1 * (1.0 - placement_distance / distance))
+			var scale_factor := draw_distance / distance
 			node.position = viewer_local + offset * scale_factor
 			node.scale = Vector3.ONE * (body.radius * scale_factor)
 			_update_shell(body_id, body, node.position, scale_factor)

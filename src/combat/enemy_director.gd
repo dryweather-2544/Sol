@@ -9,6 +9,11 @@ const SHIP_ALERT_RANGE := 1500.0
 const SHIPS_PER_OUTPOST := 2
 const DRONES_PER_OUTPOST := 2
 const UPDATE_INTERVAL_SECONDS := 0.5
+## A skirmish or ambush encounter is dropped when the player is this far from its first ship (m).
+const SCRIPTED_ENCOUNTER_RANGE := 8000.0
+const SKIRMISH_DISTANCE := 900.0
+const SKIRMISH_SPREAD := 220.0
+const SKIRMISH_ID_PREFIX := "skirmish"
 
 var session: GameSession
 var planet: PlanetBody
@@ -24,6 +29,8 @@ class Encounter extends RefCounted:
 
 
 var _encounters := {} # poi id -> Encounter
+var _skirmish_wave := 0 ## waves cleared so far; the next one is this + 1
+var _skirmish_rng := SeedRng.new(SeedHash.string_hash("skirmish"))
 var _seconds := UPDATE_INTERVAL_SECONDS
 
 
@@ -64,16 +71,26 @@ func clear_all() -> void:
 
 
 func _refresh(player_position: WorldPos) -> void:
+	var spawned_this_tick := false
 	for instance in poi_manager.known_instances():
 		if instance.type != PoiDefinition.Type.OUTPOST or session.cleared_log.is_cleared(instance.id):
 			continue
 		var distance := instance.position.distance_to(player_position)
-		if distance < PoiRings.CONTENT_ENTER and not _encounters.has(instance.id):
-			_spawn(instance)
+		if distance < PoiRings.CONTENT_ENTER and not _encounters.has(instance.id) and not spawned_this_tick:
+			_spawn(instance) # building ships and drones is heavy: at most one outpost per refresh, never several in one frame
+			spawned_this_tick = true
 	for poi_id in _encounters.keys():
 		var encounter: Encounter = _encounters[poi_id]
-		if encounter.poi == null: # the scripted ambush: gone once the raider is dead
-			if encounter.ships[0].state.hull <= 0.0:
+		if encounter.poi == null: # a scripted encounter (ambush, skirmish wave): gone once every ship is dead, or far behind
+			var any_ship_alive := false
+			for ship in encounter.ships:
+				any_ship_alive = any_ship_alive or ship.state.hull > 0.0
+			if not any_ship_alive:
+				if String(poi_id).begins_with(SKIRMISH_ID_PREFIX):
+					_skirmish_wave += 1
+					session.say("Wave %d cleared" % _skirmish_wave)
+				_remove_encounter(poi_id)
+			elif encounter.ships[0].state.position.distance_to(player_position) > SCRIPTED_ENCOUNTER_RANGE:
 				_remove_encounter(poi_id)
 			continue
 		if encounter.poi.position.distance_to(player_position) > PoiRings.CONTENT_EXIT:
@@ -97,15 +114,17 @@ func _spawn(instance: PoiInstance) -> void:
 	encounter.poi = instance
 	var rng := SeedRng.new(SeedHash.combine(instance.seed_value, SeedHash.string_hash("guards")))
 	var frame := PoiBuilder.frame_basis(instance)
+	var ship_rng := SeedRng.new(SeedHash.combine(instance.seed_value, SeedHash.string_hash("guard_ships")))
 	for ship_index in SHIPS_PER_OUTPOST:
+		var def := FighterCatalog.pick(ship_rng, [FighterDef.Role.INTERCEPTOR, FighterDef.Role.FIGHTER])
 		var hover_position := instance.position.offset_by(frame.y * 140.0 + frame.x * (ship_index * 60.0 - 30.0) + frame.z * 40.0)
-		var ship := _make_hostile_ship("Guard%d" % ship_index, hover_position, Basis.looking_at(frame.x, frame.y), func():
+		var ship := _make_hostile_ship("Guard%d" % ship_index, def, hover_position, Basis.looking_at(frame.x, frame.y), func():
 			var player_position := session.player_world_position()
 			return player_position if player_position.distance_to(hover_position) < SHIP_ALERT_RANGE else instance.position.offset_by(frame.y * 140.0))
 		ship.destroyed.connect(func(): session.say("Guard ship destroyed"))
 		add_child(ship)
 		encounter.ships.append(ship)
-		encounter.targets.append(ShipCombatant.new(ship, 1))
+		encounter.targets.append(ShipCombatant.new(ship, 1, def.hit_radius(), def.toughness))
 	for drone_index in DRONES_PER_OUTPOST:
 		var angle := rng.next_float() * TAU
 		var drone_position := instance.position.offset_by(frame.x * cos(angle) * 12.0 + frame.z * sin(angle) * 12.0)
@@ -129,38 +148,74 @@ func _spawn(instance: PoiInstance) -> void:
 
 
 ## A hostile ship flown by an AIPilotSource that attacks whatever target_provider returns (not yet added to the tree).
-func _make_hostile_ship(ship_name: String, hover_position: WorldPos, facing: Basis, target_provider: Callable) -> Ship:
+func _make_hostile_ship(ship_name: String, def: FighterDef, hover_position: WorldPos, facing: Basis, target_provider: Callable) -> Ship:
 	var ship := Ship.new()
 	ship.name = ship_name
 	ship.planet = planet
 	ship.team_id = 1
-	ship.hull_color = Color(0.75, 0.15, 0.12)
-	ship.weapon.damage = 0.012 # hostiles are a nuisance, not an instant kill
-	ship.weapon.shots_per_second = 4.0
+	ship.configure_fighter(def) # hostiles are a nuisance, not an instant kill: each fighter's gun is tuned low
 	ship.projectiles = session.projectiles
 	ship.state.position = hover_position
 	ship.state.basis = facing
 	ship.render_origin = render_origin.duplicate_position()
 	var ai := AIPilotSource.new(AIPilotSource.Mode.ATTACK)
 	ai.target_provider = target_provider
-	ai.target_velocity_provider = func(): return session.ship.state.velocity if session.mode != GameSession.Mode.OUTSIDE else session.exterior_body.velocity
+	ai.preferred_range = def.preferred_range
+	ai.fire_range = def.fire_range
+	ai.aim_error = def.aim_error
+	ai.move_lock_strength = 0.25 # accelerate and brake (a few ticks) rather than jump between speeds
+	ai.turn_before_thrust = true # no racing off along the old heading after a fly-past
+	ai.target_velocity_provider = func(): return session.active_ship().state.velocity if session.mode != GameSession.Mode.OUTSIDE else session.exterior_body.velocity
 	ship.controller.request_control(ai, &"hostile_ai")
 	return ship
 
 
 ## The Mayday ambush: one raider comes in from ahead and above the player's ship and attacks it.
 func spawn_ambush() -> void:
-	var player_ship := session.ship.state
+	var player_ship := session.active_ship().state
 	var start := player_ship.position.offset_by(-player_ship.basis.z * 800.0 + player_ship.basis.y * 150.0)
-	var raider := _make_hostile_ship("Raider", start, Basis.looking_at(player_ship.basis.z, player_ship.basis.y), func(): return session.ship.state.position)
+	var def := FighterCatalog.by_id(&"talon")
+	var raider := _make_hostile_ship("Raider", def, start, Basis.looking_at(player_ship.basis.z, player_ship.basis.y), func(): return session.active_ship().state.position)
 	raider.destroyed.connect(func(): session.say("Raider destroyed"))
 	add_child(raider)
 	var encounter := Encounter.new()
 	encounter.poi = null
 	encounter.ships.append(raider)
-	encounter.targets.append(ShipCombatant.new(raider, 1))
+	encounter.targets.append(ShipCombatant.new(raider, 1, def.hit_radius(), def.toughness))
 	session.enemy_targets.append_array(encounter.targets)
 	_encounters[&"ambush"] = encounter
+
+
+## Skirmish mode (singleplayer fun, B in flight): a wing of fighters comes in from ahead and attacks the player's ship.
+## Each cleared wave sends a bigger, tougher one; kills pay 1 scrap. One wave at a time. Returns the number of ships sent,
+## 0 when a wave is already in progress.
+func spawn_skirmish() -> int:
+	for poi_id in _encounters.keys():
+		if String(poi_id).begins_with(SKIRMISH_ID_PREFIX):
+			session.say("Fighters still inbound")
+			return 0
+	var wave_number := _skirmish_wave + 1
+	var wing := FighterCatalog.wave(wave_number, _skirmish_rng)
+	var player_ship := session.active_ship().state
+	var forward := -player_ship.basis.z
+	var encounter := Encounter.new()
+	encounter.poi = null
+	for index in wing.size():
+		var def := wing[index]
+		var slot := float(index) - (wing.size() - 1) * 0.5
+		var offset := forward * SKIRMISH_DISTANCE + player_ship.basis.x * slot * SKIRMISH_SPREAD + player_ship.basis.y * (150.0 + 60.0 * float(index % 2))
+		var start := player_ship.position.offset_by(offset)
+		var fighter := _make_hostile_ship("Skirmish%d_%d" % [wave_number, index], def, start, Basis.looking_at(-forward, player_ship.basis.y), func(): return session.active_ship().state.position)
+		fighter.destroyed.connect(func():
+			session.say("%s destroyed" % def.display_name)
+			session.inventory.add(ItemDefinition.SCRAP, 1))
+		add_child(fighter)
+		encounter.ships.append(fighter)
+		encounter.targets.append(ShipCombatant.new(fighter, 1, def.hit_radius(), def.toughness))
+	session.enemy_targets.append_array(encounter.targets)
+	_encounters[StringName("%s_%d" % [SKIRMISH_ID_PREFIX, wave_number])] = encounter
+	session.say("Wave %d: %d fighters inbound" % [wave_number, wing.size()])
+	return wing.size()
 
 
 func _remove_encounter(poi_id: StringName) -> void:

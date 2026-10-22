@@ -85,7 +85,8 @@ func test_enemy_director_spawns_guards_once_and_clearing_is_remembered() -> void
 		if instance.type == PoiDefinition.Type.OUTPOST and instance.position.distance_to(manager.viewer) < PoiRings.CONTENT_ENTER:
 			outposts_in_range += 1
 	assert_true(outposts_in_range >= 1)
-	director._refresh(manager.viewer)
+	for refresh in outposts_in_range: # the director builds at most one outpost's guards per refresh
+		director._refresh(manager.viewer)
 	assert_eq(director.active_encounter_count(), outposts_in_range)
 	assert_eq(session.enemy_targets.size(), outposts_in_range * (EnemyDirector.SHIPS_PER_OUTPOST + EnemyDirector.DRONES_PER_OUTPOST))
 	director._refresh(manager.viewer)

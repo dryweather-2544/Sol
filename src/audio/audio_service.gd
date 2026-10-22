@@ -1,8 +1,9 @@
 class_name AudioService
 extends Node
 ## Plays Sol's synthesised sound: engine rumble from throttle, wind from speed in air, door and
-## airlock cues, landing thud, discovery chime. Builds its own buses (Master, SFX,
+## airlock cues, landing thud, discovery chime. Builds its own buses (Master, Music, SFX,
 ## Ambience, Interior with a low-pass) so volumes come from GameSettings. Reads game state; owns none.
+## The adaptive soundtrack is its child MusicDirector (`music`), created when there is a game session.
 
 const BUFFER_SECONDS := 0.12
 const ONE_SHOT_VOICES := 16
@@ -37,6 +38,10 @@ signal cue_started(cue_id: String, bus: StringName)
 
 var session: GameSession
 var ship: Ship
+## Set by the scene before the service enters the tree, so the music hears frame (planet) changes.
+var runtime: WorldRuntime
+## The adaptive soundtrack (null without a session, e.g. headless audio tests).
+var music: MusicDirector
 var _engine_player := AudioStreamPlayer.new()
 var _wind_player := AudioStreamPlayer.new()
 var _engine_voice := SoundSynth.EngineVoice.new()
@@ -111,6 +116,12 @@ func _ready() -> void:
 		add_child(generator_player)
 		(generator_player as AudioStreamPlayer).play()
 	if session != null:
+		music = MusicDirector.new()
+		music.name = "MusicDirector"
+		music.session = session
+		music.ship = ship
+		music.runtime = runtime
+		add_child(music)
 		session.discovery_log.poi_discovered.connect(func(_instance): play_cue("chime", "mus_discovery_sting"))
 		session.progress.objective_completed.connect(func(_index): play_sample("sfx_ui_objective"))
 		session.systems.ambush_hit.connect(func(): play_sample("sfx_dmg_hull_hit", 1))
@@ -152,7 +163,10 @@ func _process(delta: float) -> void:
 	var wind_strength := clampf(ship.state.speed() / 250.0, 0.0, 1.0) * (1.0 - smoothstep(0.3, 1.0, ship.state.atmosphere_ratio)) if in_air else 0.0
 	if session.mode == GameSession.Mode.OUTSIDE:
 		wind_strength = maxf(wind_strength, 0.12 if in_air else 0.0)
-	var rumble_in_use := inside and _set_loop_gain("amb_ship_structure_rumble_loop", wind_strength, engine_bus)
+	var hull_rumble := wind_strength # the mothership's hull rumble keeps following airspeed
+	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.SITTING or session.mode == GameSession.Mode.FIGHTER:
+		wind_strength = 0.0 # no rushing wind while flying a ship (owner's call): it is only heard on foot
+	var rumble_in_use := inside and _set_loop_gain("amb_ship_structure_rumble_loop", hull_rumble, engine_bus)
 	if not inside:
 		_set_loop_gain("amb_ship_structure_rumble_loop", 0.0, engine_bus)
 	# Outside (and in the atmosphere) the same strength drives the recorded wind: light fades into strong. Never on an airless world.
@@ -516,6 +530,8 @@ func resync_from_state() -> void:
 	_restoring = false
 	if session == null:
 		return
+	if music != null:
+		music.resync_from_state()
 	_previous_shots_fired = ship.weapon.shots_fired
 	_previous_gear = ship.state.gear
 	_previous_selected_gear = ship.state.selected_gear
@@ -574,6 +590,7 @@ func _feed(player: AudioStreamPlayer, producer: Callable) -> void:
 func _apply_volumes() -> void:
 	var settings := GameSettings.instance()
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(settings.master_volume, 0.0001)))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(maxf(settings.music_volume, 0.0001)))
 	for sfx_bus in ["SFX", "UI", "Ship", "Suit", "Radio"]:
 		AudioServer.set_bus_volume_db(AudioServer.get_bus_index(sfx_bus), linear_to_db(maxf(settings.sfx_volume, 0.0001)))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Ambience"), linear_to_db(maxf(settings.ambience_volume, 0.0001)))
@@ -581,7 +598,7 @@ func _apply_volumes() -> void:
 
 
 func _ensure_buses() -> void:
-	for bus_name in ["SFX", "Ambience", "Interior", "UI", "Ship", "Suit", "Radio"]:
+	for bus_name in ["Music", "SFX", "Ambience", "Interior", "UI", "Ship", "Suit", "Radio"]:
 		if AudioServer.get_bus_index(bus_name) == -1:
 			AudioServer.add_bus()
 			var index := AudioServer.bus_count - 1

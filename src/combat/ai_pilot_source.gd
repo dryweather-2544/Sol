@@ -17,6 +17,12 @@ var fire_cone_cos := 0.996
 var projectile_speed := 10000.0 # the ship gun's muzzle speed (Weapon.ship_gun)
 ## How far off (radians, random) its aim is, so it does not hit with every shot.
 var aim_error := 0.03
+## 0..1 per tick (PilotCommand.move_lock): how hard the AI snaps its velocity to the one it wants. 1 is instant (the old
+## behaviour); the small fighters use less so they accelerate and brake instead of jumping between speeds.
+var move_lock_strength := 1.0
+## When true the AI only closes in as fast as its nose points at the target, so a fighter that has just flown past the player
+## turns round first instead of racing off along its old heading.
+var turn_before_thrust := false
 var _rng := SeedRng.new(99)
 var _clock := 0.0
 
@@ -32,7 +38,7 @@ func poll(ship_state: ShipState, delta: float) -> PilotCommand:
 	command.gear = PilotCommand.GEAR_COMBAT
 	# Rodina's AI hands the flight model a velocity to match (the engine mover's MoveLock, EGBehavior.lua:68-82)
 	# rather than stick input; the lock value Rodina's mover uses is engine-side, 1 is Sol's choice.
-	command.move_lock = 1.0
+	command.move_lock = move_lock_strength
 	var target = target_provider.call() if target_provider.is_valid() else null
 	if mode == Mode.IDLE or target == null:
 		command.brake = true
@@ -59,7 +65,10 @@ func poll(ship_state: ShipState, delta: float) -> PilotCommand:
 				command.thrust = Vector3(0, 0, -clampf(distance / 300.0, 0.0, 1.0))
 		Mode.ATTACK:
 			if distance > preferred_range * 1.25:
-				command.thrust = Vector3(0, 0, -1)
+				var drive := 1.0
+				if turn_before_thrust:
+					drive = clampf(forward.dot(aim_direction) * 1.5 - 0.4, 0.0, 1.0) # full from about 25 degrees off, none past 75
+				command.thrust = Vector3(0, 0, -drive)
 			elif distance < preferred_range * 0.6:
 				command.thrust = Vector3(0, 0, 0.6)
 			command.thrust.x = 0.7 * sin(_clock * 0.9) # weave so it is harder to hit

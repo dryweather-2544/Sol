@@ -18,8 +18,11 @@ func _all_files(directory_path: String, found: Array[String]) -> void:
 func test_source_file_matches_the_copied_files() -> void:
 	var source_text := FileAccess.get_file_as_string("res://assets/sol/SOURCE.txt")
 	assert_true(source_text != "", "assets/sol/SOURCE.txt exists")
+	# SOURCE.txt is generated from the imported asset set; the project's own generated assets (screens, trim, interior decals) are in LOCAL_SOURCE.txt.
+	var local_text := FileAccess.get_file_as_string("res://assets/sol/LOCAL_SOURCE.txt")
+	assert_true(local_text != "", "assets/sol/LOCAL_SOURCE.txt exists")
 	var recorded := {}
-	for line in source_text.split("\n"):
+	for line in (source_text + "\n" + local_text).split("\n"):
 		var parts := line.split("  ", true, 1)
 		if parts.size() == 2 and parts[0].length() == 64:
 			recorded[parts[1]] = parts[0]
