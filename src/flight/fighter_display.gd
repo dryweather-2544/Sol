@@ -90,7 +90,7 @@ func _process(delta: float) -> void:
 
 ## The clickable controls of a screen: id -> area in screen pixels. Left: the guns master switch and the four gears. Right: the radar (range).
 static func regions(screen_kind: Kind) -> Dictionary:
-	var result := {}
+	var result := {"switch": Rect2(Vector2(404.0, 14.0), Vector2(86.0, 62.0))} # the corner hex cells: focus the other screen
 	if screen_kind == Kind.SYSTEMS:
 		result["guns"] = Rect2(Vector2(116.0, 372.0), Vector2(290.0, 36.0))
 		for index in GEAR_SHORT.size():
@@ -184,6 +184,7 @@ func _draw_backdrop() -> void:
 	_backdrop.draw_line(Vector2(36.0, 22.0), Vector2(380.0, 22.0), Color(ICE, 0.9), 2.0)
 	var f := font if font != null else ThemeDB.fallback_font
 	_backdrop.draw_string(f, Vector2(52.0, 49.0), "SYSTEMS" if kind == Kind.SYSTEMS else "FLIGHT", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 24, Color(0.92, 0.97, 1.0))
+	_backdrop.draw_string(f, Vector2(412.0, 73.0), "SWAP", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color(ICE, 0.75))
 	# two hex cells in the top corner
 	for cell_at in [Vector2(452.0, 44.0), Vector2(422.0, 34.0)]:
 		var hex := hex_points(cell_at, 17.0)

@@ -314,7 +314,9 @@ func test_cockpit_screen_controls_are_found_under_the_pointer() -> void:
 	assert_eq(Display.hit_test(Display.Kind.SYSTEMS, Vector2(256.0, 200.0)), "", "the hull ring is not a control")
 	assert_eq(Display.hit_test(Display.Kind.FLIGHT, Vector2(256.0, 200.0)), "radar")
 	assert_eq(Display.hit_test(Display.Kind.FLIGHT, Vector2(20.0, 20.0)), "")
-	assert_eq(Display.regions(Display.Kind.SYSTEMS).size(), 5)
+	assert_eq(Display.regions(Display.Kind.SYSTEMS).size(), 6, "guns, four gears, and the swap button")
+	assert_eq(Display.hit_test(Display.Kind.SYSTEMS, Vector2(450.0, 40.0)), "switch")
+	assert_eq(Display.hit_test(Display.Kind.FLIGHT, Vector2(450.0, 40.0)), "switch")
 
 
 func test_guns_stay_quiet_with_the_master_switch_safe_or_the_pointer_on_a_screen() -> void:
@@ -346,4 +348,5 @@ func test_screen_focus_starts_off_and_needs_a_screen_under_the_reticle() -> void
 	cockpit.begin_focus() # nothing under the reticle: stays off
 	assert_true(not cockpit.in_focus())
 	assert_eq(cockpit.focus_look(), Vector2.ZERO)
+	assert_eq(cockpit.swap_focus(), "", "nothing to swap while no screen is focused")
 	cockpit.free()

@@ -489,6 +489,15 @@ func move_focus_pointer(relative: Vector2) -> void:
 	_focus_pointer = (_focus_pointer + relative * FOCUS_SPEED).clamp(Vector2.ZERO, Vector2(512.0, 512.0))
 
 
+## Focuses the other screen (the pointer starts in its middle). Returns what to tell the pilot.
+func swap_focus() -> String:
+	if _focus_index < 0:
+		return ""
+	_focus_index = 1 - _focus_index
+	_focus_pointer = Vector2(256.0, 256.0)
+	return "Screen: %s" % ("SYSTEMS" if _focus_index == 0 else "FLIGHT")
+
+
 ## The control under the focus pointer ("" when it is over empty glass).
 func focus_hover() -> String:
 	return _hover_id if _focus_index >= 0 else ""
@@ -568,6 +577,8 @@ func activate() -> String:
 		return ""
 	var id := _hover_id
 	_hover_display.flash(id)
+	if id == "switch":
+		return swap_focus()
 	if id.begins_with("gear"):
 		var wanted := int(id.substr(4))
 		if wanted > ship.state.allowed_gear:

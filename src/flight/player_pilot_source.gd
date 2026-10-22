@@ -12,6 +12,7 @@ var _mouse_motion_this_tick := Vector2.ZERO
 var _pending_gear := -1
 ## True while the pilot has a cockpit screen focused: right clicks then select controls, and must not also work the clutch.
 var ignore_clutch := false
+var ignore_fire := false
 var _shift_block := false
 
 
@@ -38,7 +39,7 @@ func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 		Input.get_axis("roll_right", "roll_left"))
 	_mouse_motion_this_tick = Vector2.ZERO
 	command.boost = Input.is_action_pressed("boost")
-	command.fire = Input.is_action_pressed("fire")
+	command.fire = Input.is_action_pressed("fire") and not ignore_fire
 	command.brake = Input.is_action_pressed("brake")
 	# Shift from the gear the pilot chose (not the one in effect), so a forced lower gear does not eat a shift.
 	var clutch := Input.is_action_pressed("clutch") and not ignore_clutch

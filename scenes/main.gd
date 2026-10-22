@@ -64,10 +64,12 @@ var _fighter_zoom_fov := 0.0
 ## Cockpit screens: a right click on a screen (letting go of the right button while the reticle is on it) focuses it: the view zooms in on it and
 ## the mouse moves a pointer over it. A right click then presses the control under the pointer, or on empty glass leaves the focus.
 var _screen_focus := false
+var _pad_hover := 0.0 ## seconds the reticle has rested on a cockpit screen with the right button held
 var _screen_zoom := 1.0 ## wheel: scales the focused screen's field of view
 var _screen_fov := 0.0 ## the cockpit camera's smoothed field of view
 var _leave_blocks_entry := false ## the right button that left the focus must not focus again when it is released
 var _screen_hint_shown := false
+const FIGHTER_HOLD_ZOOM := -18.0 # degrees of field of view taken off while the right mouse button is held (free look), eased back on release
 const FIGHTER_ZOOM_MIN := -22.0
 const FIGHTER_ZOOM_MAX := 26.0
 const FIGHTER_WIDE_FOV := 20.0
@@ -280,6 +282,7 @@ func _physics_process(delta: float) -> void:
 		if _screen_focus and not (session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view and _fighter_node.cockpit != null and _fighter_node.cockpit.in_focus()):
 			_leave_screen_focus() # the view changed (chase view, climbed out) or the cockpit went away
 		player_source.ignore_clutch = _screen_focus
+		player_source.ignore_fire = _screen_focus # left click presses screen controls then
 		_fighter_node.screen_pointer_active = _fighter_node.cockpit != null and (_fighter_node.cockpit.is_pointing() or _fighter_node.cockpit.in_focus())
 		if not _screen_hint_shown and _fighter_node.cockpit != null and _fighter_node.cockpit.pointed_screen() >= 0:
 			_screen_hint_shown = true
@@ -463,6 +466,9 @@ func _input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		inventory_menu.open()
 		return
+	if _screen_focus and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_TAB and _fighter_node != null and _fighter_node.cockpit != null:
+		session.say(_fighter_node.cockpit.swap_focus()) # Tab: the other cockpit screen
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		match session.mode:
 			GameSession.Mode.OUTSIDE:
@@ -478,37 +484,29 @@ func _input(event: InputEvent) -> void:
 				elif _screen_focus and _fighter_node != null and _fighter_node.cockpit != null:
 					_fighter_node.cockpit.move_focus_pointer(event.relative)
 				elif Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-					_look_yaw = wrapf(_look_yaw - event.relative.x * 0.004, -PI, PI)
-					_look_pitch = clampf(_look_pitch - event.relative.y * 0.004, -1.3, 1.3)
+					var zoomed_rate := 0.004 * clampf(1.0 + _fighter_zoom_fov / 45.0, 0.5, 1.0) # finer aim the further it is zoomed in
+					_look_yaw = wrapf(_look_yaw - event.relative.x * zoomed_rate, -PI, PI)
+					_look_pitch = clampf(_look_pitch - event.relative.y * zoomed_rate, -1.3, 1.3)
 				else:
 					player_source.add_mouse_motion(event.relative)
 	elif session.gunner_station and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 		var step := 1.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1.0
 		_turret_zoom = clampf(_turret_zoom + step * maxf(1.0, _turret_zoom * 0.12), 1.5, 80.0)
-	elif _screen_focus and session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		var cockpit := _fighter_node.cockpit
+	elif _screen_focus and session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var cockpit := _fighter_node.cockpit # left click presses the control under the pointer while the right button holds the zoom
 		if cockpit != null and cockpit.focus_hover() != "":
 			var told := cockpit.activate()
 			if told != "":
 				session.say(told)
-		else:
-			_leave_screen_focus()
 		get_viewport().set_input_as_handled()
-	elif not _screen_focus and session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_RIGHT and _fighter_node != null and _fighter_node.cockpit != null:
-		if _leave_blocks_entry:
-			_leave_blocks_entry = false
-		elif _fighter_cockpit_view and _fighter_node.cockpit.pointed_screen() >= 0:
-			_screen_focus = true
-			_fighter_node.cockpit.begin_focus()
-			session.say("Screen focus: move the mouse, right-click a control (right-click empty glass to leave), wheel to zoom")
+	elif _screen_focus and session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		_leave_screen_focus() # letting go of the right button lets go of the zoom: the view eases back
 	elif session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_MIDDLE):
 		if _screen_focus:
-			if event.button_index != MOUSE_BUTTON_MIDDLE:
+			if event.button_index == MOUSE_BUTTON_MIDDLE:
+				session.say(_fighter_node.cockpit.swap_focus()) # middle click: the other cockpit screen
+			else:
 				_screen_zoom = clampf(_screen_zoom * (1.12 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else 0.89), 0.4, 1.8)
-		elif event.button_index == MOUSE_BUTTON_MIDDLE:
-			_fighter_zoom_fov = 0.0 if _fighter_zoom_fov > 8.0 else FIGHTER_WIDE_FOV # click: snap between the normal and the wide view
-		else:
-			_fighter_zoom_fov = clampf(_fighter_zoom_fov + (3.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -3.0), FIGHTER_ZOOM_MIN, FIGHTER_ZOOM_MAX)
 	elif event.is_action_pressed("gunner_station"):
 		session.toggle_gunner_station()
 		_update_active_camera()
@@ -953,6 +951,8 @@ func _on_menu_resume() -> void:
 
 
 func _apply_field_of_view() -> void:
+	var holding := session.mode == GameSession.Mode.FIGHTER and not _screen_focus and not session.gunner_station and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	_fighter_zoom_fov = lerpf(_fighter_zoom_fov, FIGHTER_HOLD_ZOOM if holding else 0.0, 0.2) # zoom in while the button is held; it snaps back on release
 	var fov := VisualStyle.base_field_of_view(GameSettings.instance().field_of_view)
 	for camera in [interior_view.camera, on_foot.camera]:
 		(camera as Camera3D).fov = fov
@@ -961,7 +961,7 @@ func _apply_field_of_view() -> void:
 	chase_camera.fov = clampf(ship_fov + _fighter_zoom_fov, 35.0, 120.0) if session.mode == GameSession.Mode.FIGHTER else ship_fov
 	cockpit_camera.fov = minf(ship_fov + 18.0, 120.0) # wider inside the canopy so more of the windscreen is in view
 	if _fighter_node != null and _fighter_node.cockpit_camera != null:
-		var wanted_fov := clampf(ship_fov + 12.0 + _fighter_zoom_fov, 35.0, 120.0) # wider than the base so more of the world is in view; wheel zooms, middle click snaps wide
+		var wanted_fov := clampf(ship_fov + 12.0 + _fighter_zoom_fov, 35.0, 120.0) # wider than the base so more of the world is in view; holding the right mouse button zooms in
 		if _screen_focus and _fighter_node.cockpit != null:
 			wanted_fov = _fighter_node.cockpit.focus_fov() * _screen_zoom # zoomed in on the focused screen
 		_screen_fov = wanted_fov if _screen_fov <= 0.0 else lerpf(_screen_fov, wanted_fov, 0.18)
@@ -992,6 +992,12 @@ func _update_warp_view(delta: float) -> void:
 	var rodina := VisualStyle.is_rodina()
 	chase_camera.follow_distance = warp_view.follow_distance() * RodinaEmitter.SHIP_SCALE if rodina else 0.0
 	chase_camera.follow_angle = deg_to_rad(warp_view.follow_angle_degrees()) if rodina else 0.0
+	var over_pad := session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view and not _screen_focus and not session.gunner_station and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and _fighter_node != null and _fighter_node.cockpit != null and _fighter_node.cockpit.pointed_screen() >= 0
+	_pad_hover = _pad_hover + delta if over_pad else 0.0
+	if _pad_hover > 0.12:
+		_pad_hover = 0.0
+		_screen_focus = true # right button held with the reticle on a screen: the view eases in on it, and eases back when the button is released
+		_fighter_node.cockpit.begin_focus()
 	if _screen_focus or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or session.gunner_station:
 		var settle := 1.0 - exp(-8.0 * delta) # the view swings back behind the ship when free look is released (or onto the focused screen)
 		var look_target := _fighter_node.cockpit.focus_look() if _screen_focus and _fighter_node != null and _fighter_node.cockpit != null else Vector2.ZERO

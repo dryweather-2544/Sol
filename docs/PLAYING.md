@@ -67,6 +67,11 @@ climb in. It has no interior, doors or crew: just a cockpit (**V** swaps between
 back where you boarded (the helm, or on foot); a fighter in the air is gone, one on the ground stays. If it is destroyed you are back where you
 boarded. Fighters are not saved: loading puts you back in the mothership. Skirmishes (**B**) work from a fighter too.
 
+The cockpit's two screens are clickable. Hold the **right mouse button** and look round: the crosshair becomes a pointer on any screen it touches.
+**Let go of the right button on a screen to focus it**: the view zooms in on it (**wheel** zooms further or back) and the mouse moves a pointer over
+it. **Right-click** a control to press it, or right-click empty glass to leave. Left screen: the guns master switch (SAFE / STANDBY / ARMED) and the
+four gears. **Middle click or Tab** (or the SWAP corner on either screen) moves the focus to the other screen. Right screen: click the radar to cycle its range (1, 2.5, 5, 10 km). The guns never fire while the pointer is on a screen.
+
 ### The fighter cockpit
 
 **V** in a fighter puts you in the cockpit: canopy struts, a hex radar (hostile ships as amber blips, ahead is up), a hull-integrity strip, fuel (F) and speed (S)
