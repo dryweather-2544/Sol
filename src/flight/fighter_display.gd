@@ -24,7 +24,12 @@ var font: Font
 ## Fed every frame by FighterCockpit.
 var hull := 1.0
 var fuel := 1.0
-var armed := false
+## 0 = master switch SAFE, 1 = live but not in the combat gear (standby), 2 = armed.
+var guns_state := 0
+var radar_range_text := "RNG 2.5 km"
+## The pilot's pointer (the cockpit reticle) on this screen, in screen pixels (x < 0: not on it), and the control under it.
+var pointer := Vector2(-1.0, -1.0)
+var hover_id := ""
 var gear := 1
 var gear_name := "COMBAT"
 var speed_text := "0 m/s"
@@ -36,6 +41,8 @@ var warning := false
 var _clock := 0.0
 var _backdrop := Control.new()
 var _overlay := Control.new()
+var _cursor := Control.new()
+var _flash_left := 0.0
 
 
 func _init() -> void:
@@ -53,6 +60,11 @@ func _init() -> void:
 	_overlay.size = Vector2(SIZE, SIZE)
 	_overlay.draw.connect(_draw_overlay)
 	add_child(_overlay)
+	_cursor.name = "Cursor"
+	_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cursor.size = Vector2(SIZE, SIZE)
+	_cursor.draw.connect(_draw_cursor)
+	add_child(_cursor)
 
 
 ## The right screen's radar sits inside the display, under the scanlines.
@@ -61,6 +73,7 @@ func attach_radar(radar: FighterRadar) -> void:
 	radar.size = RADAR_SIZE # a Control in a SubViewport draws nothing until it is given a size
 	add_child(radar)
 	move_child(_overlay, -1)
+	move_child(_cursor, -1)
 
 
 func _process(delta: float) -> void:
@@ -68,7 +81,37 @@ func _process(delta: float) -> void:
 	if view != null and view.render_target_update_mode == SubViewport.UPDATE_DISABLED:
 		return # the cockpit is not on screen
 	_clock += delta
+	_flash_left = maxf(0.0, _flash_left - delta)
 	queue_redraw()
+	_cursor.queue_redraw()
+
+
+# --- controls the pilot can click -------------------------------------------------------------------------------
+
+## The clickable controls of a screen: id -> area in screen pixels. Left: the guns master switch and the four gears. Right: the radar (range).
+static func regions(screen_kind: Kind) -> Dictionary:
+	var result := {}
+	if screen_kind == Kind.SYSTEMS:
+		result["guns"] = Rect2(Vector2(116.0, 372.0), Vector2(290.0, 36.0))
+		for index in GEAR_SHORT.size():
+			result["gear%d" % index] = Rect2(Vector2(36.0 + float(index) * 116.0, 434.0), Vector2(108.0, 50.0))
+	else:
+		result["radar"] = Rect2(RADAR_AT, RADAR_SIZE)
+	return result
+
+
+## The id of the control under `point` (screen pixels), or "" when there is none.
+static func hit_test(screen_kind: Kind, point: Vector2) -> String:
+	var areas := regions(screen_kind)
+	for id in areas:
+		if (areas[id] as Rect2).has_point(point):
+			return id
+	return ""
+
+
+## A click landed on this control: it flashes.
+func flash(_id: String) -> void:
+	_flash_left = 0.22
 
 
 # --- pure helpers (tested) ---------------------------------------------------------------------------------------
@@ -157,6 +200,19 @@ func _draw_overlay() -> void:
 	_overlay.draw_colored_polygon(PackedVector2Array([Vector2(10.0, 10.0), Vector2(250.0, 10.0), Vector2(10.0, 240.0)]), Color(1.0, 1.0, 1.0, 0.035))
 
 
+## The pointer and the highlight of the control under it, above everything (the radar, the scanlines).
+func _draw_cursor() -> void:
+	if hover_id != "":
+		var areas := regions(kind)
+		if areas.has(hover_id):
+			var area := (areas[hover_id] as Rect2).grow(5.0)
+			_cursor.draw_rect(area, Color(ICE, 0.12 + (0.3 if _flash_left > 0.0 else 0.0)))
+			_cursor.draw_rect(area, Color(ICE, 0.95), false, 3.0)
+	if pointer.x >= 0.0:
+		_cursor.draw_circle(pointer, 5.0, Color(1.0, 1.0, 1.0, 0.95))
+		_cursor.draw_arc(pointer, 12.0, 0.0, TAU, 24, Color(ICE, 0.95), 2.0, true)
+
+
 func _screen_texture() -> Texture2D:
 	var path := SCREEN_DIR + ("scr_interface_3.png" if kind == Kind.SYSTEMS else "scr_interface_1.png")
 	if not ResourceLoader.exists(path):
@@ -185,7 +241,7 @@ func _text(text: String, at: Vector2, size_px: int, colour: Color, align: Horizo
 
 
 func _status_chip(text: String, colour: Color) -> void:
-	_text(text, Vector2(206.0, 48.0), 18, colour, HORIZONTAL_ALIGNMENT_RIGHT, 140.0)
+	_text(text, Vector2(186.0, 48.0), 20, colour, HORIZONTAL_ALIGNMENT_RIGHT, 160.0)
 
 
 func _slanted(rect: Rect2, slant: float) -> PackedVector2Array:
@@ -221,17 +277,17 @@ func _draw_systems(pulse: float) -> void:
 		draw_arc(centre, radius, from_angle, to_angle, 6, colour if index < lit else Color(CYAN, 0.13), 22.0, true)
 	draw_arc(centre, radius - 22.0, 0.0, TAU, 56, Color(CYAN, 0.35), 1.5, true)
 	draw_arc(centre, radius + 17.0, start, start + deg_to_rad(270.0), 40, Color(CYAN, 0.35), 1.5, true)
-	_text("HULL", centre + Vector2(-60.0, -34.0), 18, Color(CYAN, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 120.0)
+	_text("HULL", centre + Vector2(-60.0, -34.0), 20, Color(CYAN, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 120.0)
 	_text("%d" % roundi(hull * 100.0), centre + Vector2(-90.0, 28.0), 62, Color(0.93, 0.98, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 180.0)
-	_text("% INTEGRITY", centre + Vector2(-80.0, 56.0), 14, Color(CYAN, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 160.0)
+	_text("% INTEGRITY", centre + Vector2(-80.0, 56.0), 16, Color(CYAN, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 160.0)
 	# fuel
 	_text("FUEL", Vector2(36.0, 352.0), 20, Color(AMBER, 0.95))
 	_segment_bar(Rect2(Vector2(116.0, 334.0), Vector2(290.0, 24.0)), fuel, AMBER if fuel > 0.15 else Color(ALERT, 0.6 + 0.4 * pulse), 20)
 	_text("%d%%" % roundi(fuel * 100.0), Vector2(380.0, 354.0), 22, Color(0.93, 0.98, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, 100.0)
 	# guns
 	_text("GUNS", Vector2(36.0, 398.0), 20, Color(CYAN, 0.9))
-	var chip := Rect2(Vector2(116.0, 372.0), Vector2(290.0, 36.0))
-	if armed:
+	var chip: Rect2 = regions(Kind.SYSTEMS)["guns"]
+	if guns_state == 2:
 		draw_colored_polygon(_slanted(chip, 14.0), Color(AMBER, 0.92))
 		_text("ARMED", chip.position + Vector2(0.0, 27.0), 24, NAVY, HORIZONTAL_ALIGNMENT_CENTER, chip.size.x)
 	else:
@@ -239,7 +295,8 @@ func _draw_systems(pulse: float) -> void:
 		draw_colored_polygon(outline, Color(CYAN, 0.1))
 		outline.append(outline[0])
 		draw_polyline(outline, Color(CYAN, 0.5), 1.5, true)
-		_text("SAFE", chip.position + Vector2(0.0, 27.0), 24, Color(CYAN, 0.6), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x)
+		var standby := guns_state == 1 # switched on, but the guns only work in the combat gear
+		_text("STANDBY" if standby else "SAFE", chip.position + Vector2(0.0, 27.0), 24, Color(AMBER, 0.75) if standby else Color(CYAN, 0.6), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x)
 	# gear selector
 	for index in GEAR_SHORT.size():
 		var cell := Rect2(Vector2(36.0 + float(index) * 116.0, 434.0), Vector2(108.0, 50.0))
@@ -262,9 +319,10 @@ func _draw_flight(pulse: float) -> void:
 	for index in rows.size():
 		var baseline := 382.0 + float(index) * 38.0
 		draw_line(Vector2(36.0, baseline - 31.0), Vector2(476.0, baseline - 31.0), Color(CYAN, 0.28), 1.5)
-		_text(rows[index][0], Vector2(40.0, baseline - 4.0), 18, Color(CYAN, 0.85))
+		_text(rows[index][0], Vector2(40.0, baseline - 4.0), 22, Color(CYAN, 0.85))
 		var value_colour: Color = rows[index][2]
 		if index == 2 and target_text != "NONE":
 			value_colour = Color(AMBER, 0.7 + 0.3 * pulse)
 		_text(rows[index][1], Vector2(176.0, baseline), 30, value_colour, HORIZONTAL_ALIGNMENT_RIGHT, 300.0)
 	_segment_bar(Rect2(Vector2(40.0, 474.0), Vector2(432.0, 14.0)), speed_fraction, CYAN, 28)
+	_text(radar_range_text, Vector2(200.0, 338.0), 20, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_RIGHT, 200.0)

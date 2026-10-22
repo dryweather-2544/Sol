@@ -145,6 +145,15 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 		if speed > tuning.gear_drag_speed_ratio[gear] * move_speed:
 			velocity *= maxf(0.0, 1.0 - DRAG_APPLICATIONS * minf(1.0, deceleration_factor) * delta)
 		var wish := command.thrust.limit_length(1.0)
+		if tuning.gear_station_keeping[gear] != 0 and wish.x != 0.0:
+			# Precision gear: strafing slides level with the ground. With the ship banked or on a slope the ship's own side axis
+			# points into the ground, and strafing along it drove the ship down into the terrain (and made it bounce).
+			var level_up := environment.level_up
+			var side := ship_state.basis.x - level_up * ship_state.basis.x.dot(level_up)
+			if side.length_squared() > 0.25:
+				var side_local := ship_state.basis.transposed() * side.normalized()
+				wish = Vector3(0.0, wish.y, wish.z) + side_local * wish.x
+				wish = wish.limit_length(1.0)
 		if gear == PilotCommand.GEAR_WARP:
 			wish = Vector3(0, 0, -1) # "Limnal Drive is not controllable": full forward always (EGVehicle.lua:1437-1441)
 		var braking := 0.0
@@ -187,8 +196,8 @@ static func _step_linear(ship_state: ShipState, command: PilotCommand, tuning: S
 				velocity = velocity.normalized() * (velocity.length() - over * (1.0 - exp(-CRUISE_EXCESS_DECAY * delta)))
 	ship_state.velocity = ship_state.basis * velocity
 	var gravity := environment.gravity
-	if tuning.gear_station_keeping[gear] != 0 and not command.lock_linear:
-		gravity -= gravity.limit_length(tuning.hover_thrust_limit) # the engines hold the ship up (as far as they can)
+	if tuning.gear_station_keeping[gear] != 0 and (not command.lock_linear or command.clutch):
+		gravity -= gravity.limit_length(tuning.hover_thrust_limit) # the engines hold the ship up (as far as they can), and still do while the pilot holds the clutch
 	ship_state.velocity += gravity * delta
 	ship_state.position.x += ship_state.velocity.x * delta
 	ship_state.position.y += ship_state.velocity.y * delta

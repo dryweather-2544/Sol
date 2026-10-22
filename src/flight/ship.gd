@@ -25,6 +25,10 @@ var team_id := 0
 var upgrades := ShipUpgrades.new()
 var hull_color := Color(0.62, 0.66, 0.72)
 var weapon := Weapon.ship_gun()
+## The player's fighter: the master arm switch on its cockpit screen (true = the guns will not fire), and whether the pilot's pointer is
+## on a cockpit screen control (a click then selects it and must not also shoot).
+var guns_safe := false
+var screen_pointer_active := false
 ## Set by configure_fighter for the small single-seat fighters (AI ships); null for the player's ship and plain placeholders.
 var fighter: FighterDef
 ## True for the fighter the player flies: it uses the player's flight settings and gets a cockpit camera.
@@ -234,6 +238,8 @@ static func gear_allows_fire(gear: int) -> bool:
 
 func _fire_weapon(command: PilotCommand, delta: float) -> void:
 	weapon.update(delta)
+	if screen_pointer_active or guns_safe:
+		return
 	if player_controlled and fighter != null and command.fire and state.hull > 0.0 and state.gear == PilotCommand.GEAR_CRUISE and not command.clutch:
 		state.selected_gear = PilotCommand.GEAR_COMBAT # pulling the trigger in cruise drops the fighter into the combat gear, where the guns work
 	if not nose_gun_enabled or projectiles == null or not command.fire or state.hull <= 0.0 or not Ship.gear_allows_fire(state.gear):

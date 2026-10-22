@@ -75,6 +75,19 @@ const Display := preload("res://src/flight/fighter_display.gd") # preloaded, so 
 var _left_display: Display
 var _right_display: Display
 var _display_views: Array[SubViewport] = []
+var _display_quads: Array[MeshInstance3D] = [] ## the quad each display is shown on, same order as _display_views
+## The pilot's pointer: main.gd turns it on while the right mouse button is held, and it is the cockpit camera's reticle.
+var pointer_enabled := false
+var _hover_display: Display
+var _hover_id := ""
+var _pointed_index := -1 ## the screen the reticle is on while the right button is held (-1: none)
+var _focus_index := -1 ## the screen the pilot has focused: the view is zoomed on it and the mouse moves a pointer over it
+var _focus_pointer := Vector2(256.0, 256.0)
+## How much of the view's height a focused screen fills.
+const FOCUS_FILL := 0.62
+## Screen pixels the pointer moves per mouse pixel.
+const FOCUS_SPEED := 1.1
+const RADAR_RANGES := [1000.0, 2500.0, 5000.0, 10000.0]
 var _time := 0.0
 ## Where the build helpers add things (null = the cockpit itself; the panel while it is being built).
 var _group: Node3D
@@ -127,6 +140,9 @@ func _process(delta: float) -> void:
 	for view in _display_views:
 		view.render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
 	if not active:
+		_focus_index = -1
+	_update_pointer(active and (pointer_enabled or _focus_index >= 0))
+	if not active:
 		return
 	_time += delta
 	var state := ship.state
@@ -141,7 +157,7 @@ func _process(delta: float) -> void:
 	if ship.radar_contacts.is_valid():
 		for contact in ship.radar_contacts.call():
 			var offset: Vector3 = contact
-			if Vector2(offset.x, offset.z).length() < RADAR_RANGE * 1.5:
+			if Vector2(offset.x, offset.z).length() < _radar.range_m * 1.5:
 				contacts.append(offset)
 	_radar.contacts = contacts
 	var nearest := INF
@@ -174,7 +190,8 @@ func _feed_labels(state: ShipState, speed: float, gear: int, altitude: String, n
 func _feed_display(display: Display, state: ShipState, speed: float, gear: int, altitude: String, nearest: float, warning: bool, speed_fraction: float) -> void:
 	display.hull = state.hull
 	display.fuel = state.fuel
-	display.armed = Ship.gear_allows_fire(state.gear) # guns work in the combat gear only
+	display.guns_state = 0 if ship.guns_safe else (2 if Ship.gear_allows_fire(state.gear) else 1) # guns work in the combat gear only
+	display.radar_range_text = "RNG " + _distance_text(_radar.range_m)
 	display.gear = gear
 	display.gear_name = GEAR_NAMES[gear]
 	display.speed_text = _speed_text(speed)
@@ -419,7 +436,9 @@ func _build_xwing_readouts() -> void:
 ## One 512 px screen in its own viewport, shown on a quad lying on the current plate (_group).
 func _build_display(kind: Display.Kind) -> Display:
 	var view := SubViewport.new()
-	view.size = Vector2i(512, 512)
+	view.size = Vector2i(1024, 1024) # drawn at twice the 512 px layout, so text stays sharp when the pilot zooms in
+	view.size_2d_override = Vector2i(512, 512)
+	view.size_2d_override_stretch = true
 	view.transparent_bg = true
 	view.msaa_2d = Viewport.MSAA_4X
 	view.render_target_update_mode = SubViewport.UPDATE_DISABLED
@@ -433,8 +452,136 @@ func _build_display(kind: Display.Kind) -> Display:
 	material.albedo_texture = view.get_texture()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_add(_quad(Vector2(0.385, 0.385)), material, Vector3(0.0, 0.0, 0.0115))
+	_display_quads.append(_add(_quad(Vector2(0.385, 0.385)), material, Vector3(0.0, 0.0, 0.0115)))
 	return display
+
+
+# --- the pointer: the reticle clicks the screens ---------------------------------------------------------------
+
+## True while the reticle is on a control of a cockpit screen (the guns must not fire then: the click selects it).
+func is_pointing() -> bool:
+	return _hover_id != ""
+
+
+## The screen under the reticle while the right button is held (-1: none). Letting go of the button on a screen focuses it.
+func pointed_screen() -> int:
+	return _pointed_index
+
+
+func in_focus() -> bool:
+	return _focus_index >= 0
+
+
+## Zooms in on the screen the reticle is on; the mouse then moves a pointer over it.
+func begin_focus() -> void:
+	if _pointed_index < 0:
+		return
+	var display: Display = [_left_display, _right_display][_pointed_index]
+	_focus_pointer = display.pointer if display.pointer.x >= 0.0 else Vector2(256.0, 256.0)
+	_focus_index = _pointed_index
+
+
+func end_focus() -> void:
+	_focus_index = -1
+
+
+func move_focus_pointer(relative: Vector2) -> void:
+	_focus_pointer = (_focus_pointer + relative * FOCUS_SPEED).clamp(Vector2.ZERO, Vector2(512.0, 512.0))
+
+
+## The control under the focus pointer ("" when it is over empty glass).
+func focus_hover() -> String:
+	return _hover_id if _focus_index >= 0 else ""
+
+
+## Yaw and pitch (radians, the cockpit camera's own Euler angles) that put the focused screen in the middle of the view.
+func focus_look() -> Vector2:
+	if _focus_index < 0 or _focus_index >= _display_quads.size() or ship == null or ship.cockpit_camera == null:
+		return Vector2.ZERO
+	var target := ship.to_local(_display_quads[_focus_index].global_position) - ship.cockpit_camera.position
+	if target.length() < 1e-4:
+		return Vector2.ZERO
+	return Vector2(atan2(-target.x, -target.z), asin(clampf(target.y / target.length(), -1.0, 1.0)))
+
+
+## The field of view (degrees) at which the focused screen fills FOCUS_FILL of the view's height.
+func focus_fov() -> float:
+	if _focus_index < 0 or _focus_index >= _display_quads.size() or ship == null or ship.cockpit_camera == null:
+		return 60.0
+	var quad := _display_quads[_focus_index]
+	var width := 0.385 * quad.global_transform.basis.get_scale().x
+	var distance := maxf(ship.cockpit_camera.global_position.distance_to(quad.global_position), 0.05)
+	return clampf(rad_to_deg(2.0 * atan(width * 0.5 / distance)) / FOCUS_FILL, 12.0, 60.0)
+
+
+func _update_pointer(enabled: bool) -> void:
+	var displays := [_left_display, _right_display]
+	var camera := ship.cockpit_camera if ship != null else null
+	_hover_display = null
+	_hover_id = ""
+	_pointed_index = -1
+	for index in displays.size():
+		var display: Display = displays[index]
+		if display == null:
+			continue
+		var point := Vector2(-1.0, -1.0)
+		var id := ""
+		if _focus_index >= 0:
+			if index == _focus_index:
+				point = _focus_pointer # the mouse drives the pointer while a screen is focused
+				id = Display.hit_test(display.kind, point)
+		elif enabled and camera != null:
+			var hit: Variant = _pick(index, camera)
+			if hit != null:
+				point = hit
+				_pointed_index = index
+				id = Display.hit_test(display.kind, point)
+		display.pointer = point
+		display.hover_id = id
+		if id != "":
+			_hover_display = display
+			_hover_id = id
+
+
+## Where the camera's centre ray meets screen `index`, in the screen's 512 px (null when it misses the plate).
+func _pick(index: int, camera: Camera3D) -> Variant:
+	if index >= _display_quads.size():
+		return null
+	var to_quad := _display_quads[index].global_transform.affine_inverse()
+	var origin := to_quad * camera.global_position
+	var direction := to_quad.basis * (-camera.global_basis.z)
+	if absf(direction.z) < 1e-6:
+		return null
+	var along := -origin.z / direction.z
+	if along <= 0.0:
+		return null
+	var hit := origin + direction * along
+	var side := 0.385 # the quad's size in its own space
+	if absf(hit.x) > side * 0.5 or absf(hit.y) > side * 0.5:
+		return null
+	return Vector2((hit.x / side + 0.5) * 512.0, (0.5 - hit.y / side) * 512.0)
+
+
+## Clicks the control under the pointer. Returns what to tell the pilot ("" when nothing was under it).
+func activate() -> String:
+	if _hover_display == null or ship == null:
+		return ""
+	var id := _hover_id
+	_hover_display.flash(id)
+	if id.begins_with("gear"):
+		var wanted := int(id.substr(4))
+		if wanted > ship.state.allowed_gear:
+			return "%s gear is not available here" % String(GEAR_NAMES[wanted]).capitalize()
+		ship.state.selected_gear = wanted
+		return "Gear: %s" % GEAR_NAMES[wanted]
+	if id == "guns":
+		ship.guns_safe = not ship.guns_safe
+		return "Guns SAFE" if ship.guns_safe else "Guns live (they fire in the COMBAT gear)"
+	if id == "radar":
+		var next := (RADAR_RANGES.find(_radar.range_m) + 1) % RADAR_RANGES.size()
+		_radar.range_m = RADAR_RANGES[next]
+		return "Radar range %s" % _distance_text(_radar.range_m)
+	return ""
 
 
 ## Loads the X-Wing cockpit and puts it around the pilot. False (nothing built) when the model file is not there.

@@ -10,6 +10,8 @@ var _mouse_motion_this_tick := Vector2.ZERO
 ## or S to shift down; the shift commits when W/S (or the clutch) are released. A shift the gear cannot make is refused
 ## (Rodina plays ShiftGrind) and nothing more is accepted until both keys are let go.
 var _pending_gear := -1
+## True while the pilot has a cockpit screen focused: right clicks then select controls, and must not also work the clutch.
+var ignore_clutch := false
 var _shift_block := false
 
 
@@ -39,7 +41,7 @@ func poll(ship_state: ShipState, _delta: float) -> PilotCommand:
 	command.fire = Input.is_action_pressed("fire")
 	command.brake = Input.is_action_pressed("brake")
 	# Shift from the gear the pilot chose (not the one in effect), so a forced lower gear does not eat a shift.
-	var clutch := Input.is_action_pressed("clutch")
+	var clutch := Input.is_action_pressed("clutch") and not ignore_clutch
 	command.clutch = clutch
 	command.gear = _clutch_shift(ship_state, clutch)
 	if clutch and ship_state.gear < PilotCommand.GEAR_WARP:

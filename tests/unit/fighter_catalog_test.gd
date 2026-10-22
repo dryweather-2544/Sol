@@ -305,3 +305,45 @@ func test_the_cockpit_screens_helpers() -> void:
 	assert_eq(Display.frame_points(4.0).size(), 8, "a rectangle with two corners cut")
 	assert_eq(FighterCockpit._distance_text(450.0), "450 m")
 	assert_eq(FighterCockpit._distance_text(2500.0), "2.5 km")
+
+
+func test_cockpit_screen_controls_are_found_under_the_pointer() -> void:
+	const Display := preload("res://src/flight/fighter_display.gd")
+	assert_eq(Display.hit_test(Display.Kind.SYSTEMS, Vector2(200.0, 390.0)), "guns")
+	assert_eq(Display.hit_test(Display.Kind.SYSTEMS, Vector2(36.0 + 116.0 * 2.0 + 50.0, 460.0)), "gear2", "the cruise cell")
+	assert_eq(Display.hit_test(Display.Kind.SYSTEMS, Vector2(256.0, 200.0)), "", "the hull ring is not a control")
+	assert_eq(Display.hit_test(Display.Kind.FLIGHT, Vector2(256.0, 200.0)), "radar")
+	assert_eq(Display.hit_test(Display.Kind.FLIGHT, Vector2(20.0, 20.0)), "")
+	assert_eq(Display.regions(Display.Kind.SYSTEMS).size(), 5)
+
+
+func test_guns_stay_quiet_with_the_master_switch_safe_or_the_pointer_on_a_screen() -> void:
+	var craft := Ship.new()
+	craft.player_controlled = true
+	craft.configure_fighter(FighterCatalog.all()[0])
+	craft.state.gear = PilotCommand.GEAR_CRUISE
+	craft.state.selected_gear = PilotCommand.GEAR_CRUISE
+	var command := PilotCommand.new()
+	command.fire = true
+	craft.guns_safe = true
+	craft._fire_weapon(command, DELTA)
+	assert_eq(craft.state.selected_gear, PilotCommand.GEAR_CRUISE, "master safe: the trigger does nothing, not even a gear change")
+	craft.guns_safe = false
+	craft.screen_pointer_active = true
+	craft._fire_weapon(command, DELTA)
+	assert_eq(craft.state.selected_gear, PilotCommand.GEAR_CRUISE, "the click is for the screen")
+	craft.screen_pointer_active = false
+	craft._fire_weapon(command, DELTA)
+	assert_eq(craft.state.selected_gear, PilotCommand.GEAR_COMBAT)
+	craft.free()
+
+
+func test_screen_focus_starts_off_and_needs_a_screen_under_the_reticle() -> void:
+	var cockpit := FighterCockpit.new()
+	assert_true(not cockpit.in_focus())
+	assert_eq(cockpit.focus_hover(), "")
+	assert_eq(cockpit.pointed_screen(), -1)
+	cockpit.begin_focus() # nothing under the reticle: stays off
+	assert_true(not cockpit.in_focus())
+	assert_eq(cockpit.focus_look(), Vector2.ZERO)
+	cockpit.free()

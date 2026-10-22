@@ -61,6 +61,13 @@ var _fighter_cockpit_view := true
 var _gear_hint_cooldown := 0.0
 ## Degrees added to the fighter's field of view with the mouse wheel (in the cockpit) and a middle click (wide view on/off).
 var _fighter_zoom_fov := 0.0
+## Cockpit screens: a right click on a screen (letting go of the right button while the reticle is on it) focuses it: the view zooms in on it and
+## the mouse moves a pointer over it. A right click then presses the control under the pointer, or on empty glass leaves the focus.
+var _screen_focus := false
+var _screen_zoom := 1.0 ## wheel: scales the focused screen's field of view
+var _screen_fov := 0.0 ## the cockpit camera's smoothed field of view
+var _leave_blocks_entry := false ## the right button that left the focus must not focus again when it is released
+var _screen_hint_shown := false
 const FIGHTER_ZOOM_MIN := -22.0
 const FIGHTER_ZOOM_MAX := 26.0
 const FIGHTER_WIDE_FOV := 20.0
@@ -270,6 +277,13 @@ func _physics_process(delta: float) -> void:
 	# The player's fighter is ticked here, after the mothership and before the camera nodes, never by its own _physics_process (which
 	# would run after the chase camera and leave the view one tick behind the ship).
 	if _fighter_node != null and is_instance_valid(_fighter_node) and not _fighter_node.is_queued_for_deletion():
+		if _screen_focus and not (session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view and _fighter_node.cockpit != null and _fighter_node.cockpit.in_focus()):
+			_leave_screen_focus() # the view changed (chase view, climbed out) or the cockpit went away
+		player_source.ignore_clutch = _screen_focus
+		_fighter_node.screen_pointer_active = _fighter_node.cockpit != null and (_fighter_node.cockpit.is_pointing() or _fighter_node.cockpit.in_focus())
+		if not _screen_hint_shown and _fighter_node.cockpit != null and _fighter_node.cockpit.pointed_screen() >= 0:
+			_screen_hint_shown = true
+			session.say("Let go of the right button on a screen to focus it")
 		_fighter_node.simulate_tick(delta)
 	_gear_hint_cooldown = maxf(0.0, _gear_hint_cooldown - delta)
 	if session.mode == GameSession.Mode.FIGHTER and _gear_hint_cooldown <= 0.0 and Input.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -461,6 +475,8 @@ func _input(event: InputEvent) -> void:
 					_orbit_pitch = clampf(_orbit_pitch - event.relative.y * 0.004, -1.4, 1.4)
 				elif session.gunner_station:
 					session.systems.turret.add_aim(event.relative)
+				elif _screen_focus and _fighter_node != null and _fighter_node.cockpit != null:
+					_fighter_node.cockpit.move_focus_pointer(event.relative)
 				elif Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 					_look_yaw = wrapf(_look_yaw - event.relative.x * 0.004, -PI, PI)
 					_look_pitch = clampf(_look_pitch - event.relative.y * 0.004, -1.3, 1.3)
@@ -469,8 +485,27 @@ func _input(event: InputEvent) -> void:
 	elif session.gunner_station and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 		var step := 1.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1.0
 		_turret_zoom = clampf(_turret_zoom + step * maxf(1.0, _turret_zoom * 0.12), 1.5, 80.0)
+	elif _screen_focus and session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var cockpit := _fighter_node.cockpit
+		if cockpit != null and cockpit.focus_hover() != "":
+			var told := cockpit.activate()
+			if told != "":
+				session.say(told)
+		else:
+			_leave_screen_focus()
+		get_viewport().set_input_as_handled()
+	elif not _screen_focus and session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_RIGHT and _fighter_node != null and _fighter_node.cockpit != null:
+		if _leave_blocks_entry:
+			_leave_blocks_entry = false
+		elif _fighter_cockpit_view and _fighter_node.cockpit.pointed_screen() >= 0:
+			_screen_focus = true
+			_fighter_node.cockpit.begin_focus()
+			session.say("Screen focus: move the mouse, right-click a control (right-click empty glass to leave), wheel to zoom")
 	elif session.mode == GameSession.Mode.FIGHTER and event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_MIDDLE):
-		if event.button_index == MOUSE_BUTTON_MIDDLE:
+		if _screen_focus:
+			if event.button_index != MOUSE_BUTTON_MIDDLE:
+				_screen_zoom = clampf(_screen_zoom * (1.12 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else 0.89), 0.4, 1.8)
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			_fighter_zoom_fov = 0.0 if _fighter_zoom_fov > 8.0 else FIGHTER_WIDE_FOV # click: snap between the normal and the wide view
 		else:
 			_fighter_zoom_fov = clampf(_fighter_zoom_fov + (3.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -3.0), FIGHTER_ZOOM_MIN, FIGHTER_ZOOM_MAX)
@@ -926,8 +961,22 @@ func _apply_field_of_view() -> void:
 	chase_camera.fov = clampf(ship_fov + _fighter_zoom_fov, 35.0, 120.0) if session.mode == GameSession.Mode.FIGHTER else ship_fov
 	cockpit_camera.fov = minf(ship_fov + 18.0, 120.0) # wider inside the canopy so more of the windscreen is in view
 	if _fighter_node != null and _fighter_node.cockpit_camera != null:
-		_fighter_node.cockpit_camera.fov = clampf(ship_fov + 12.0 + _fighter_zoom_fov, 35.0, 120.0) # wider than the base so more of the world is in view; wheel zooms, middle click snaps wide
+		var wanted_fov := clampf(ship_fov + 12.0 + _fighter_zoom_fov, 35.0, 120.0) # wider than the base so more of the world is in view; wheel zooms, middle click snaps wide
+		if _screen_focus and _fighter_node.cockpit != null:
+			wanted_fov = _fighter_node.cockpit.focus_fov() * _screen_zoom # zoomed in on the focused screen
+		_screen_fov = wanted_fov if _screen_fov <= 0.0 else lerpf(_screen_fov, wanted_fov, 0.18)
+		_fighter_node.cockpit_camera.fov = _screen_fov
 	turret_camera.fov = ship_fov
+
+
+## Back to the normal cockpit view.
+func _leave_screen_focus() -> void:
+	_screen_focus = false
+	_screen_zoom = 1.0
+	_leave_blocks_entry = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	if _fighter_node != null and _fighter_node.cockpit != null:
+		_fighter_node.cockpit.end_focus()
+	player_source.ignore_clutch = false
 
 
 ## Advances the Rodina warp/speed camera from the ship's real state and hands it to the ship cameras. In the sol style
@@ -943,16 +992,19 @@ func _update_warp_view(delta: float) -> void:
 	var rodina := VisualStyle.is_rodina()
 	chase_camera.follow_distance = warp_view.follow_distance() * RodinaEmitter.SHIP_SCALE if rodina else 0.0
 	chase_camera.follow_angle = deg_to_rad(warp_view.follow_angle_degrees()) if rodina else 0.0
-	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or session.gunner_station:
-		var settle := 1.0 - exp(-8.0 * delta) # the view swings back behind the ship when free look is released
-		_look_yaw = lerpf(_look_yaw, 0.0, settle)
-		_look_pitch = lerpf(_look_pitch, 0.0, settle)
+	if _screen_focus or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or session.gunner_station:
+		var settle := 1.0 - exp(-8.0 * delta) # the view swings back behind the ship when free look is released (or onto the focused screen)
+		var look_target := _fighter_node.cockpit.focus_look() if _screen_focus and _fighter_node != null and _fighter_node.cockpit != null else Vector2.ZERO
+		_look_yaw = lerpf(_look_yaw, look_target.x, settle)
+		_look_pitch = lerpf(_look_pitch, look_target.y, settle)
 	chase_camera.look_yaw = _look_yaw
 	chase_camera.look_pitch = _look_pitch
 	chase_camera.shake = warp_view.shake
 	cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0)
 	if _fighter_node != null and _fighter_node.cockpit_camera != null:
 		_fighter_node.cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0) # right mouse looks round the cockpit
+		if _fighter_node.cockpit != null:
+			_fighter_node.cockpit.pointer_enabled = session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 	if _fighter_node != null and _fighter_node.effects != null:
 		_fighter_node.effects.limnal_activation = warp_view.activation
 		_fighter_node.effects.camera_inside = session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view

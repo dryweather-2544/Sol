@@ -2,55 +2,53 @@ class_name ProjectileView
 extends Node3D
 ## Draws the projectiles of a ProjectileSim. Reads only.
 ##
-## Rodina's ship blaster is a fast plasma bolt fired in a rapid stream from two barrels, with a muzzle flare (EGVehicle
-## FireWeapon, EGWeaponBlaster). Matched to the owner's footage, drawn from hard-edged warm-white squares: the bolt is a
-## bright square with a couple of specks, and each shot throws a small spray of squares forward from its barrel that
-## stays where it was thrown while the ship flies on, so a burst of fire leaves a streak behind the ship.
+## Each shot is a white-hot bolt: a long thin bright core with a faint warm glow around it, stretched along its flight path.
+## No flare, smoke or trail.
 
-const HEAD_SIZES: Array[float] = [2.2, 0.8, 0.6] # metres: the bolt and two specks riding it
-const MAX_PROJECTILES := 300
-const FLARE_SQUARES := 16 # per shot
-const FLARE_LIFE := 0.35 # seconds
-const FLARE_SIZES: Array[float] = [0.6, 0.4, 0.3, 0.2, 0.15, 0.1]
-const FLARE_REACH := 7.0 # metres the spray reaches ahead of the barrel
-const FLARE_CONE := 0.25 # metres of sideways scatter per metre of reach
-const MAX_FLARE := 2500
-const COLOR := Color(1.0, 0.96, 0.82)
-
-class Square extends RefCounted:
-	var position: WorldPos
-	var size: float
-	var born: float
+const MAX_PROJECTILES := 400
+const BOLT_LENGTH := 16.0 # metres
+const CORE_WIDTH := 0.4
+const GLOW_WIDTH := 1.1
+const CORE_COLOR := Color(1.0, 1.0, 1.0)
+const GLOW_COLOR := Color(1.0, 0.82, 0.55, 0.28)
 
 var sim: ProjectileSim
 var render_origin := WorldPos.new(&"planet")
-var _multimesh := MultiMesh.new()
-var _instance := MultiMeshInstance3D.new()
-var _clock := 0.0
-var _flare: Array[Square] = [] # oldest first
-var _seen := {} # projectile id -> true once its muzzle flare was thrown
-var _rng := RandomNumberGenerator.new()
+var _core := MultiMesh.new()
+var _glow := MultiMesh.new()
 
 
 func _init() -> void:
 	name = "ProjectileView"
-	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = COLOR
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	material.billboard_keep_scale = true
-	quad.material = material
-	_multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	_multimesh.mesh = quad
-	_multimesh.instance_count = MAX_PROJECTILES * HEAD_SIZES.size() + MAX_FLARE
-	_multimesh.visible_instance_count = 0
-	_instance.multimesh = _multimesh
-	_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_instance.custom_aabb = AABB(Vector3.ONE * -1.0e5, Vector3.ONE * 2.0e5)
-	add_child(_instance)
-	_rng.seed = 7
+	var core_material := StandardMaterial3D.new()
+	core_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	core_material.albedo_color = CORE_COLOR
+	core_material.emission_enabled = true
+	core_material.emission = CORE_COLOR
+	core_material.emission_energy_multiplier = 3.0 # hot enough to bloom where the environment glows
+	var glow_material := StandardMaterial3D.new()
+	glow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	glow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow_material.albedo_color = GLOW_COLOR
+	glow_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	_add_layer(_core, core_material)
+	_add_layer(_glow, glow_material)
+
+
+func _add_layer(multimesh: MultiMesh, material: Material) -> void:
+	var box := BoxMesh.new()
+	box.size = Vector3(1.0, 1.0, 1.0)
+	box.material = material
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = box
+	multimesh.instance_count = MAX_PROJECTILES
+	multimesh.visible_instance_count = 0
+	var instance := MultiMeshInstance3D.new()
+	instance.multimesh = multimesh
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.custom_aabb = AABB(Vector3.ONE * -1.0e5, Vector3.ONE * 2.0e5)
+	add_child(instance)
 
 
 func _ready() -> void:
@@ -61,59 +59,27 @@ func apply_origin_shift(shift: Vector3) -> void:
 	render_origin = render_origin.offset_by(shift)
 
 
-func _process(delta: float) -> void:
-	_clock += delta
+func _process(_delta: float) -> void:
 	var count := mini(sim.projectiles.size(), MAX_PROJECTILES)
-	var live := {}
-	for index in count:
-		var projectile := sim.projectiles[index]
-		var id := projectile.get_instance_id()
-		live[id] = true
-		if not _seen.has(id):
-			_seen[id] = true
-			_throw_flare(projectile)
-	for id in _seen.keys():
-		if not live.has(id):
-			_seen.erase(id)
-	while not _flare.is_empty() and _clock - _flare[0].born > FLARE_LIFE:
-		_flare.pop_front()
-	while _flare.size() > MAX_FLARE:
-		_flare.pop_front()
 	var used := 0
 	for index in count:
 		var projectile := sim.projectiles[index]
+		var speed := projectile.velocity.length()
+		if speed < 0.01:
+			continue
+		var direction := projectile.velocity / speed
+		var up_hint := Vector3.UP if absf(direction.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
+		var axis_x := up_hint.cross(direction).normalized()
+		var axis_y := direction.cross(axis_x)
 		var origin := projectile.position.to_local_vector3(render_origin)
-		var rng := RandomNumberGenerator.new()
-		rng.seed = projectile.get_instance_id()
-		for square in HEAD_SIZES.size():
-			var edge := HEAD_SIZES[square]
-			var jitter := Vector3.ZERO if square == 0 else Vector3(rng.randf_range(-1.0, 1.0), rng.randf_range(-1.0, 1.0), rng.randf_range(-1.0, 1.0))
-			_multimesh.set_instance_transform(used, Transform3D(Basis.from_scale(Vector3(edge, edge, edge)), origin + jitter))
-			used += 1
-	for square in _flare:
-		var fade := 1.0 - (_clock - square.born) / FLARE_LIFE
-		var edge := square.size * clampf(fade, 0.0, 1.0)
-		_multimesh.set_instance_transform(used, Transform3D(Basis.from_scale(Vector3(edge, edge, edge)), square.position.to_local_vector3(render_origin)))
+		# The bolt never reaches back past the barrel it left (it grows out of the muzzle), so nothing is drawn inside the ship.
+		var length := minf(BOLT_LENGTH, speed * projectile.age)
+		if length < 1.0:
+			continue
+		# Centred half a bolt behind the shot's position, so the bright end leads.
+		var centre := origin - direction * (length * 0.5)
+		_core.set_instance_transform(used, Transform3D(Basis(axis_x * CORE_WIDTH, axis_y * CORE_WIDTH, direction * length), centre))
+		_glow.set_instance_transform(used, Transform3D(Basis(axis_x * GLOW_WIDTH, axis_y * GLOW_WIDTH, direction * length * 1.1), centre))
 		used += 1
-	_multimesh.visible_instance_count = used
-
-
-## The muzzle flare: a spray of squares thrown forward from where the shot left its barrel.
-func _throw_flare(projectile: ProjectileSim.Projectile) -> void:
-	var speed := projectile.velocity.length()
-	if speed < 0.01:
-		return
-	var direction := projectile.velocity / speed
-	# The sim has already moved the shot once this tick: step back to the barrel.
-	var barrel := projectile.position.offset_by(-projectile.velocity * projectile.age)
-	var up_hint := Vector3.UP if absf(direction.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
-	var side := direction.cross(up_hint).normalized()
-	var lift := side.cross(direction)
-	for index in FLARE_SQUARES:
-		var reach := _rng.randf() * FLARE_REACH
-		var spread := reach * FLARE_CONE + 0.1
-		var square := Square.new()
-		square.position = barrel.offset_by(direction * reach + side * _rng.randf_range(-spread, spread) + lift * _rng.randf_range(-spread, spread))
-		square.size = FLARE_SIZES[_rng.randi() % FLARE_SIZES.size()]
-		square.born = _clock
-		_flare.append(square)
+	_core.visible_instance_count = used
+	_glow.visible_instance_count = used
