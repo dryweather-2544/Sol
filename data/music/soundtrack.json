@@ -1,0 +1,754 @@
+{
+ "version": 1,
+ "root": "res://assets/sol/audio/mus/",
+ "_note": "Sol soundtrack. Edit this file to change what plays where; no gameplay script names a track. Tracks: db = level offset from the measured loudness (target about -20 LUFS); loop = seamless loop file, played up to rules.max_loops times. Contexts: pool = weighted tracks (start_s skips a long intro); gain_db = level under the engines; keeps = contexts whose playing track may carry on when this one starts (otherwise it crossfades); first_gap_s / gap_s = silence before the first / between pieces; start_chance = chance a gap ends in music rather than more silence; one_track = a moment that ends after one piece; body_weights = per-planet weight multipliers.",
+ "rules": {
+  "recent_history": 6,
+  "dwell_s": 6.0,
+  "combat_hold_s": 10.0,
+  "after_combat_gap_s": [
+   15,
+   40
+  ],
+  "discovery_cooldown_s": 360.0,
+  "pause_duck_db": -10.0,
+  "max_loops": 2
+ },
+ "cues": {
+  "arrival": {
+   "track": "space_echo",
+   "duck_fade_s": 3.0,
+   "then_gap_s": [
+    6,
+    15
+   ]
+  }
+ },
+ "tracks": {
+  "abyss": {
+   "file": "mus_abyss.mp3",
+   "title": "Abyss",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -5.4,
+   "loop": false,
+   "seconds": 151.9
+  },
+  "crash_landing": {
+   "file": "mus_crash_landing.mp3",
+   "title": "Crash Landing",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -4.4,
+   "loop": false,
+   "seconds": 213.1
+  },
+  "dead": {
+   "file": "mus_dead.mp3",
+   "title": "Dead",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -9.6,
+   "loop": false,
+   "seconds": 135.4
+  },
+  "new_life": {
+   "file": "mus_new_life.mp3",
+   "title": "New Life",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -8.6,
+   "loop": false,
+   "seconds": 174.9
+  },
+  "nightmare": {
+   "file": "mus_nightmare.mp3",
+   "title": "Nightmare",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -4.9,
+   "loop": false,
+   "seconds": 163.0
+  },
+  "peace_keeper": {
+   "file": "mus_peace_keeper.mp3",
+   "title": "Peace Keeper",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -4.7,
+   "loop": false,
+   "seconds": 199.5
+  },
+  "pitch_black": {
+   "file": "mus_pitch_black.mp3",
+   "title": "Pitch Black",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -7.0,
+   "loop": false,
+   "seconds": 150.3
+  },
+  "pleading": {
+   "file": "mus_pleading.mp3",
+   "title": "Pleading",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -1.1,
+   "loop": false,
+   "seconds": 127.9
+  },
+  "purple": {
+   "file": "mus_purple.mp3",
+   "title": "Purple",
+   "author": "ColossalWreck",
+   "source": "https://colossalwreck.itch.io/ambient-sound-track",
+   "licence": "CC0-1.0",
+   "db": -6.4,
+   "loop": false,
+   "seconds": 113.3
+  },
+  "claimed_by_the_void": {
+   "file": "mus_claimed_by_the_void.mp3",
+   "title": "claimed by the void",
+   "author": "vitalezzz",
+   "source": "https://opengameart.org/content/claimed-by-the-void",
+   "licence": "CC0-1.0",
+   "db": -10.2,
+   "loop": false,
+   "seconds": 195.0
+  },
+  "pulse": {
+   "file": "mus_pulse.mp3",
+   "title": "pulse",
+   "author": "SRG774",
+   "source": "https://opengameart.org/node/188336",
+   "licence": "CC0-1.0",
+   "db": 10,
+   "loop": false,
+   "seconds": 71.1
+  },
+  "sector": {
+   "file": "mus_sector.mp3",
+   "title": "sector",
+   "author": "SRG774",
+   "source": "https://opengameart.org/node/188336",
+   "licence": "CC0-1.0",
+   "db": 10,
+   "loop": false,
+   "seconds": 56.9
+  },
+  "one_g": {
+   "file": "mus_one_g.mp3",
+   "title": "1 G",
+   "author": "Ville Seppänen (uploaded by Osmic)",
+   "source": "https://opengameart.org/content/space-ambient",
+   "licence": "CC-BY-3.0",
+   "db": -5.4,
+   "loop": false,
+   "seconds": 600.0
+  },
+  "space_echo": {
+   "file": "mus_space_echo.ogg",
+   "title": "space echo",
+   "author": "Centurion_of_war",
+   "source": "https://opengameart.org/content/space-echo",
+   "licence": "CC0-1.0",
+   "db": -1.0,
+   "loop": false,
+   "seconds": 38.5
+  },
+  "exploration_theme": {
+   "file": "mus_exploration_theme.ogg",
+   "title": "Exploration Theme",
+   "author": "Cleyton Kauffman",
+   "source": "https://opengameart.org/content/exploration-theme",
+   "licence": "CC0-1.0",
+   "db": 5.1,
+   "loop": true,
+   "seconds": 134.4
+  },
+  "safe_space": {
+   "file": "mus_safe_space_loop.ogg",
+   "title": "Safe Space (loop)",
+   "author": "Tsorthan Grove",
+   "source": "https://opengameart.org/node/180838",
+   "licence": "CC0-1.0",
+   "db": 3.2,
+   "loop": true,
+   "seconds": 148.3
+  },
+  "destination_reached": {
+   "file": "mus_destination_reached.ogg",
+   "title": "Destination reached",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -3.8,
+   "loop": false,
+   "seconds": 169.7
+  },
+  "discovery": {
+   "file": "mus_discovery.ogg",
+   "title": "Discovery",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -1.2,
+   "loop": false,
+   "seconds": 160.9
+  },
+  "horizon": {
+   "file": "mus_horizon.ogg",
+   "title": "Horizon",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -4.2,
+   "loop": false,
+   "seconds": 323.9
+  },
+  "intimate": {
+   "file": "mus_intimate.ogg",
+   "title": "Intimate",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -5.1,
+   "loop": false,
+   "seconds": 165.4
+  },
+  "maneuvers": {
+   "file": "mus_maneuvers.ogg",
+   "title": "Maneuvers",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -2.2,
+   "loop": false,
+   "seconds": 162.9
+  },
+  "orion": {
+   "file": "mus_orion.ogg",
+   "title": "Orion",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -3.5,
+   "loop": false,
+   "seconds": 323.9
+  },
+  "out": {
+   "file": "mus_out.ogg",
+   "title": "Out",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -3.2,
+   "loop": false,
+   "seconds": 187.4
+  },
+  "rising_star": {
+   "file": "mus_rising_star.ogg",
+   "title": "Rising Star",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -3.3,
+   "loop": false,
+   "seconds": 137.5
+  },
+  "shooting_stars": {
+   "file": "mus_shooting_stars.ogg",
+   "title": "Shooting Stars",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -3.1,
+   "loop": false,
+   "seconds": 318.2
+  },
+  "starfield": {
+   "file": "mus_starfield.ogg",
+   "title": "Starfield",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -4.5,
+   "loop": false,
+   "seconds": 163.0
+  },
+  "the_galaxy": {
+   "file": "mus_the_galaxy.ogg",
+   "title": "The Galaxy",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -1.5,
+   "loop": false,
+   "seconds": 162.0
+  },
+  "the_station": {
+   "file": "mus_the_station.ogg",
+   "title": "The Station",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -3.7,
+   "loop": false,
+   "seconds": 161.4
+  },
+  "the_void": {
+   "file": "mus_the_void.ogg",
+   "title": "The Void",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -4.2,
+   "loop": false,
+   "seconds": 126.5
+  },
+  "tricky_maneuver": {
+   "file": "mus_tricky_maneuver.ogg",
+   "title": "Tricky Maneuver",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -0.7,
+   "loop": false,
+   "seconds": 158.6
+  },
+  "unknown_ship": {
+   "file": "mus_unknown_ship.ogg",
+   "title": "Unknown Ship",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -4.3,
+   "loop": false,
+   "seconds": 328.9
+  },
+  "zero_g": {
+   "file": "mus_zero_g.ogg",
+   "title": "Zero G",
+   "author": "Rusted Music Studio",
+   "source": "https://rustedstudio.itch.io/space-tracks-volume-1",
+   "licence": "CC-BY-4.0",
+   "db": -4.1,
+   "loop": false,
+   "seconds": 165.4
+  }
+ },
+ "contexts": {
+  "menu": {
+   "pool": [
+    {
+     "track": "orion",
+     "weight": 3
+    },
+    {
+     "track": "zero_g",
+     "weight": 1
+    }
+   ],
+   "first": "orion",
+   "first_gap_s": [
+    0.5,
+    0.5
+   ],
+   "gap_s": [
+    4,
+    8
+   ],
+   "start_chance": 1.0,
+   "fade_in_s": 3,
+   "fade_out_s": 4,
+   "gain_db": 0,
+   "keeps": []
+  },
+  "deep_space": {
+   "pool": [
+    {
+     "track": "one_g",
+     "weight": 3
+    },
+    {
+     "track": "horizon",
+     "weight": 2
+    },
+    {
+     "track": "shooting_stars",
+     "weight": 2
+    },
+    {
+     "track": "unknown_ship",
+     "weight": 2
+    },
+    {
+     "track": "claimed_by_the_void",
+     "weight": 1.5
+    },
+    {
+     "track": "zero_g",
+     "weight": 1.5
+    },
+    {
+     "track": "starfield",
+     "weight": 1
+    },
+    {
+     "track": "the_void",
+     "weight": 1
+    },
+    {
+     "track": "abyss",
+     "weight": 0.6
+    }
+   ],
+   "first_gap_s": [
+    15,
+    45
+   ],
+   "gap_s": [
+    60,
+    180
+   ],
+   "start_chance": 0.85,
+   "fade_in_s": 6,
+   "fade_out_s": 6,
+   "gain_db": -2,
+   "keeps": [
+    "approach",
+    "ascent",
+    "interior",
+    "surface"
+   ]
+  },
+  "approach": {
+   "pool": [
+    {
+     "track": "discovery",
+     "weight": 2
+    },
+    {
+     "track": "destination_reached",
+     "weight": 2
+    },
+    {
+     "track": "maneuvers",
+     "weight": 1.5
+    },
+    {
+     "track": "the_station",
+     "weight": 1
+    },
+    {
+     "track": "zero_g",
+     "weight": 0.8
+    }
+   ],
+   "first_gap_s": [
+    6,
+    20
+   ],
+   "gap_s": [
+    40,
+    120
+   ],
+   "start_chance": 0.9,
+   "fade_in_s": 5,
+   "fade_out_s": 5,
+   "gain_db": -2,
+   "keeps": [
+    "deep_space",
+    "ascent",
+    "interior"
+   ]
+  },
+  "atmosphere": {
+   "pool": [
+    {
+     "track": "tricky_maneuver",
+     "weight": 2
+    },
+    {
+     "track": "the_galaxy",
+     "weight": 1.5
+    },
+    {
+     "track": "maneuvers",
+     "weight": 1
+    }
+   ],
+   "first_gap_s": [
+    0,
+    3
+   ],
+   "gap_s": [
+    20,
+    60
+   ],
+   "start_chance": 1.0,
+   "fade_in_s": 4,
+   "fade_out_s": 4,
+   "gain_db": -1,
+   "keeps": []
+  },
+  "ascent": {
+   "pool": [
+    {
+     "track": "destination_reached",
+     "weight": 1
+    },
+    {
+     "track": "discovery",
+     "weight": 1
+    },
+    {
+     "track": "maneuvers",
+     "weight": 1
+    },
+    {
+     "track": "zero_g",
+     "weight": 1
+    }
+   ],
+   "first_gap_s": [
+    10,
+    30
+   ],
+   "gap_s": [
+    40,
+    120
+   ],
+   "start_chance": 0.7,
+   "fade_in_s": 6,
+   "fade_out_s": 6,
+   "gain_db": -2,
+   "keeps": [
+    "surface",
+    "atmosphere",
+    "approach",
+    "deep_space",
+    "interior"
+   ]
+  },
+  "surface": {
+   "pool": [
+    {
+     "track": "exploration_theme",
+     "weight": 2
+    },
+    {
+     "track": "new_life",
+     "weight": 2
+    },
+    {
+     "track": "intimate",
+     "weight": 1.5
+    },
+    {
+     "track": "out",
+     "weight": 1.5
+    },
+    {
+     "track": "rising_star",
+     "weight": 1
+    },
+    {
+     "track": "safe_space",
+     "weight": 1
+    },
+    {
+     "track": "peace_keeper",
+     "weight": 0.8
+    }
+   ],
+   "first_gap_s": [
+    12,
+    35
+   ],
+   "gap_s": [
+    60,
+    200
+   ],
+   "start_chance": 0.8,
+   "fade_in_s": 6,
+   "fade_out_s": 6,
+   "gain_db": -3,
+   "keeps": [
+    "atmosphere",
+    "interior"
+   ],
+   "body_weights": {
+    "cinder": {
+     "peace_keeper": 3,
+     "abyss": 2,
+     "exploration_theme": 0.5
+    },
+    "verdant": {
+     "exploration_theme": 2,
+     "new_life": 2
+    },
+    "selene": {
+     "zero_g": 2,
+     "out": 1.5,
+     "new_life": 0.5
+    },
+    "pebble": {
+     "zero_g": 2,
+     "the_void": 1.5,
+     "exploration_theme": 0.5
+    }
+   }
+  },
+  "interior": {
+   "pool": [
+    {
+     "track": "safe_space",
+     "weight": 2
+    },
+    {
+     "track": "intimate",
+     "weight": 1
+    },
+    {
+     "track": "zero_g",
+     "weight": 1
+    }
+   ],
+   "first_gap_s": [
+    60,
+    150
+   ],
+   "gap_s": [
+    120,
+    300
+   ],
+   "start_chance": 0.4,
+   "fade_in_s": 6,
+   "fade_out_s": 6,
+   "gain_db": -5,
+   "keeps": [
+    "deep_space",
+    "approach",
+    "surface",
+    "ascent",
+    "discovery"
+   ]
+  },
+  "discovery": {
+   "pool": [
+    {
+     "track": "pulse",
+     "weight": 2
+    },
+    {
+     "track": "sector",
+     "weight": 2
+    },
+    {
+     "track": "pleading",
+     "weight": 1.5
+    },
+    {
+     "track": "abyss",
+     "weight": 1
+    }
+   ],
+   "first_gap_s": [
+    2.5,
+    4
+   ],
+   "gap_s": [
+    300,
+    300
+   ],
+   "start_chance": 1.0,
+   "fade_in_s": 4,
+   "fade_out_s": 5,
+   "gain_db": -2,
+   "keeps": [
+    "danger"
+   ],
+   "one_track": true
+  },
+  "danger": {
+   "pool": [
+    {
+     "track": "dead",
+     "weight": 2
+    },
+    {
+     "track": "purple",
+     "weight": 1.5
+    },
+    {
+     "track": "abyss",
+     "weight": 1
+    },
+    {
+     "track": "peace_keeper",
+     "weight": 1
+    }
+   ],
+   "first_gap_s": [
+    0,
+    2
+   ],
+   "gap_s": [
+    5,
+    15
+   ],
+   "start_chance": 1.0,
+   "fade_in_s": 3,
+   "fade_out_s": 5,
+   "gain_db": -1,
+   "keeps": [
+    "combat",
+    "discovery"
+   ]
+  },
+  "combat": {
+   "pool": [
+    {
+     "track": "pitch_black",
+     "weight": 2
+    },
+    {
+     "track": "nightmare",
+     "weight": 2
+    },
+    {
+     "track": "crash_landing",
+     "weight": 1.5,
+     "start_s": 71
+    },
+    {
+     "track": "dead",
+     "weight": 1
+    }
+   ],
+   "first_gap_s": [
+    0,
+    0
+   ],
+   "gap_s": [
+    0,
+    2
+   ],
+   "start_chance": 1.0,
+   "fade_in_s": 1.5,
+   "fade_out_s": 6,
+   "gain_db": 0,
+   "keeps": []
+  }
+ }
+}

@@ -6,3 +6,12 @@ tests/visual/out/
 
 # Rodina skybox baked from Rodina's generator data (tools/bake_rodina_skybox.sh): local only, never publish.
 assets/generated/rodina_skybox/
+
+# Small-fighter models (3D_spaceships_pack, licence unknown): local only until the owner confirms the licence.
+assets/fighters/
+
+# Pilot seat model (Chair_01, licence unknown): local only until the owner confirms the licence.
+assets/cockpit/
+
+# Rodina soundtrack (139 MB, tools/import_music.py): local only, never publish.
+assets/sol/audio/mus/
