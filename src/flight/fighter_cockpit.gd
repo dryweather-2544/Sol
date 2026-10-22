@@ -26,11 +26,10 @@ const FRONT_Z := -1.2
 const HEADER_Z := -1.6
 const HEADER_Y := 1.4
 const SIDE_X := 1.25
-## The seat model (Chair_01, 1 unit = 1 cm, facing +z, seat cushion at y 83 and its base at y 35): scaled to metres, turned round, and set
-## so the cushion is just under the pilot's hips with its base on the floor.
-const ObjLoader := preload("res://src/flight/obj_mesh_loader.gd") # preloaded, so it needs no class cache refresh
-const SEAT_MODEL := "res://assets/cockpit/Chair_01.obj"
-const SEAT_SCALE := 0.01
+## The seat model (Chair_01 as a .glb in metres: facing +z, cushion top at y 0.83, base at y 0.35, armrests and controls left off): turned
+## round and set so the cushion is just under the pilot's hips with its base on the floor.
+const SEAT_MODEL := "res://assets/cockpit/pilot_seat.glb"
+const SEAT_SCALE := 1.0
 const SEAT_POSITION := Vector3(0.0, -1.45, -0.08)
 ## The nose: from the front of the dash it narrows to a point, like a fighter's, instead of ending in a flat square cowl.
 ## The X-Wing cockpit (converted to a .glb, git-ignored, see ATTRIBUTION.md): when it is present it replaces the canopy, tub, nose, seat and
@@ -45,13 +44,12 @@ const XWING_LEFT_PANEL := [Vector3(0.34, -0.39, 0.23), Vector3(0.20, -0.37, 0.44
 const XWING_RIGHT_SQUARE := Vector3(-0.2425, -0.2865, 0.4085)
 const XWING_RIGHT_PANEL := [Vector3(-0.31, -0.39, 0.23), Vector3(-0.17, -0.37, 0.45), Vector3(-0.23, -0.12, 0.56), Vector3(-0.31, -0.28, 0.31)]
 ## The pilot's seat in the X-Wing: Chair_01 scaled down (the model's pilot sits low in a small cockpit) so its base stands on the floor
-## (model y -0.92) and its headrest is at head height, with the armrests and joysticks left off (they would cover the readout squares).
+## (model y -0.92) and its headrest is at head height. It has no armrests or joysticks (they would cover the readout squares).
 const XWING_SEAT_SCALE := 0.74
-const XWING_SEAT_POSITION := Vector3(0.0, -1.299, -0.05)
-const XWING_SEAT_SKIP := PackedStringArray(["Armrest", "Handle", "Ball", "Trigger", "Button", "Body", "Base_Base"])
+const XWING_SEAT_POSITION := Vector3(0.0, -1.43, 0.12) # the headrest top sits ~0.13 m under the eye, and the seat just behind it
 ## Each readout plate is designed 0.4 by 0.4 and shrunk to this scale (so about 16 cm square, just over the 12 by 15 cm square).
 const XWING_PLATE_SCALE := 0.4
-static var _xwing_root: Node3D
+static var _glb_cache := {} ## res:// path -> the scene read from it (null when it could not be read)
 const NOSE_BACK_Y := -0.3
 const NOSE_TIP := Vector3(0.0, -0.2, -4.4) # higher than the dash's sight line, so the whole wedge shows above the panel
 ## Struts: where the big and the slim ones meet the header (x), so the windscreen is wide and the view out stays open.
@@ -72,6 +70,11 @@ var _warn_lights: Array[MeshInstance3D] = []
 var _stick: Node3D
 var _radar_view := SubViewport.new()
 var _radar := FighterRadar.new()
+## The X-Wing cockpit's two plates are 2D screens (FighterDisplay) drawn in their own viewports, only updated while the cockpit is shown.
+const Display := preload("res://src/flight/fighter_display.gd") # preloaded, so it needs no class cache refresh
+var _left_display: Display
+var _right_display: Display
+var _display_views: Array[SubViewport] = []
 var _time := 0.0
 ## Where the build helpers add things (null = the cockpit itself; the panel while it is being built).
 var _group: Node3D
@@ -96,7 +99,7 @@ func setup(owner_ship: Ship, def: FighterDef) -> void:
 		_build_nose()
 	if xwing:
 		_build_xwing_readouts()
-		_build_seat(XWING_SEAT_SCALE, XWING_SEAT_POSITION, XWING_SEAT_SKIP)
+		_build_seat(XWING_SEAT_SCALE, XWING_SEAT_POSITION)
 	else:
 		_panel = Node3D.new()
 		_panel.name = "InstrumentPanel"
@@ -121,6 +124,8 @@ func _process(delta: float) -> void:
 	if hull_model != null:
 		hull_model.visible = not active # the eye is inside the hull: its model would only get in the way
 	_radar_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
+	for view in _display_views:
+		view.render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
 	if not active:
 		return
 	_time += delta
@@ -143,11 +148,12 @@ func _process(delta: float) -> void:
 	for contact in contacts:
 		var offset: Vector3 = contact
 		nearest = minf(nearest, offset.length())
-	_hull_label.text = "HULL INTEGRITY %d%%" % roundi(state.hull * 100.0)
-	_systems_label.text = "HULL %d%%\nFUEL %d%%\nGUNS %s" % [roundi(state.hull * 100.0), roundi(state.fuel * 100.0), "ARMED" if Ship.gear_allows_fire(state.gear) else "SAFE"] # guns work in the combat gear only
-	_flight_label.text = "SPD %s\nALT %s\n%s" % [_speed_text(speed), altitude, "NO TARGET" if is_inf(nearest) else "TGT %d m" % roundi(nearest)]
-	_gear_label.text = GEAR_NAMES[gear]
 	var warning := state.hull < 0.35 or state.fuel < 0.15
+	if _left_display != null:
+		_feed_display(_left_display, state, speed, gear, altitude, nearest, warning, speed / maxf(gear_max, 1.0))
+		_feed_display(_right_display, state, speed, gear, altitude, nearest, warning, speed / maxf(gear_max, 1.0))
+	if _hull_label != null:
+		_feed_labels(state, speed, gear, altitude, nearest)
 	for light in _warn_lights:
 		var material := light.material_override as StandardMaterial3D
 		material.emission_energy_multiplier = (1.0 + sin(_time * 9.0)) * 1.2 if warning else 0.15
@@ -155,6 +161,31 @@ func _process(delta: float) -> void:
 	if _stick != null: # the X-Wing cockpit has no stick
 		_stick.rotation.x = lerpf(_stick.rotation.x, -command.turn.x * 0.35, 0.2)
 		_stick.rotation.z = lerpf(_stick.rotation.z, -command.turn.z * 0.35, 0.2)
+
+
+## The fixed-label panel of the home-built cockpit.
+func _feed_labels(state: ShipState, speed: float, gear: int, altitude: String, nearest: float) -> void:
+	_hull_label.text = "HULL INTEGRITY %d%%" % roundi(state.hull * 100.0)
+	_systems_label.text = "HULL %d%%\nFUEL %d%%\nGUNS %s" % [roundi(state.hull * 100.0), roundi(state.fuel * 100.0), "ARMED" if Ship.gear_allows_fire(state.gear) else "SAFE"] # guns work in the combat gear only
+	_flight_label.text = "SPD %s\nALT %s\n%s" % [_speed_text(speed), altitude, "NO TARGET" if is_inf(nearest) else "TGT %d m" % roundi(nearest)]
+	_gear_label.text = GEAR_NAMES[gear]
+
+
+func _feed_display(display: Display, state: ShipState, speed: float, gear: int, altitude: String, nearest: float, warning: bool, speed_fraction: float) -> void:
+	display.hull = state.hull
+	display.fuel = state.fuel
+	display.armed = Ship.gear_allows_fire(state.gear) # guns work in the combat gear only
+	display.gear = gear
+	display.gear_name = GEAR_NAMES[gear]
+	display.speed_text = _speed_text(speed)
+	display.speed_fraction = speed_fraction
+	display.altitude_text = altitude
+	display.target_text = "NONE" if is_inf(nearest) else _distance_text(nearest)
+	display.warning = warning
+
+
+static func _distance_text(metres: float) -> String:
+	return "%d m" % roundi(metres) if metres < 1000.0 else "%.1f km" % (metres / 1000.0)
 
 
 static func _speed_text(speed: float) -> String:
@@ -371,110 +402,93 @@ func _make_plate(square: Vector3, corners: Array) -> Node3D:
 	return plate
 
 
-## The live readouts on the two squares. Left (the pilot's left): hull, fuel and guns, the gear. Right: the hex radar, speed, altitude and target.
+## The live readouts on the two squares, as 2D screens (FighterDisplay) in the style of the mothership's own. Left (the pilot's left): hull,
+## fuel, guns and the gear. Right: the hex radar, speed, altitude and target.
 func _build_xwing_readouts() -> void:
 	var dark := _material(GRAPHITE, 0.6, 0.3)
-	var metal := _material(WARM_METAL, 0.6, 0.3)
-	var screen := _emissive(Color(0.03, 0.12, 0.14), 0.5)
-	var left := _make_plate(XWING_LEFT_SQUARE, XWING_LEFT_PANEL)
-	_group = left
+	_group = _make_plate(XWING_LEFT_SQUARE, XWING_LEFT_PANEL)
 	_box(Vector3(0.4, 0.4, 0.01), dark, Vector3(0.0, 0.0, 0.005))
-	_add(_quad(Vector2(0.37, 0.37)), screen, Vector3(0.0, 0.0, 0.011))
-	_hull_label = _label("HULL INTEGRITY 100%", Vector3(0.0, 0.155, 0.013), Vector3.ZERO, 20, CYAN)
-	_add_bar("hull", Vector3(0.0, 0.115, 0.014), 0.34, 0.014, true, CYAN)
-	_systems_label = _label("", Vector3(-0.17, 0.0, 0.013), Vector3.ZERO, 22, CYAN, null, true)
-	_add_bar("fuel", Vector3(0.0, -0.095, 0.014), 0.34, 0.014, true, AMBER)
-	_gear_label = _label("COMBAT", Vector3(0.0, -0.16, 0.013), Vector3.ZERO, 24, AMBER)
-	_warn_lights.append(_box(Vector3(0.06, 0.014, 0.01), _emissive(AMBER, 0.15), Vector3(0.0, 0.19, 0.012)))
-	var right := _make_plate(XWING_RIGHT_SQUARE, XWING_RIGHT_PANEL)
-	_group = right
+	_left_display = _build_display(Display.Kind.SYSTEMS)
+	_group = _make_plate(XWING_RIGHT_SQUARE, XWING_RIGHT_PANEL)
 	_box(Vector3(0.4, 0.4, 0.01), dark, Vector3(0.0, 0.0, 0.005))
-	_add(_quad(Vector2(0.37, 0.37)), screen, Vector3(0.0, 0.0, 0.011))
-	var bezel := CylinderMesh.new()
-	bezel.top_radius = 0.115
-	bezel.bottom_radius = 0.115
-	bezel.height = 0.012
-	bezel.radial_segments = 6
-	_add(bezel, metal, Vector3(0.0, 0.085, 0.012), Vector3(90.0, 0.0, 0.0))
-	_radar_view.size = Vector2i(256, 256)
-	_radar_view.transparent_bg = true
-	_radar_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_radar_view)
-	_radar_view.add_child(_radar)
-	_radar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_radar.size = Vector2(_radar_view.size)
-	var radar_material := StandardMaterial3D.new()
-	radar_material.albedo_texture = _radar_view.get_texture()
-	radar_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	radar_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_add(_quad(Vector2(0.22, 0.22)), radar_material, Vector3(0.0, 0.085, 0.019))
-	_flight_label = _label("", Vector3(-0.17, -0.115, 0.013), Vector3.ZERO, 18, CYAN, null, true)
-	_add_bar("speed", Vector3(0.0, -0.185, 0.014), 0.34, 0.014, true, CYAN)
+	_right_display = _build_display(Display.Kind.FLIGHT)
+	_right_display.attach_radar(_radar)
 	_group = null
+
+
+## One 512 px screen in its own viewport, shown on a quad lying on the current plate (_group).
+func _build_display(kind: Display.Kind) -> Display:
+	var view := SubViewport.new()
+	view.size = Vector2i(512, 512)
+	view.transparent_bg = true
+	view.msaa_2d = Viewport.MSAA_4X
+	view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(view)
+	_display_views.append(view)
+	var display := Display.new()
+	display.kind = kind
+	display.font = _font
+	view.add_child(display)
+	var material := StandardMaterial3D.new()
+	material.albedo_texture = view.get_texture()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_add(_quad(Vector2(0.385, 0.385)), material, Vector3(0.0, 0.0, 0.0115))
+	return display
 
 
 ## Loads the X-Wing cockpit and puts it around the pilot. False (nothing built) when the model file is not there.
 func _build_xwing() -> bool:
-	if _xwing_root == null:
-		var path := ProjectSettings.globalize_path(XWING_MODEL)
-		if not FileAccess.file_exists(path):
-			return false
-		var document := GLTFDocument.new()
-		var state := GLTFState.new()
-		if document.append_from_file(path, state) != OK:
-			push_warning("FighterCockpit: could not read %s" % XWING_MODEL)
-			return false
-		_xwing_root = document.generate_scene(state) as Node3D
-		if _xwing_root == null:
-			return false
-	var model := _xwing_root.duplicate() as Node3D # meshes and textures are shared between copies
+	var model := _load_glb(XWING_MODEL)
+	if model == null:
+		return false
 	model.name = "XWingCockpit"
 	model.rotation_degrees = Vector3(0.0, 180.0, 0.0) # the model's nose is +z, the cockpit looks down -z
 	model.position = Vector3(XWING_EYE.x, -XWING_EYE.y, XWING_EYE.z) # (turned round, so x and z swap sign): the eye lands on the origin
 	add_child(model)
 	_build_xwing_fill(model)
-	for node in model.find_children("*", "GeometryInstance3D", true, false):
-		var geometry := node as GeometryInstance3D
-		geometry.layers = LAYER_MASK
-		geometry.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_set_layers(model)
 	return true
 
 
+## Reads a .glb straight from disk (no editor import needed) and returns a copy of its scene, or null when it is missing. The scene read
+## is kept and each call gets a duplicate of it, so meshes and textures are only loaded once.
+func _load_glb(res_path: String) -> Node3D:
+	if not _glb_cache.has(res_path):
+		var root: Node3D = null
+		var path := ProjectSettings.globalize_path(res_path)
+		if FileAccess.file_exists(path):
+			var document := GLTFDocument.new()
+			var state := GLTFState.new()
+			if document.append_from_file(path, state) == OK:
+				root = document.generate_scene(state) as Node3D
+			if root == null:
+				push_warning("FighterCockpit: could not read %s" % res_path)
+		_glb_cache[res_path] = root
+	var cached: Node3D = _glb_cache[res_path]
+	return cached.duplicate() as Node3D if cached != null else null
+
+
+## Puts everything under a node on the cockpit's own render layer, so only the cockpit camera draws it.
+func _set_layers(root: Node3D) -> void:
+	for node in root.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := node as GeometryInstance3D
+		geometry.layers = LAYER_MASK
+		geometry.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 ## The pilot's seat: the downloaded Chair_01 model when it is present (git-ignored, see ATTRIBUTION.md), else a plain block seat.
-func _build_seat(model_scale: float = SEAT_SCALE, at: Vector3 = SEAT_POSITION, skip_groups: PackedStringArray = PackedStringArray()) -> void:
-	var seat_mesh := ObjLoader.load_mesh(SEAT_MODEL, skip_groups) # read straight from disk: it needs no import
-	if seat_mesh != null:
-		_style_seat_materials(seat_mesh)
-		var seat := _add(seat_mesh, null, at, Vector3(0.0, 180.0, 0.0)) # the model faces +z: turned round to face the windscreen
+func _build_seat(model_scale: float = SEAT_SCALE, at: Vector3 = SEAT_POSITION) -> void:
+	var seat := _load_glb(SEAT_MODEL)
+	if seat != null:
+		seat.name = "PilotSeat"
+		seat.rotation_degrees = Vector3(0.0, 180.0, 0.0) # the model faces +z: turned round to face the windscreen
+		seat.position = at
 		seat.scale = Vector3.ONE * model_scale
+		add_child(seat)
+		_set_layers(seat)
 		return
-	push_warning("FighterCockpit: the seat model %s could not be read; using the block seat" % SEAT_MODEL)
 	_build_block_seat()
-
-
-## The model comes with flat colours only. Dull them down to suit the dark cockpit, give the metals a sheen and make the lit parts glow.
-func _style_seat_materials(seat_mesh: Mesh) -> void:
-	if seat_mesh.has_meta("styled"):
-		return
-	seat_mesh.set_meta("styled", true)
-	for surface in seat_mesh.get_surface_count():
-		var material := seat_mesh.surface_get_material(surface) as StandardMaterial3D
-		if material == null:
-			continue
-		var label := String(material.resource_name).to_lower()
-		if label.contains("emmissive"):
-			material.emission_enabled = true
-			material.emission = material.albedo_color
-			material.emission_energy_multiplier = 0.9
-		elif label.contains("steel") or label.contains("aluminum"):
-			material.metallic = 0.5
-			material.roughness = 0.45
-			material.albedo_color = material.albedo_color.darkened(0.35)
-		elif label.contains("tan"):
-			material.albedo_color = material.albedo_color.darkened(0.45)
-			material.roughness = 0.8
-		else:
-			material.roughness = 0.5
 
 
 func _build_block_seat() -> void:
@@ -579,6 +593,8 @@ func _add_bar(bar_name: String, position_value: Vector3, length: float, thicknes
 
 
 func _set_bar(bar_name: String, fraction: float) -> void:
+	if not _bars.has(bar_name):
+		return # the X-Wing cockpit's plates are 2D screens, with no bar nodes
 	var node: MeshInstance3D = _bars[bar_name]
 	var amount := clampf(fraction, 0.0, 1.0)
 	var base: Vector3 = node.get_meta("base")

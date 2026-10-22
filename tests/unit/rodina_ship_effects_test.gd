@@ -195,6 +195,36 @@ func test_atmospheric_entry_follows_resistance_and_camera() -> void:
 		_free(objects))
 
 
+func test_fighter_mode_runs_warp_and_entry_but_not_the_mothership_engines() -> void:
+	_with_rodina(func() -> void:
+		var objects := _setup()
+		var ship: Ship = objects[0]
+		var effects: ShipEffects = objects[1]
+		effects.fighter_mode = true
+		effects.position_scale = 0.55
+		# Thrusting in combat gear: the mothership's jets and engine flame stay off (the fighter draws its own engines).
+		ship.state.gear = PilotCommand.GEAR_COMBAT
+		ship.last_command = _command(Vector3(1, 1, 1))
+		effects.update_effects(ship, 0.0)
+		assert_eq(effects.active_effects().size(), 0, "no mothership jets on a fighter: %s" % str(effects.active_effects().keys()))
+		assert_true(not effects.flame_state()["visible"])
+		# Warp runs the limnal effects.
+		ship.state.gear = PilotCommand.GEAR_WARP
+		effects.limnal_activation = 1.0
+		effects.update_effects(ship, 1.0 / 60.0)
+		assert_eq(effects.active_effects()["Limnal Drive"]["material"], "Limnal Drive")
+		# Atmosphere entry runs, placed by the fighter's scale.
+		ship.state.gear = PilotCommand.GEAR_COMBAT
+		ship.last_command = _command(Vector3.ZERO)
+		ship.state.velocity = Vector3(0, 0, -3000)
+		ship.state.atmosphere_resistance = 0.6
+		effects.update_effects(ship, 1.0 / 60.0)
+		assert_eq(effects.active_effects()["Atmosphere Entry"]["material"], "AtmosphereEntry")
+		var flames := effects.get_node("Rodina_AtmosphereEntry") as RodinaEmitter
+		assert_near(flames.position.z, -15.0 * RodinaEmitter.SHIP_SCALE * 0.55, 1e-4, "ahead of the nose, scaled to the fighter: %s" % str(flames.position))
+		_free(objects))
+
+
 func test_clutch_held_swaps_the_flame_for_yellow_green_streaks() -> void:
 	_with_rodina(func() -> void:
 		var objects := _setup()

@@ -15,3 +15,6 @@ assets/cockpit/
 
 # Rodina soundtrack (139 MB, tools/import_music.py): local only, never publish.
 assets/sol/audio/mus/
+
+# Astronaut model (licence unknown): local only until the owner confirms the licence.
+assets/characters/

@@ -42,6 +42,10 @@ const _JETS := {
 var limnal_activation := 0.0
 ## True when the camera is inside the ship (cockpit view, walking the interior): Rodina's IsPlayerAndCameraInsideVehicle.
 var camera_inside := false
+## A small fighter: only the warp, cruise-trail and atmosphere-entry effects are driven (FighterEngineFlames draws its engines, and
+## Rodina's thruster jets sit at the mothership's positions), and the entry fire is placed by `position_scale` times the mothership's.
+var fighter_mode := false
+var position_scale := 1.0
 
 var _nacelles: Array[MeshInstance3D] = []
 var _slots := {} # slot name -> {material name -> RodinaEmitter}
@@ -118,7 +122,7 @@ func _drive_all(ship: Ship) -> void:
 	if state.hull <= 0.0:
 		return
 	# Rodina movement axes: x right, y forward, z up. Sol thrust: x right, y up, z backwards.
-	_clutch_on = state.clutch and state.gear < PilotCommand.GEAR_WARP and not camera_inside
+	_clutch_on = state.clutch and state.gear < PilotCommand.GEAR_WARP and not camera_inside and not fighter_mode
 	var thrust := command.thrust.limit_length(1.0)
 	var right_strength := maxf(thrust.x, 0.0)
 	var left_strength := maxf(-thrust.x, 0.0)
@@ -136,7 +140,7 @@ func _drive_all(ship: Ship) -> void:
 		else:
 			_attach("Limnal Drive", "Limnal Startup Ring", limnal_activation, Vector3.ZERO, RodinaEmitter.from_rodina(Vector3(1, 0, 0), false))
 			_attach("Limnal Air", "Limnal Drive Air", 1.0, Vector3.ZERO, RodinaEmitter.from_rodina(Vector3(0, 1, 0), false))
-	elif not camera_inside:
+	elif not camera_inside and not fighter_mode:
 		var small := "DockAirDown"
 		var medium := "DockAir"
 		if state.gear == PilotCommand.GEAR_DOCK:
@@ -163,8 +167,8 @@ func _drive_all(ship: Ship) -> void:
 		var flames := RodinaMath.analogue(resistance, 0.3, 0.8, 0.5, 1.0) if resistance > 0.3 else 0.0
 		var heading := velocity_local / speed
 		var suffix := "Cockpit" if camera_inside else ""
-		_attach("Atmosphere Entry", "AtmosphereEntry" + suffix, flames, heading * 15.0 * RodinaEmitter.SHIP_SCALE, heading)
-		_attach("Atmosphere Entry2", "AtmosphereShockwave" + suffix, wind, heading * 30.0 * RodinaEmitter.SHIP_SCALE, heading)
+		_attach("Atmosphere Entry", "AtmosphereEntry" + suffix, flames, heading * 15.0 * RodinaEmitter.SHIP_SCALE * position_scale, heading)
+		_attach("Atmosphere Entry2", "AtmosphereShockwave" + suffix, wind, heading * 30.0 * RodinaEmitter.SHIP_SCALE * position_scale, heading)
 
 
 func _update_flames(delta: float) -> void:

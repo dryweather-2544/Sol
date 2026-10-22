@@ -24,7 +24,7 @@ class Encounter extends RefCounted:
 	var poi: PoiInstance
 	var ships: Array[Ship] = []
 	var drones: Array[GroundEnemy] = []
-	var drone_nodes: Array[MeshInstance3D] = []
+	var drone_nodes: Array[Node3D] = []
 	var targets: Array = []
 
 
@@ -54,9 +54,11 @@ func _physics_process(delta: float) -> void:
 		for drone_index in encounter.drones.size():
 			var drone: GroundEnemy = encounter.drones[drone_index]
 			drone.step(delta, player_position, planet, session.projectiles)
-			var node: MeshInstance3D = encounter.drone_nodes[drone_index]
+			var node: Node3D = encounter.drone_nodes[drone_index]
 			node.visible = drone.is_alive()
-			node.position = drone.body.position.to_local_vector3(render_origin) + drone.body.position_up_offset(0.9)
+			node.position = drone.body.position.to_local_vector3(render_origin) # a person: its feet are its origin
+			node.basis = Basis.looking_at(drone.body.heading, planet.up_at(drone.body.position))
+			(node as HumanoidAvatar).animate(drone.body.velocity.length() if drone.body.grounded else 0.0, delta)
 	_seconds += delta
 	if _seconds >= UPDATE_INTERVAL_SECONDS:
 		_seconds = 0.0
@@ -131,16 +133,9 @@ func _spawn(instance: PoiInstance) -> void:
 		var drone := GroundEnemy.new(planet, drone_position, rng.next_u32())
 		encounter.drones.append(drone)
 		encounter.targets.append(CombatTargets.GroundEnemyTarget.new(drone))
-		var mesh := CapsuleMesh.new()
-		mesh.radius = 0.45
-		mesh.height = 1.8
-		var material := StandardMaterial3D.new()
-		material.albedo_color = Color(0.85, 0.15, 0.1)
-		material.emission_enabled = true
-		material.emission = Color(1.0, 0.2, 0.1)
-		var node := MeshInstance3D.new()
-		node.mesh = mesh
-		node.material_override = material
+		var node := HumanoidAvatar.new()
+		node.accent_color = Color(0.85, 0.15, 0.1) # a hostile: a red backpack and a rust-red suit
+		node.suit_color = Color(0.6, 0.28, 0.24)
 		add_child(node)
 		encounter.drone_nodes.append(node)
 	session.enemy_targets.append_array(encounter.targets)

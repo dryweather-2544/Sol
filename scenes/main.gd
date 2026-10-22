@@ -274,7 +274,10 @@ func _physics_process(delta: float) -> void:
 	_gear_hint_cooldown = maxf(0.0, _gear_hint_cooldown - delta)
 	if session.mode == GameSession.Mode.FIGHTER and _gear_hint_cooldown <= 0.0 and Input.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var fighter_gear := session.active_ship().state.gear
-		if not Ship.gear_allows_fire(fighter_gear):
+		if fighter_gear == PilotCommand.GEAR_CRUISE:
+			_gear_hint_cooldown = 3.0
+			session.say("Dropping out of cruise to COMBAT gear to fire")
+		elif not Ship.gear_allows_fire(fighter_gear):
 			_gear_hint_cooldown = 3.0
 			session.say("Guns are safe in this gear: [ ] to shift to COMBAT")
 	_sync_fighter()
@@ -332,6 +335,10 @@ func _process(delta: float) -> void:
 		if _fighter_node != null and _fighter_node.cockpit_camera != null:
 			_fighter_node.cockpit_camera.near = minf(close_near, 0.1) # a canopy a metre away
 			_fighter_node.cockpit_camera.far = CameraRange.clamp_far(_fighter_node.cockpit_camera.near, far_plane)
+			if session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view:
+				# The canopy camera's near plane is smaller, so CameraRange caps its far plane lower (about 400 km, not 2,000 km). Planets
+				# are handed from terrain to far spheres by the far plane, so use this camera's, or the world is sliced off in a straight edge.
+				far_plane = minf(far_plane, _fighter_node.cockpit_camera.far)
 	if session.mode == GameSession.Mode.INSIDE:
 		# The pocket rooms' windows look at the world, so the walking camera sees to the horizon too. Its near plane rises
 		# only as far as that needs (at most 0.25 m, still inside a person's 0.3 m radius from any wall) and its far plane is
@@ -946,6 +953,9 @@ func _update_warp_view(delta: float) -> void:
 	cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0)
 	if _fighter_node != null and _fighter_node.cockpit_camera != null:
 		_fighter_node.cockpit_camera.rotation = Vector3(warp_view.shake.y + _look_pitch, warp_view.shake.x + _look_yaw, 0.0) # right mouse looks round the cockpit
+	if _fighter_node != null and _fighter_node.effects != null:
+		_fighter_node.effects.limnal_activation = warp_view.activation
+		_fighter_node.effects.camera_inside = session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view
 	var effects := _ship_effects()
 	if effects != null:
 		effects.limnal_activation = warp_view.activation

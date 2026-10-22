@@ -263,3 +263,45 @@ func test_a_fighter_ai_turns_before_it_thrusts_and_the_chase_camera_is_rigid() -
 	assert_near(Quaternion(camera.global_basis.orthonormalized()).angle_to(Quaternion(target.global_basis.orthonormalized())), 0.0, 0.2, "the view turns with the hull at once")
 	camera.free()
 	target.free()
+
+func test_pulling_the_trigger_in_cruise_drops_the_players_fighter_to_combat_gear() -> void:
+	var craft := Ship.new()
+	craft.player_controlled = true
+	craft.configure_fighter(FighterCatalog.all()[0])
+	craft.state.gear = PilotCommand.GEAR_CRUISE
+	craft.state.selected_gear = PilotCommand.GEAR_CRUISE
+	var command := PilotCommand.new()
+	command.fire = true
+	craft._fire_weapon(command, DELTA)
+	assert_eq(craft.state.selected_gear, PilotCommand.GEAR_COMBAT, "the trigger asks for the combat gear")
+	craft.state.selected_gear = PilotCommand.GEAR_WARP
+	craft.state.gear = PilotCommand.GEAR_WARP
+	craft._fire_weapon(command, DELTA)
+	assert_eq(craft.state.selected_gear, PilotCommand.GEAR_WARP, "warp is left alone")
+	var enemy := Ship.new() # an AI fighter keeps its gear
+	enemy.configure_fighter(FighterCatalog.all()[0])
+	enemy.state.gear = PilotCommand.GEAR_CRUISE
+	enemy.state.selected_gear = PilotCommand.GEAR_CRUISE
+	enemy._fire_weapon(command, DELTA)
+	assert_eq(enemy.state.selected_gear, PilotCommand.GEAR_CRUISE)
+	craft.free()
+	enemy.free()
+
+
+func test_the_cockpit_screens_helpers() -> void:
+	const Display := preload("res://src/flight/fighter_display.gd")
+	assert_eq(Display.segments_lit(0.0, 20), 0)
+	assert_eq(Display.segments_lit(0.01, 20), 1, "any hull at all lights a segment")
+	assert_eq(Display.segments_lit(0.5, 20), 10)
+	assert_eq(Display.segments_lit(1.0, 20), 20)
+	assert_eq(Display.segments_lit(2.0, 20), 20, "clamped")
+	assert_eq(Display.level_color(0.9), Display.CYAN)
+	assert_eq(Display.level_color(0.5), Display.AMBER)
+	assert_eq(Display.level_color(0.1), Display.ALERT)
+	var hex := Display.hex_points(Vector2(10.0, 20.0), 5.0)
+	assert_eq(hex.size(), 6)
+	for point in hex:
+		assert_near(point.distance_to(Vector2(10.0, 20.0)), 5.0, 1e-4)
+	assert_eq(Display.frame_points(4.0).size(), 8, "a rectangle with two corners cut")
+	assert_eq(FighterCockpit._distance_text(450.0), "450 m")
+	assert_eq(FighterCockpit._distance_text(2500.0), "2.5 km")

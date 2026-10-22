@@ -33,6 +33,8 @@ var player_controlled := false
 var cockpit_camera: Camera3D
 ## The fighter's cockpit interior (FighterCockpit), drawn only while cockpit_camera is the current camera.
 var cockpit: FighterCockpit
+## The warp, cruise-trail and atmosphere-entry effects of the fighter the player flies (the mothership's live in ShipVisuals).
+var effects: ShipEffects
 ## Optional, set by main.gd for the player's fighter: returns the hostile ships as ship-local offsets (Array of Vector3) for the cockpit radar.
 var radar_contacts := Callable()
 ## Nose of the ship, where shots leave (ship-local).
@@ -89,6 +91,12 @@ func _ready() -> void:
 			cockpit.position = fighter.cockpit
 			add_child(cockpit)
 			cockpit.setup(self, fighter)
+			effects = ShipEffects.new()
+			effects.fighter_mode = true
+			effects.position_scale = fighter.size / FighterDef.REFERENCE_SIZE
+			add_child(effects)
+			var no_nozzles: Array[MeshInstance3D] = [] # the fighter's engines are drawn by FighterEngineFlames
+			effects.setup(no_nozzles)
 		else:
 			destroyed.connect(func(): visible = false) # no wreck model yet: a destroyed hostile just vanishes
 	else:
@@ -99,6 +107,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if auto_tick:
 		simulate_tick(delta)
+
+
+func _process(delta: float) -> void:
+	if effects != null:
+		effects.update_effects(self, delta)
 
 
 func simulate_tick(delta: float) -> void:
@@ -221,6 +234,8 @@ static func gear_allows_fire(gear: int) -> bool:
 
 func _fire_weapon(command: PilotCommand, delta: float) -> void:
 	weapon.update(delta)
+	if player_controlled and fighter != null and command.fire and state.hull > 0.0 and state.gear == PilotCommand.GEAR_CRUISE and not command.clutch:
+		state.selected_gear = PilotCommand.GEAR_COMBAT # pulling the trigger in cruise drops the fighter into the combat gear, where the guns work
 	if not nose_gun_enabled or projectiles == null or not command.fire or state.hull <= 0.0 or not Ship.gear_allows_fire(state.gear):
 		return
 	var local_muzzle := muzzle_offset + Vector3(_next_barrel * barrel_x, 0.0, 0.0)
