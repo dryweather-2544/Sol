@@ -6,6 +6,8 @@ extends Node3D
 const START_ALTITUDE := 300000.0
 const START_SUN_ANGLE_DEGREES := 50.0
 const WORLD_SEED := 42
+## Chance that a POI cell also holds a small scanner-found site (probe, deposit or anomaly).
+const MINOR_SITE_DENSITY := 0.45
 const AUTOSAVE_INTERVAL_SECONDS := 300.0
 
 var ship: Ship
@@ -35,6 +37,7 @@ var speed_effects: SpeedEffects
 var entry_effects: EntryEffects
 var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
+var exploration_menu: ExplorationMenu
 var combat_effects: CombatEffects
 var _cockpit_view := false
 ## Rodina's warp and speed camera (FOV, chase distance and angle, shake); drives the ship cameras in the rodina style.
@@ -158,6 +161,11 @@ func _ready() -> void:
 	reactor_menu.audio = audio
 	reactor_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	session.reactor_requested.connect(func():
+	exploration_menu = ExplorationMenu.new()
+	exploration_menu.session = session
+	exploration_menu.audio = audio
+	exploration_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	add_child(exploration_menu)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		reactor_menu.open())
 	add_child(reactor_menu)
@@ -351,8 +359,16 @@ func _update_active_camera() -> void:
 			if _cockpit_view:
 				cockpit_camera.current = true
 			else:
+	if exploration_menu.visible:
+		if event.is_action_pressed("journal") or event.is_action_pressed("pause"):
+			exploration_menu.close()
+		return
 				chase_camera.current = true
 
+	if event.is_action_pressed("journal"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		exploration_menu.open()
+		return
 
 func _save_to(slot: String) -> void:
 	var error := save_manager.save(slot, SaveGame.capture(session, WORLD_SEED, runtime.time_seconds))
@@ -393,6 +409,8 @@ func _autosave(reason: String) -> void:
 
 func _autosave_if_due(delta: float) -> void:
 	_seconds_since_autosave += delta
+	elif event.is_action_pressed("scan"):
+		session.scan_pulse()
 	var landed_now := ship.state.landed
 	if landed_now and not _was_landed:
 		_autosave("landed")
@@ -525,6 +543,7 @@ func _nav_targets() -> Array[StringName]:
 	for body_id in system.bodies:
 		if body_id != runtime.active_frame:
 			targets.append(body_id)
+	poi_manager.planner.minor_density = MINOR_SITE_DENSITY
 	return targets
 
 

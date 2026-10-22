@@ -38,6 +38,9 @@ var loot_log := LootLog.new()
 var crew := ShipCrew.new()
 var crew_brain := CrewBrain.new()
 ## POIs near the player, set by the scene each tick (for crates and solid props).
+## Scanner (PoiScanner): seconds until the next pulse is allowed, and how long the readout stays on screen after one.
+var scan_cooldown := 0.0
+var scan_readout_seconds := 0.0
 var nearby_pois: Array = []
 ## Combat: one projectile world shared by every shooter; enemy_targets is filled by the encounter director.
 var projectiles := ProjectileSim.new()
@@ -118,6 +121,8 @@ func tick(delta: float, foot_command: OnFootCommand) -> void:
 	_update_repair(delta)
 	var burning_now := systems.hazards.burning_rooms()
 	if burning_now.size() > _burning_room_count:
+	scan_cooldown = maxf(0.0, scan_cooldown - delta)
+	scan_readout_seconds = maxf(0.0, scan_readout_seconds - delta)
 		_say("FIRE in the %s!" % String(burning_now[-1]).replace("_", " "))
 	_burning_room_count = burning_now.size()
 	match mode:
@@ -193,8 +198,9 @@ func prompt() -> String:
 				&"workbench": return "F: workbench (upgrades)"
 				&"repair_panel": return "F: repair hull" if not repairing else "F: stop repairing"
 		Mode.OUTSIDE:
-			if not _nearest_crate().is_empty():
-				return "F: open crate"
+			var crate := _nearest_crate()
+			if not crate.is_empty():
+				return PoiDefinition.ACTION_PROMPTS[(crate["poi"] as PoiInstance).type]
 			if systems.walkway.is_deployed():
 				return "Walk up the ramp to board"
 	return ""
@@ -222,6 +228,14 @@ func validate() -> String:
 			if not systems.layout.is_position_walkable(interior_body.position.x, interior_body.position.z, 0.0):
 				return "interior body outside walkable area"
 			if ship.controller.current_source != null:
+	var context := _context_prompt()
+	var scan := scan_text()
+	if scan == "":
+		return context
+	return scan if context == "" else context + "\n" + scan
+
+
+func _context_prompt() -> String:
 				return "standing inside but ship still has a pilot"
 		Mode.OUTSIDE:
 			if planet.altitude_above_ground(exterior_body.position) < -0.01:
@@ -453,9 +467,9 @@ func say(text: String) -> void:
 	_say(text)
 
 
-func _say(text: String) -> void:
+func _say(text: String, seconds: float = 2.5) -> void:
 	message = text
-	message_seconds_left = 2.5
+	message_seconds_left = seconds
 
 
 ## Puts the session into a saved mode. Interior/exterior bodies and ship state must already be set.
@@ -630,7 +644,10 @@ func _try_open_crate() -> bool:
 		inventory.add(entry["item"], entry["count"])
 		found.append("%d %s" % [entry["count"], ItemDefinition.display_name(entry["item"])])
 	loot_log.mark_looted(crate["id"])
-	_say("Found: " + ", ".join(found))
+	var result := String(PoiDefinition.RESULT_LABELS[instance.type]) + ": " + ", ".join(found)
+	if PoiDefinition.is_minor(instance.type):
+		result += "\n" + PoiDefinition.finding_text(instance.type, instance.seed_value)
+	_say(result, 6.0 if PoiDefinition.is_minor(instance.type) else 2.5)
 	return true
 
 
@@ -731,3 +748,26 @@ func buy_upgrade(upgrade_id: StringName) -> String:
 		suit.oxygen_duration_multiplier = ship.upgrades.oxygen_duration_multiplier()
 		_say("Installed: " + ShipUpgrades.CATALOG[upgrade_id]["name"])
 	return problem
+## Sends a scanner pulse from wherever the player is (flying, inside or on foot): every site within PoiScanner.RANGE of the
+## POIs the scene knows about becomes a remembered contact. Returns the contacts nearest first ([] while recharging).
+func scan_pulse() -> Array[Dictionary]:
+	if scan_cooldown > 0.0:
+		_say("Scanner recharging")
+		return []
+	scan_cooldown = PoiScanner.COOLDOWN_SECONDS
+	scan_readout_seconds = PoiScanner.READOUT_SECONDS
+	var contacts := PoiScanner.pulse(player_world_position(), forward_vector(), nearby_pois, discovery_log, loot_log)
+	if contacts.is_empty():
+		_say("Scan complete: no signals in range")
+	else:
+		_say("Scan: %d signal%s in range" % [contacts.size(), "" if contacts.size() == 1 else "s"])
+	return contacts
+
+
+## The scanner lines under the prompt: remembered contacts and unfinished sites, nearest first, with live distance and direction.
+func scan_text() -> String:
+	if scan_readout_seconds <= 0.0 or nearby_pois.is_empty():
+		return ""
+	return PoiScanner.readout(PoiScanner.live_contacts(player_world_position(), forward_vector(), nearby_pois, discovery_log, loot_log))
+
+

@@ -11,7 +11,7 @@ Press **Esc** any time for the pause menu (save/load/settings). Click the window
 | Flying | **W/S** thrust forward/back, **A/D** strafe, **Space/C** up/down, **mouse** (or arrow keys) pitch and yaw, **Q/E** roll, **Shift** boost, **X** brake, **[ ]** gear down/up (DOCK / COMBAT / CRUISE / WARP), **V** cockpit view, **click or Ctrl** fire |
 | Walking (inside or outside) | **WASD** move, **Shift** run, **Space** jump (outside; hold in the air for the jetpack), **mouse** look, **click or Ctrl** fire the pistol (outside) |
 | Captain's orders | **R** engineer: fix everything (press again to cancel), **G** gunner: man the turret, **P** cycle the reactor's power split (balanced / engines / weapons) |
-| Anywhere | **F** use (stand up, sit, door panels, repair panel, open crates), **Tab** inventory, **T** cycle nav target, **F5/F9** quicksave/quickload, **Esc** menu |
+| Anywhere | **F** use (stand up, sit, door panels, repair panel, open crates), **Tab** inventory, **N** scanner pulse (flying, inside or on foot), **J** exploration log, **T** cycle nav target, **F5/F9** quicksave/quickload, **Esc** menu |
 
 ## The loop
 

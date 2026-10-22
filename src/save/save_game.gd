@@ -64,6 +64,7 @@ static func capture(session: GameSession, world_seed: int, game_time_seconds: fl
 			"discovered": session.discovery_log.to_array(),
 			"looted": session.loot_log.to_array(),
 			"cleared": session.cleared_log.to_array(),
+			"scanned": session.discovery_log.contacts_to_array(), # optional: saves written before the scanner simply have none
 		},
 		"crew": session.crew.to_array(),
 		"inventory": session.inventory.to_dictionary(),
@@ -135,6 +136,9 @@ static func restore(session: GameSession, data: Dictionary) -> String:
 	session.restore_mode(mode)
 	var poi_data: Dictionary = data.get("pois", {})
 	session.discovery_log.restore(poi_data.get("discovered", []))
+	session.discovery_log.restore_contacts(poi_data.get("scanned", []))
+	session.scan_cooldown = 0.0
+	session.scan_readout_seconds = 0.0
 	session.loot_log.restore(poi_data.get("looted", []))
 	session.cleared_log.restore(poi_data.get("cleared", []))
 	session.projectiles.clear()

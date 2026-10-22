@@ -7,6 +7,8 @@ const GROUND_SAMPLE_ARMS := 1
 ## Where the depot's entrance sits in the outpost's local x, z (it extends toward -z from here).
 const DEPOT_ORIGIN := Vector2(-75.0, 0.0)
 const DEPOT_FLOOR_LIFT := 0.25
+## Where the one interaction of a minor site sits (local x, z), just outside its solid centre.
+const MINOR_INTERACT_POINT := {PoiDefinition.Type.PROBE: Vector2(2.4, 0.0), PoiDefinition.Type.DEPOSIT: Vector2(4.0, 0.0), PoiDefinition.Type.ANOMALY: Vector2(3.0, 0.0)}
 
 
 ## Orientation of a POI's local frame at its position: y is up (away from the planet centre).
@@ -42,6 +44,12 @@ static func blockers(instance: PoiInstance) -> Array[Vector3]:
 			circles.append(Vector3(axis.x * -12.0 + 2.0, axis.y * -12.0, 3.0))
 		PoiDefinition.Type.BEACON:
 			circles.append(Vector3(0.0, 0.0, 3.6))
+		PoiDefinition.Type.PROBE:
+			circles.append(Vector3(0.0, 0.0, 1.4))
+		PoiDefinition.Type.DEPOSIT:
+			circles.append(Vector3(0.0, 0.0, 3.0))
+		PoiDefinition.Type.ANOMALY:
+			circles.append(Vector3(0.0, 0.0, 2.2))
 		_:
 			for building_index in 3:
 				var angle := (float(building_index) / 3.0 + rng.next_float() * 0.2) * TAU
@@ -64,6 +72,8 @@ static func crate_positions(instance: PoiInstance) -> Array[Vector2]:
 			positions.append(Vector2(-sin(hull_yaw) * 5.0 - cos(hull_yaw) * 4.5, -cos(hull_yaw) * 5.0 + sin(hull_yaw) * 4.5))
 		PoiDefinition.Type.BEACON:
 			positions.append(Vector2(5.5, 0.0))
+		PoiDefinition.Type.PROBE, PoiDefinition.Type.DEPOSIT, PoiDefinition.Type.ANOMALY:
+			positions.append(MINOR_INTERACT_POINT[instance.type])
 		_:
 			positions.append(Vector2(14.0, 0.0))
 			positions.append(Vector2(-14.0, 6.0))
@@ -86,6 +96,15 @@ static func build_content(instance: PoiInstance, planet: PlanetBody) -> Node3D:
 			_build_wreck(root, instance, planet, rng)
 		PoiDefinition.Type.BEACON:
 			_build_beacon(root, instance, planet)
+		PoiDefinition.Type.PROBE:
+			_build_probe(root, instance, planet, rng)
+			return root
+		PoiDefinition.Type.DEPOSIT:
+			_build_deposit(root, instance, planet, rng)
+			return root
+		PoiDefinition.Type.ANOMALY:
+			_build_anomaly(root, instance, planet, rng)
+			return root
 		_:
 			_build_outpost(root, instance, planet, rng)
 			_build_depot(root, instance, planet)
@@ -147,6 +166,108 @@ static func _build_wreck(root: Node3D, instance: PoiInstance, planet: PlanetBody
 		var size := 0.6 + rng.next_float() * 3.0
 		_box(root, Vector3(size, size * (0.3 + rng.next_float()), size * (0.5 + rng.next_float())), metal if rng.next_float() < 0.6 else rust,
 			Vector3(local_x, ground_offset(planet, instance, local_x, local_z) + size * 0.25, local_z), Vector3(rng.next_float() * 40.0, rng.next_float() * 360.0, rng.next_float() * 40.0))
+
+
+## A small emissive stake at the interaction point, so the spot to press F at is visible.
+static func _interact_stake(root: Node3D, instance: PoiInstance, planet: PlanetBody, color: Color) -> void:
+	var point: Vector2 = MINOR_INTERACT_POINT[instance.type]
+	var ground := ground_offset(planet, instance, point.x, point.y)
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = color
+	glow.emission_enabled = true
+	glow.emission = color
+	glow.emission_energy_multiplier = 3.0
+	var pole := CylinderMesh.new()
+	pole.top_radius = 0.04
+	pole.bottom_radius = 0.06
+	pole.height = 1.3
+	_mesh(root, pole, _material(Color(0.3, 0.3, 0.32), 0.6, 0.6), Vector3(point.x, ground + 0.65, point.y))
+	_box(root, Vector3(0.22, 0.12, 0.22), glow, Vector3(point.x, ground + 1.36, point.y), Vector3.ZERO)
+
+
+## A crashed research probe: scorched body, bent dish, folded solar panels.
+static func _build_probe(root: Node3D, instance: PoiInstance, planet: PlanetBody, rng: SeedRng) -> void:
+	var hull: Material = AssetLibrary.material_or("mat_hull_plating_derelict", _material(Color(0.62, 0.62, 0.64), 0.5, 0.7))
+	var panel_material := _material(Color(0.08, 0.1, 0.2), 0.3, 0.5)
+	var scorch := _material(Color(0.12, 0.1, 0.09), 0.9, 0.2)
+	var base_height := ground_offset(planet, instance, 0.0, 0.0)
+	var yaw := rng.next_float() * 360.0
+	var body := CylinderMesh.new()
+	body.top_radius = 0.7
+	body.bottom_radius = 0.9
+	body.height = 1.6
+	var body_node := _mesh(root, body, hull, Vector3(0, base_height + 0.6, 0))
+	body_node.rotation_degrees = Vector3(rng.next_float() * 20.0 - 10.0, yaw, rng.next_float() * 20.0 - 10.0)
+	_box(root, Vector3(1.9, 0.12, 1.9), scorch, Vector3(0, base_height + 0.05, 0), Vector3(0, yaw, 0))
+	var dish := CylinderMesh.new()
+	dish.top_radius = 1.1
+	dish.bottom_radius = 0.2
+	dish.height = 0.35
+	var dish_node := _mesh(root, dish, hull, Vector3(0.6, base_height + 1.7, 0.2))
+	dish_node.rotation_degrees = Vector3(30.0 + rng.next_float() * 30.0, yaw, 25.0)
+	_box(root, Vector3(3.2, 0.06, 1.1), panel_material, Vector3(-1.8, base_height + 0.45, 0.6), Vector3(0, yaw, 14.0))
+	_box(root, Vector3(2.4, 0.06, 1.1), panel_material, Vector3(1.3, base_height + 0.2, -1.4), Vector3(8.0, yaw + 40.0, -6.0))
+	_interact_stake(root, instance, planet, Color(0.4, 0.85, 1.0))
+	var light := OmniLight3D.new()
+	light.position = Vector3(0.0, base_height + 2.0, 0.0)
+	light.omni_range = 9.0
+	light.light_energy = 0.7
+	light.light_color = Color(0.5, 0.85, 1.0)
+	root.add_child(light)
+
+
+## An exposed ore body: a ring of angular rocks with a bright metallic seam.
+static func _build_deposit(root: Node3D, instance: PoiInstance, planet: PlanetBody, rng: SeedRng) -> void:
+	var rock := _material(Color(0.28, 0.26, 0.24), 0.95, 0.1)
+	var ore := _material(Color(0.6, 0.48, 0.3), 0.4, 0.85)
+	for rock_index in 7:
+		var angle := rng.next_float() * TAU
+		var distance := rng.next_float() * 2.0
+		var local_x := cos(angle) * distance
+		var local_z := sin(angle) * distance
+		var size := 1.0 + rng.next_float() * 1.8
+		var material: Material = ore if rock_index % 3 == 0 else rock
+		_box(root, Vector3(size, size * (0.7 + rng.next_float() * 0.8), size * (0.7 + rng.next_float() * 0.6)), material,
+			Vector3(local_x, ground_offset(planet, instance, local_x, local_z) + size * 0.3, local_z), Vector3(rng.next_float() * 30.0, rng.next_float() * 360.0, rng.next_float() * 30.0))
+	_interact_stake(root, instance, planet, Color(1.0, 0.75, 0.25))
+
+
+## A scientific anomaly: a ring of crystal spikes round a faintly glowing core.
+static func _build_anomaly(root: Node3D, instance: PoiInstance, planet: PlanetBody, rng: SeedRng) -> void:
+	var crystal := StandardMaterial3D.new()
+	crystal.albedo_color = Color(0.35, 0.25, 0.5)
+	crystal.roughness = 0.2
+	crystal.metallic = 0.3
+	crystal.emission_enabled = true
+	crystal.emission = Color(0.5, 0.3, 0.9)
+	crystal.emission_energy_multiplier = 0.8
+	var core_material := StandardMaterial3D.new()
+	core_material.albedo_color = Color(0.8, 0.6, 1.0)
+	core_material.emission_enabled = true
+	core_material.emission = Color(0.7, 0.45, 1.0)
+	core_material.emission_energy_multiplier = 3.5
+	var base_height := ground_offset(planet, instance, 0.0, 0.0)
+	var spikes := 8
+	for spike_index in spikes:
+		if spike_index == 0:
+			continue # leave a gap on the side the interaction point is on
+		var angle := (float(spike_index) / float(spikes)) * TAU
+		var local_x := cos(angle) * 2.2
+		var local_z := sin(angle) * 2.2
+		var spike_height := 1.8 + rng.next_float() * 2.2
+		_box(root, Vector3(0.45, spike_height, 0.45), crystal, Vector3(local_x, ground_offset(planet, instance, local_x, local_z) + spike_height * 0.5, local_z),
+			Vector3(rng.next_float() * 24.0 - 12.0, rng.next_float() * 360.0, rng.next_float() * 24.0 - 12.0))
+	var core := SphereMesh.new()
+	core.radius = 0.6
+	core.height = 1.2
+	_mesh(root, core, core_material, Vector3(0, base_height + 1.7, 0))
+	_interact_stake(root, instance, planet, Color(0.75, 0.5, 1.0))
+	var light := OmniLight3D.new()
+	light.position = Vector3(0.0, base_height + 1.8, 0.0)
+	light.omni_range = 14.0
+	light.light_energy = 1.2
+	light.light_color = Color(0.7, 0.45, 1.0)
+	root.add_child(light)
 
 
 static func _build_beacon(root: Node3D, instance: PoiInstance, planet: PlanetBody) -> void:

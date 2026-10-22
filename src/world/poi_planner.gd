@@ -7,6 +7,11 @@ const CELL_SIZE := 4000.0
 const GENERATION_VERSION := 1
 const CANDIDATE_SITES := 5
 const SLOPE_PROBE_METRES := 25.0
+## Minor sites (probes, deposits, anomalies): one optional site per cell, placed only on gentle ground and away from the
+## cell's large POI. Off unless minor_density > 0, so planners built without it keep their exact original output.
+const MINOR_CANDIDATE_SITES := 4
+const MINOR_MAX_SLOPE := 0.35
+const MINOR_CLEARANCE := 250.0
 
 var planet: PlanetBody
 var planet_seed: int
@@ -15,6 +20,9 @@ var density := 0.22
 ## Put in POI ids so worlds never share ids; empty keeps the original home-planet ids (and saves).
 var id_prefix := ""
 var _cache := {} # cell id -> PoiInstance or null
+## Chance that a cell also holds a minor site (0 = none).
+var minor_density := 0.0
+var _minor_cache := {} # cell id -> PoiInstance or null
 ## Mission POIs placed by hand (id -> PoiInstance), reported by plan_region like any other.
 var pinned := {}
 
@@ -54,6 +62,10 @@ func plan_cells(center: WorldPos, radius_metres: float) -> Array[PoiInstance]:
 				var instance := plan_cell(cell_i, cell_j, cell_k)
 				if instance != null and instance.position.distance_to(center) <= radius_metres:
 					found.append(instance)
+				if minor_density > 0.0:
+					var minor := plan_minor_cell(cell_i, cell_j, cell_k)
+					if minor != null and minor.position.distance_to(center) <= radius_metres:
+						found.append(minor)
 	return found
 
 
@@ -80,6 +92,63 @@ func plan_cell(cell_i: int, cell_j: int, cell_k: int) -> PoiInstance:
 		return _cache[cell_id]
 	var instance := _build_cell(cell_i, cell_j, cell_k, cell_id)
 	_cache[cell_id] = instance
+	return instance
+
+
+## The minor site of a cell (or null). Same planet seed + generation_version = same site, id and type, in any order.
+func plan_minor_cell(cell_i: int, cell_j: int, cell_k: int) -> PoiInstance:
+	var cell_id := _minor_cell_id(cell_i, cell_j, cell_k)
+	if _minor_cache.has(cell_id):
+		return _minor_cache[cell_id]
+	var instance := _build_minor(cell_i, cell_j, cell_k, cell_id)
+	_minor_cache[cell_id] = instance
+	return instance
+
+
+func _minor_cell_id(cell_i: int, cell_j: int, cell_k: int) -> StringName:
+	if id_prefix == "":
+		return StringName("site_%d_%d_%d" % [cell_i, cell_j, cell_k])
+	return StringName("site_%s_%d_%d_%d" % [id_prefix, cell_i, cell_j, cell_k])
+
+
+func _build_minor(cell_i: int, cell_j: int, cell_k: int, cell_id: StringName) -> PoiInstance:
+	var cell_seed := SeedHash.combine(planet_seed, SeedHash.string_hash("minor_site"))
+	cell_seed = SeedHash.combine(SeedHash.combine(SeedHash.combine(cell_seed, cell_i & 0xFFFFFFFF), cell_j & 0xFFFFFFFF), cell_k & 0xFFFFFFFF)
+	cell_seed = SeedHash.combine(cell_seed, GENERATION_VERSION)
+	var rng := SeedRng.new(cell_seed)
+	if rng.next_float() >= minor_density:
+		return null
+	var type := PoiDefinition.pick_minor_type(rng.next_float())
+	var large := plan_cell(cell_i, cell_j, cell_k)
+	var best_position: WorldPos
+	var best_slope := INF
+	for site in MINOR_CANDIDATE_SITES:
+		var point_x := (cell_i + rng.next_float()) * CELL_SIZE
+		var point_y := (cell_j + rng.next_float()) * CELL_SIZE
+		var point_z := (cell_k + rng.next_float()) * CELL_SIZE
+		var distance := sqrt(point_x * point_x + point_y * point_y + point_z * point_z)
+		if distance < 1.0:
+			continue
+		var direction_x := point_x / distance
+		var direction_y := point_y / distance
+		var direction_z := point_z / distance
+		var ground := planet.surface_radius_xyz(direction_x, direction_y, direction_z)
+		var candidate := WorldPos.new(planet.frame_id, direction_x * ground, direction_y * ground, direction_z * ground)
+		if large != null and candidate.distance_to(large.position) < MINOR_CLEARANCE:
+			continue
+		var slope := _slope_at(direction_x, direction_y, direction_z)
+		if slope < best_slope:
+			best_slope = slope
+			best_position = candidate
+	if best_position == null or best_slope > MINOR_MAX_SLOPE:
+		return null # no reliable spot in this cell: better no site than one on a cliff
+	var instance := PoiInstance.new()
+	instance.id = cell_id
+	instance.type = type
+	instance.seed_value = cell_seed
+	instance.generation_version = GENERATION_VERSION
+	instance.position = best_position
+	instance.display_name = "%s %02X-%03d" % [PoiDefinition.TYPE_NAMES[type], cell_seed & 0xFF, (cell_seed >> 8) % 1000]
 	return instance
 
 

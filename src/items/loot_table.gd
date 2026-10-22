@@ -8,6 +8,10 @@ const TABLES := {
 	PoiDefinition.Type.WRECK: [[&"scrap", 6, 2, 8], [&"repair_kit", 2, 1, 1], [&"data_chip", 2, 1, 2], [&"fuel_cell", 1, 1, 1], [&"oxygen_tank", 1, 1, 1]],
 	PoiDefinition.Type.BEACON: [[&"data_chip", 5, 1, 3], [&"oxygen_tank", 2, 1, 1], [&"fuel_cell", 2, 1, 1]],
 	PoiDefinition.Type.OUTPOST: [[&"fuel_cell", 4, 1, 2], [&"oxygen_tank", 3, 1, 2], [&"repair_kit", 3, 1, 2], [&"scrap", 3, 3, 10], [&"data_chip", 1, 1, 1]],
+	# Minor sites: one interaction each (crate index 0).
+	PoiDefinition.Type.PROBE: [[&"data_chip", 6, 1, 2], [&"scrap", 2, 1, 3]],
+	PoiDefinition.Type.DEPOSIT: [[&"scrap", 6, 5, 12], [&"fuel_cell", 1, 1, 1]],
+	PoiDefinition.Type.ANOMALY: [[&"data_chip", 4, 1, 2], [&"oxygen_tank", 1, 1, 1]],
 }
 const ROLLS_PER_CRATE := 2
 
