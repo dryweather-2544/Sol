@@ -13,6 +13,7 @@ var viewer_local := Vector3.ZERO
 var placement_distance := 1.0e6
 
 var _nodes := {} # body id -> MeshInstance3D
+var _backdrops := {} # body id -> MeshInstance3D: the active planet as a sphere drawn first, behind its terrain (see _update_backdrop)
 var _shells := {} # body id -> AtmosphereShell (only for worlds with an atmosphere)
 
 
@@ -27,6 +28,8 @@ const STAR_CORONA_REACH := 4.0
 ## impostor distance (0.8 x far plane) of altitude, it is drawn as a sphere like every other body, so a planet never
 ## vanishes between the end of its terrain and the frame switch at its sphere of influence.
 const TERRAIN_HANDOFF := 1.1
+## Below this altitude the backdrop sphere is not drawn (the terrain fills the view).
+const BACKDROP_MIN_ALTITUDE := 300.0
 
 
 func _ready() -> void:
@@ -50,6 +53,21 @@ func _ready() -> void:
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(node)
 		_nodes[body_id] = node
+		if not body.is_star:
+			var backdrop := MeshInstance3D.new()
+			backdrop.mesh = mesh
+			var backdrop_material := StandardMaterial3D.new()
+			backdrop_material.albedo_color = VisualStyle.look_for(body).impostor_color
+			backdrop_material.roughness = 1.0
+			backdrop_material.no_depth_test = true # drawn first and never in front of anything: terrain, ship and cockpit all paint over it
+			backdrop_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+			backdrop_material.render_priority = -100
+			backdrop.material_override = backdrop_material
+			backdrop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			backdrop.extra_cull_margin = 16384.0
+			backdrop.visible = false
+			add_child(backdrop)
+			_backdrops[body_id] = backdrop
 		if body.atmosphere_height > 0.0:
 			var shell := AtmosphereShell.new()
 			add_child(shell)
@@ -81,6 +99,7 @@ func restyle() -> void:
 		var body: BodyDef = system.bodies[body_id]
 		if not body.is_star:
 			((_nodes[body_id] as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = VisualStyle.look_for(body).impostor_color
+			((_backdrops[body_id] as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = VisualStyle.look_for(body).impostor_color
 
 
 func _process(_delta: float) -> void:
@@ -94,6 +113,7 @@ func _process(_delta: float) -> void:
 		var distance := offset.length()
 		var terrain_drawn: bool = body_id == runtime.active_frame and distance - body.radius <= placement_distance * TERRAIN_HANDOFF
 		node.visible = not terrain_drawn and not (body.is_star and hide_star)
+		_update_backdrop(body_id, body, terrain_drawn, distance, offset)
 		if _shells.has(body_id):
 			(_shells[body_id] as Node3D).visible = node.visible
 		if not node.visible:
@@ -110,6 +130,22 @@ func _process(_delta: float) -> void:
 			node.position = viewer_local + offset * scale_factor
 			node.scale = Vector3.ONE * (body.radius * scale_factor)
 			_update_shell(body_id, body, node.position, scale_factor)
+
+
+## The terrain is cut off by the camera's far plane in a straight line, well short of the real horizon once the viewer is a few
+## kilometres up, leaving sky between the two. Behind it the planet is drawn as a squeezed sphere (true angular size, kept inside the
+## far plane) first and without depth, so the terrain, the ship and the cockpit all paint over it and it only shows where the terrain ends.
+func _update_backdrop(body_id: StringName, body: BodyDef, terrain_drawn: bool, distance: float, offset: Vector3) -> void:
+	var backdrop: MeshInstance3D = _backdrops.get(body_id)
+	if backdrop == null:
+		return
+	var altitude := distance - body.radius
+	backdrop.visible = terrain_drawn and altitude > BACKDROP_MIN_ALTITUDE
+	if not backdrop.visible:
+		return
+	var scale_factor := minf(1.0, placement_distance * 0.95 / distance)
+	backdrop.position = viewer_local + offset * scale_factor
+	backdrop.scale = Vector3.ONE * (body.radius * scale_factor)
 
 
 func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_factor: float) -> void:
