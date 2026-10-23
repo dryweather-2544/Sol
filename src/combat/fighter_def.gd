@@ -31,6 +31,11 @@ var cockpit := Vector3.ZERO
 var engines: Array[Vector3] = []
 ## Only used by the placeholder fallback.
 var hull_color := Color(0.75, 0.15, 0.12)
+## Which cockpit interior the pilot sits in (a key of FighterCockpitSpec.all()), one line about the craft for the hangar, and the colour its
+## cockpit screens and lamps glow in, so no two fighters read alike.
+var cockpit_id: StringName = &"xwing"
+var blurb := ""
+var accent := Color(0.255, 0.784, 0.753)
 
 
 func hit_radius() -> float:

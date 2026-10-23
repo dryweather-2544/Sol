@@ -3,6 +3,8 @@ extends CanvasLayer
 ## Fighter hangar (Y while piloting): pick one of the small fighters from a list, look at it on a turntable, and
 ## take it out (from the helm or on foot; the fighter is a separate ship, main.gd spawns it). Pauses the game while open.
 
+const Spec := preload("res://src/flight/fighter_cockpit_spec.gd") # preloaded, so it needs no class cache refresh
+
 signal closed
 signal spawn_requested(def: FighterDef)
 signal recall_requested
@@ -77,7 +79,8 @@ func _build() -> void:
 	_camera.current = true
 	_viewport.add_child(_camera)
 	_viewport.add_child(_pivot)
-	_stats.custom_minimum_size = Vector2(420, 96)
+	_stats.custom_minimum_size = Vector2(420, 120)
+	_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(_stats)
 	var buttons := HBoxContainer.new()
 	root.add_child(buttons)
@@ -144,8 +147,8 @@ func _select(index: int) -> void:
 	var distance := def.size * 1.7
 	_camera.transform = Transform3D(Basis.looking_at(Vector3(0, -0.28, -1).normalized(), Vector3.UP), Vector3(0, def.size * 0.35, distance))
 	_camera.far = distance * 6.0
-	_stats.text = "%s  -  %s, %.0f m\nSpeed x%.2f   Turning x%.2f   Hull x%.1f\nGuns: %.1f shots/s, %.3f damage each\n%s" % [
-		def.display_name, FighterDef.role_name(def.role), def.size, def.speed_scale, def.turn_scale, def.toughness, def.gun_rate, def.gun_damage, _blurb(def)]
+	_stats.text = "%s  -  %s, %.0f m\nSpeed x%.2f   Turning x%.2f   Hull x%.1f\nGuns: %.1f shots/s, %.3f damage each\nCockpit: %s\n%s" % [
+		def.display_name, FighterDef.role_name(def.role), def.size, def.speed_scale, def.turn_scale, def.toughness, def.gun_rate, def.gun_damage, Spec.by_id(def.cockpit_id).display_name, _blurb(def)]
 
 
 func _on_spawn() -> void:
@@ -163,6 +166,8 @@ func _play(sample: String) -> void:
 
 
 static func _blurb(def: FighterDef) -> String:
+	if def.blurb != "":
+		return def.blurb
 	match def.role:
 		FighterDef.Role.INTERCEPTOR:
 			return "Fast and nimble, thin hull. Hit and run."

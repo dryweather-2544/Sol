@@ -96,7 +96,7 @@ func _process(_delta: float) -> bool:
 			_step = 7
 			_wait = 5
 		7:
-			_note("Back returns to the pause page with its buttons", menu.page == PauseMenu.Page.PAUSE and _buttons().size() == 5, "buttons %s" % str(_buttons()))
+			_note("Back returns to the pause page with its buttons", menu.page == PauseMenu.Page.PAUSE and _buttons().size() == 6, "buttons %s" % str(_buttons()))
 			_note("Resume works", _press("Resume"))
 			_step = 8
 			_wait = 5
@@ -106,7 +106,7 @@ func _process(_delta: float) -> bool:
 			_step = 9
 			_wait = 5
 		9:
-			_note("second open (after a close) works", menu.visible and paused and _buttons().size() == 5, "buttons %s" % str(_buttons()))
+			_note("second open (after a close) works", menu.visible and paused and _buttons().size() == 6, "buttons %s" % str(_buttons()))
 			_note("Save works", _press("Save"))
 			_step = 10
 			_wait = 5

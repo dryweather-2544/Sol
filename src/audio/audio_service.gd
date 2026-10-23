@@ -325,9 +325,7 @@ func _update_cabin_and_suit_loops(inside: bool) -> void:
 	_set_loop_gain("amb_int_air_loop", 1.0 if beds and inside and life_support > 0.05 else 0.0, &"Ship")
 	var outside := session.mode == GameSession.Mode.OUTSIDE
 	_set_loop_gain("amb_suit_room_tone_loop", 1.0 if beds and outside else 0.0, &"Suit")
-	var strained := session.suit.oxygen <= 0.3
-	_set_loop_gain("amb_suit_breath_calm_loop", 1.0 if outside and not strained else 0.0, &"Suit")
-	_set_loop_gain("amb_suit_breath_strained_loop", 1.0 if outside and strained else 0.0, &"Suit")
+	# No suit breathing outside the ship: the owner finds it unpleasant, so it is not played (the loop files stay, unused).
 	_set_loop_gain("rod_air_blow_loop", 1.0 if outside and session.exterior_body.jetpack_burning else 0.0, &"Suit")
 	_set_loop_gain("rod_air_blow_repair_loop", 1.0 if inside and session.repairing else 0.0, &"Ship")
 	var reactor_gain := 0.0 if systems.power.is_shut_down() else lerpf(0.5, 1.0, clampf(systems.power.temperature, 0.0, 1.0))

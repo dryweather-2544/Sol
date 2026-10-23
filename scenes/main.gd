@@ -3,6 +3,7 @@ extends Node3D
 ## builds nodes, turns keys/mouse into commands for GameSession, and picks the active camera;
 ## all game rules live in GameSession and the classes it uses.
 
+const BigShipMenuScript := preload("res://src/bigship/big_ship_menu.gd") # the five big ships (no class_name, so no class cache refresh is needed)
 const START_ALTITUDE := 300000.0
 const START_SUN_ANGLE_DEGREES := 50.0
 const WORLD_SEED := 42
@@ -36,6 +37,7 @@ var poi_manager: PoiManager
 var menu: PauseMenu
 var inventory_menu: InventoryMenu
 var hangar_menu: HangarMenu
+var big_ship_menu # a BigShipMenuScript instance
 var _fighter_node: Ship ## the player's separate fighter while one exists (flying or parked); freed when the session lets go of it
 var workbench_menu: WorkbenchMenu
 var reactor_menu: ReactorMenu
@@ -196,6 +198,10 @@ func _ready() -> void:
 	hangar_menu.spawn_requested.connect(_on_fighter_spawn)
 	hangar_menu.recall_requested.connect(_on_fighter_recall)
 	add_child(hangar_menu)
+	big_ship_menu = BigShipMenuScript.new()
+	big_ship_menu.audio = audio
+	big_ship_menu.closed.connect(func(): menu.show_page(menu.page)) # back to the title / pause page it was opened from
+	add_child(big_ship_menu)
 	exploration_menu = ExplorationMenu.new()
 	exploration_menu.session = session
 	exploration_menu.audio = audio
@@ -247,6 +253,7 @@ func _ready() -> void:
 	menu.continue_requested.connect(func(): _load_from("autosave"); _on_menu_resume())
 	menu.save_requested.connect(func(): _save_to("quicksave"))
 	menu.quit_requested.connect(func(): get_tree().quit())
+	menu.big_ships_requested.connect(func(): big_ship_menu.open())
 	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
 	menu.world_ready_check = func() -> bool: return terrain != null and terrain.is_settled()
 	add_child(menu)
@@ -419,6 +426,8 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if big_ship_menu != null and big_ship_menu.visible:
+		return # the big ships list and the walkable view handle their own keys
 	if machine_menu.visible:
 		if event.is_action_pressed("pause") or event.is_action_pressed("interact"):
 			machine_menu.close()
@@ -627,6 +636,9 @@ func _sync_fighter() -> void:
 
 
 func _update_active_camera() -> void:
+	# In the fighter's cockpit view its outer hull is hidden: the camera sits inside that hull, and the hull's nose and canopy would cover the interior.
+	if _fighter_node != null and is_instance_valid(_fighter_node) and _fighter_node.model_holder != null:
+		_fighter_node.model_holder.visible = not (session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view and not session.gunner_station and _fighter_node.cockpit_camera != null)
 	match session.mode:
 		GameSession.Mode.OUTSIDE:
 			on_foot.camera.current = true
@@ -1014,6 +1026,8 @@ func _update_warp_view(delta: float) -> void:
 	if _fighter_node != null and _fighter_node.effects != null:
 		_fighter_node.effects.limnal_activation = warp_view.activation
 		_fighter_node.effects.camera_inside = session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view
+	if _fighter_node != null and _fighter_node.model_holder != null:
+		_fighter_node.model_holder.visible = not (session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view and not session.gunner_station and _fighter_node.cockpit_camera != null)
 	var effects := _ship_effects()
 	if effects != null:
 		effects.limnal_activation = warp_view.activation

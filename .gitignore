@@ -18,3 +18,9 @@ assets/sol/audio/mus/
 
 # Astronaut model (licence unknown): local only until the owner confirms the licence.
 assets/characters/
+
+# Ship corridor / colony / shipyard models (downloaded, licence unchecked): local only.
+assets/ships/
+
+# Python bytecode from the tools/ scripts.
+__pycache__/

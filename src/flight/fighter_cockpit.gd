@@ -58,6 +58,9 @@ const SLIM_STRUT_TOP_X := 0.28
 ## Buttons are flat, elongated pads laid on the surface (size: along, across, thickness), not blocks standing off it.
 const CONSOLE_TOP_Y := -0.52
 const BUTTON_SIZE := Vector3(0.075, 0.022, 0.006)
+## The newer interiors' readout plates are pulled in toward the middle by this factor and raised by this many metres from the measured point.
+const PLATE_PULL_IN := 0.78
+const PLATE_RAISE := 0.07
 
 var ship: Ship
 var _font: Font
@@ -72,6 +75,14 @@ var _radar_view := SubViewport.new()
 var _radar := FighterRadar.new()
 ## The X-Wing cockpit's two plates are 2D screens (FighterDisplay) drawn in their own viewports, only updated while the cockpit is shown.
 const Display := preload("res://src/flight/fighter_display.gd") # preloaded, so it needs no class cache refresh
+const Spec := preload("res://src/flight/fighter_cockpit_spec.gd") # likewise
+## Which interior this cockpit is (FighterCockpitSpec) and the colour of its screens and lamps (FighterDef.accent).
+var _spec: Spec = Spec.by_id(&"xwing")
+var _accent := CYAN
+## The pilot's eye in the interior model's own space (the spec's eye).
+var _eye := XWING_EYE
+## What setup built: the interior's id (FighterCockpitSpec) or &"canopy" for the home-built cockpit used when no interior model is on disk.
+var interior_id: StringName = &"canopy"
 var _left_display: Display
 var _right_display: Display
 var _display_views: Array[SubViewport] = []
@@ -102,17 +113,29 @@ func _init() -> void:
 func setup(owner_ship: Ship, def: FighterDef) -> void:
 	ship = owner_ship
 	scale = Vector3.ONE * clampf(def.size / 11.0, 0.75, 1.4)
+	_spec = Spec.by_id(def.cockpit_id)
+	_accent = def.accent
+	_eye = _spec.eye
 	if ResourceLoader.exists(FONT_PATH):
 		_font = load(FONT_PATH)
 	_group = null
-	var xwing := _build_xwing()
-	if not xwing:
+	var modelled := _build_interior_model()
+	if not modelled and _spec.id != &"xwing":
+		# the chosen interior's file is missing: fall back to the first interior's model, and then to the built canopy
+		_spec = Spec.by_id(&"xwing")
+		_eye = _spec.eye
+		modelled = _build_interior_model()
+	if not modelled:
 		_build_shell()
 		_build_tub()
 		_build_nose()
-	if xwing:
-		_build_xwing_readouts()
-		_build_seat(XWING_SEAT_SCALE, XWING_SEAT_POSITION)
+	if modelled:
+		interior_id = _spec.id
+		if _spec.legacy:
+			_build_xwing_readouts()
+		else:
+			_build_spec_readouts()
+		_build_seat(XWING_SEAT_SCALE, Vector3(XWING_SEAT_POSITION.x, _spec.floor_y - _eye.y - 0.39, XWING_SEAT_POSITION.z))
 	else:
 		_panel = Node3D.new()
 		_panel.name = "InstrumentPanel"
@@ -371,23 +394,28 @@ func _build_stick(base_at: Vector3, full: bool) -> void:
 
 
 ## The model's own hull (left out: it is a 14 m exterior that would block the view ahead) used to close the cockpit in. This fills what it
-## covered, in model space under the model: a wall down each side from the canopy's lower rail, the floor, a bulkhead under the front of the
-## console, and a flat pointed nose running on ahead of it, so no sky or planet shows through below the frame.
+## covered, in model space under the model, from the spec's numbers: a wall down each side from the canopy's lower rail, the floor, a bulkhead
+## under the front of the console, and a flat pointed nose running on ahead of it, so no sky or planet shows through below the frame.
 func _build_xwing_fill(model: Node3D) -> void:
 	var material := _material(Color(0.2, 0.25, 0.25), 0.85, 0.35)
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var bottom := -0.93
+	var bottom := _spec.floor_y - 0.01
+	var sill := _spec.sill_y
+	var wide := _spec.half_width
+	var narrow := wide * 0.65
+	var back := _spec.back_z
+	var front := _spec.front_z
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for side in [-1.0, 1.0]:
-		_fill_quad(surface, Vector3(side * 0.62, -0.22, -0.32), Vector3(side * 0.40, -0.13, 1.74), Vector3(side * 0.40, bottom, 1.74), Vector3(side * 0.62, bottom, -0.32))
-	_fill_quad(surface, Vector3(-0.62, bottom, -0.32), Vector3(0.62, bottom, -0.32), Vector3(0.62, bottom, 1.74), Vector3(-0.62, bottom, 1.74))
-	_fill_quad(surface, Vector3(-0.40, -0.2, 1.74), Vector3(0.40, -0.2, 1.74), Vector3(0.40, bottom, 1.74), Vector3(-0.40, bottom, 1.74))
-	for vertex in [Vector3(-0.42, -0.2, 1.74), Vector3(0.42, -0.2, 1.74), Vector3(0.0, -0.45, 5.8)]:
+		_fill_quad(surface, Vector3(side * wide, sill, back), Vector3(side * narrow, sill + 0.09, front), Vector3(side * narrow, bottom, front), Vector3(side * wide, bottom, back))
+	_fill_quad(surface, Vector3(-wide, bottom, back), Vector3(wide, bottom, back), Vector3(wide, bottom, front), Vector3(-wide, bottom, front))
+	_fill_quad(surface, Vector3(-narrow, sill + 0.02, front), Vector3(narrow, sill + 0.02, front), Vector3(narrow, bottom, front), Vector3(-narrow, bottom, front))
+	for vertex in [Vector3(-narrow - 0.02, sill + 0.02, front), Vector3(narrow + 0.02, sill + 0.02, front), Vector3(0.0, sill - 0.23, front + 4.06)]:
 		surface.add_vertex(vertex)
 	surface.generate_normals()
 	var node := MeshInstance3D.new()
-	node.name = "XWingFill"
+	node.name = "InteriorFill"
 	node.mesh = surface.commit()
 	node.material_override = material
 	model.add_child(node)
@@ -398,9 +426,9 @@ func _fill_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vec
 		surface.add_vertex(vertex)
 
 
-## A model-space point (metres, nose +z) as a point in the cockpit's space: the model is turned round and shifted so XWING_EYE is the origin.
+## A model-space point (metres, nose +z) as a point in the cockpit's space: the model is turned round and shifted so the spec's eye is the origin.
 func _from_model(point: Vector3) -> Vector3:
-	return Vector3(-point.x + XWING_EYE.x, point.y - XWING_EYE.y, -point.z + XWING_EYE.z)
+	return Vector3(-point.x + _eye.x, point.y - _eye.y, -point.z + _eye.z)
 
 
 ## A readout plate lying on one of the model's slanted side panels, centred on its square and facing the pilot. Designed 0.4 by 0.4
@@ -433,8 +461,40 @@ func _build_xwing_readouts() -> void:
 	_group = null
 
 
+## The readouts of the other interiors: two plates floating just over the console, drawn after everything else so no panel hides them,
+## left (the pilot's left): hull, fuel, guns and the gear; right: the hex radar, speed, altitude and target.
+func _build_spec_readouts() -> void:
+	var backing := _material(Color(GRAPHITE, 0.94), 0.6, 0.3)
+	backing.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	backing.no_depth_test = true
+	backing.render_priority = 1
+	_group = _make_spec_plate(1.0)
+	_box(Vector3(0.4, 0.4, 0.01), backing, Vector3(0.0, 0.0, 0.005))
+	_left_display = _build_display(Display.Kind.SYSTEMS, true)
+	_group = _make_spec_plate(-1.0)
+	_box(Vector3(0.4, 0.4, 0.01), backing, Vector3(0.0, 0.0, 0.005))
+	_right_display = _build_display(Display.Kind.FLIGHT, true)
+	_right_display.attach_radar(_radar)
+	_group = null
+
+
+## A plate near the spec's plate point (mirrored for the right-hand one), square to the pilot like a dash screen: it is pulled in and up a little
+## from the measured point so both plates sit fully inside the view, and it only tips back toward the eye (no sideways turn), so the pair never looks
+## like two panels sticking out of the cabin's sides.
+func _make_spec_plate(side: float) -> Node3D:
+	var at := Vector3(_spec.plate_centre.x * side * PLATE_PULL_IN, _spec.plate_centre.y + PLATE_RAISE, _spec.plate_centre.z)
+	var centre := _from_model(at)
+	var normal := Vector3(0.0, -centre.y, -centre.z).normalized() # straight back at the pilot, tipped up toward the eye
+	var up := (Vector3.UP - normal * normal.dot(Vector3.UP)).normalized()
+	var right := up.cross(normal)
+	var plate := Node3D.new()
+	plate.transform = Transform3D(Basis(right, up, normal).scaled(Vector3.ONE * (_spec.plate_size / 0.4)), centre)
+	add_child(plate)
+	return plate
+
+
 ## One 512 px screen in its own viewport, shown on a quad lying on the current plate (_group).
-func _build_display(kind: Display.Kind) -> Display:
+func _build_display(kind: Display.Kind, on_top := false) -> Display:
 	var view := SubViewport.new()
 	view.size = Vector2i(1024, 1024) # drawn at twice the 512 px layout, so text stays sharp when the pilot zooms in
 	view.size_2d_override = Vector2i(512, 512)
@@ -447,11 +507,15 @@ func _build_display(kind: Display.Kind) -> Display:
 	var display := Display.new()
 	display.kind = kind
 	display.font = _font
+	display.accent = _accent
 	view.add_child(display)
 	var material := StandardMaterial3D.new()
 	material.albedo_texture = view.get_texture()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if on_top:
+		material.no_depth_test = true
+		material.render_priority = 2
 	_display_quads.append(_add(_quad(Vector2(0.385, 0.385)), material, Vector3(0.0, 0.0, 0.0115)))
 	return display
 
@@ -595,16 +659,17 @@ func activate() -> String:
 	return ""
 
 
-## Loads the X-Wing cockpit and puts it around the pilot. False (nothing built) when the model file is not there.
-func _build_xwing() -> bool:
-	var model := _load_glb(XWING_MODEL)
+## Loads the chosen interior and puts it around the pilot. False (nothing built) when its model file is not there.
+func _build_interior_model() -> bool:
+	var model := _load_glb(_spec.model_path)
 	if model == null:
 		return false
-	model.name = "XWingCockpit"
+	model.name = "InteriorModel"
 	model.rotation_degrees = Vector3(0.0, 180.0, 0.0) # the model's nose is +z, the cockpit looks down -z
-	model.position = Vector3(XWING_EYE.x, -XWING_EYE.y, XWING_EYE.z) # (turned round, so x and z swap sign): the eye lands on the origin
+	model.position = Vector3(_eye.x, -_eye.y, _eye.z) # (turned round, so x and z swap sign): the eye lands on the origin
 	add_child(model)
-	_build_xwing_fill(model)
+	if _spec.legacy:
+		_build_xwing_fill(model) # only the X-Wing set leaves its hull out; the other interiors carry their own walls, so no grey filler
 	_set_layers(model)
 	return true
 
@@ -661,7 +726,7 @@ func _build_lights() -> void:
 	# Cockpit-layer lights only. The environment's ambient still reaches the dark surfaces, so the rig is a few soft, coloured pools
 	# rather than one bright lamp: a cool overhead fill, a cyan wash from the screens, and amber from the side consoles.
 	_add_light(Vector3(0.0, 0.5, -0.4), Color(0.8, 0.9, 1.0), 0.55, 3.0)
-	_add_light(Vector3(0.0, -0.5, -0.75), CYAN, 0.6, 1.5)
+	_add_light(Vector3(0.0, -0.5, -0.75), _accent, 0.6, 1.5)
 	for side in [-1.0, 1.0]:
 		_add_light(Vector3(side * 0.7, -0.45, -0.45), AMBER, 0.4, 1.2)
 

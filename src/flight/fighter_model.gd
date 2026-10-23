@@ -26,17 +26,37 @@ static func build(ship_node: Node3D, def: FighterDef) -> Node3D:
 	model.position = -box.get_center() * model_scale
 	holder.rotation.y = MODEL_YAW
 	holder.add_child(model)
+	# the real extents, so landing gear contact (Ship) sits on the model's own underside instead of a guessed height
+	holder.set_meta("half_extents", box.size * model_scale * 0.5)
 	return holder
 
 
+## Raw glTF scenes read straight from disk (path -> scene, or null), for models the editor has not imported yet.
+static var _runtime := {}
+
+
 static func _instantiate(path: String) -> Node3D:
-	if path == "" or not ResourceLoader.exists(path):
+	if path == "":
 		return null
-	var scene = load(path)
-	if not scene is PackedScene:
+	if ResourceLoader.exists(path):
+		var scene = load(path)
+		if scene is PackedScene:
+			return (scene as PackedScene).instantiate() as Node3D
 		return null
-	var node = (scene as PackedScene).instantiate()
-	return node as Node3D
+	# Not imported (the editor has not scanned the file yet): read it from disk so a new model works without opening the editor first.
+	if not _runtime.has(path):
+		var loaded: Node3D = null
+		var disk_path := ProjectSettings.globalize_path(path)
+		if FileAccess.file_exists(disk_path):
+			var document := GLTFDocument.new()
+			var state := GLTFState.new()
+			if document.append_from_file(disk_path, state) == OK:
+				loaded = document.generate_scene(state) as Node3D
+		_runtime[path] = loaded
+	var original: Node3D = _runtime[path]
+	if original == null:
+		return null
+	return original.duplicate() as Node3D
 
 
 ## Bounding box of every mesh under node, in the space of node's parent. `accumulated` is a one-element scratch array.

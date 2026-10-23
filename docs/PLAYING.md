@@ -91,3 +91,12 @@ doors contain fire, low room air drains your suit. The overlay shows power, subs
 After you install the Warp coil, a distress call from Selene: fly there and land. A raider ambushes you on arrival (it burns out your engine coupling
 and starts a fire in engineering). Land, walk to the beacon ~6 km away, open its crate for an **engine coupling**, install it at the engine station
 (**F**), and fly back to orbit above Aurelia. Nobody has played this yet: please report anything unfair or confusing.
+
+## Big ships
+
+Title or pause menu > **Big ships** lists five crewed ships (Meridian freighter, Talon gunship, Argent liner, Halo ring ship, Kestrel survey corvette).
+Pick one to see the hull turn, then **Board the ship** to walk its interior: **WASD** move, **Shift** run, **E** sit in a seat / stand up (the bridge
+seats are the helm, captain and stations), **Tab** toggles the outside hull view, **Esc** leaves. Doors slide open as you approach; each ship has a
+bridge, a captain's bay, corridors and an airlock. Floor plans are in `docs/big_ships/`. Layouts are generated: edit `tools/gen_big_ships.py` and run
+`python3 tools/gen_big_ships.py` (it validates every room, door, seat and route, then rewrites `src/bigship/big_ship_data.gd`; do not hand-edit that file).
+The hull models are git-ignored; without them a plain stand-in hull is shown.

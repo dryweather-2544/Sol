@@ -8,6 +8,8 @@ signal save_requested
 signal load_requested
 signal continue_requested
 signal quit_requested
+## The "Big ships" button: the list of the five big ships (the scene opens it and brings this menu back when it closes).
+signal big_ships_requested
 
 enum Page { TITLE, PAUSE, SETTINGS }
 
@@ -77,6 +79,7 @@ func show_page(new_page: int) -> void:
 			_add_title("SOL")
 			_add_button("New game", func(): _close(resume_requested))
 			_add_button("Continue", func(): _close(continue_requested))
+			_add_button("Big ships", _open_big_ships)
 			_add_button("Settings", func(): _open_settings(Page.TITLE))
 			_add_button("Quit", func(): quit_requested.emit())
 		Page.PAUSE:
@@ -84,6 +87,7 @@ func show_page(new_page: int) -> void:
 			_add_button("Resume", func(): _close(resume_requested))
 			_add_button("Save (quicksave)", func(): save_requested.emit())
 			_add_button("Load (quicksave)", func(): _close(load_requested))
+			_add_button("Big ships", _open_big_ships)
 			_add_button("Settings", func(): _open_settings(Page.PAUSE))
 			_add_button("Quit", func(): quit_requested.emit())
 		Page.SETTINGS:
@@ -96,6 +100,13 @@ func _close(signal_to_emit: Signal) -> void:
 	visible = false
 	get_tree().paused = false
 	signal_to_emit.emit()
+
+
+## Hides this menu (the game stays paused) and asks the scene to show the big ships; the scene calls show_page again when they close.
+func _open_big_ships() -> void:
+	_play_ui("rod_menu_unhighlight")
+	visible = false
+	big_ships_requested.emit()
 
 
 func _play_ui(sound_id: String) -> void:

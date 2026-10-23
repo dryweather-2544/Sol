@@ -37,6 +37,8 @@ var player_controlled := false
 var cockpit_camera: Camera3D
 ## The fighter's cockpit interior (FighterCockpit), drawn only while cockpit_camera is the current camera.
 var cockpit: FighterCockpit
+## The fighter's outer hull model (FighterModel): hidden while the pilot sits in the cockpit, so the hull never stands between the eye and the interior.
+var model_holder: Node3D
 ## The warp, cruise-trail and atmosphere-entry effects of the fighter the player flies (the mothership's live in ShipVisuals).
 var effects: ShipEffects
 ## Optional, set by main.gd for the player's fighter: returns the hostile ships as ship-local offsets (Array of Vector3) for the cockpit radar.
@@ -57,6 +59,8 @@ const FIGHTER_TURN_RESPONSE := 2.5
 ## but the player's gun has to feel like a gun: about 0.24 hull a second, so a plain fighter dies in around four seconds.
 const PLAYER_FIGHTER_GUN_RATE := 12.0
 const PLAYER_FIGHTER_GUN_DAMAGE := 0.02
+## The balanced fighter's damage per second (FighterDef.nominal_dps: 0.012 a shot at 4 a second): the player's gun scales from it.
+const REFERENCE_NOMINAL_DPS := 0.048
 var _next_barrel := -1.0
 
 signal destroyed
@@ -80,7 +84,8 @@ func _ready() -> void:
 		visuals.ship = self
 		add_child(visuals)
 	elif fighter != null:
-		FighterModel.build(self, fighter)
+		model_holder = FighterModel.build(self, fighter)
+		_fit_support_points_to_model()
 		var flames := FighterEngineFlames.new()
 		add_child(flames)
 		flames.setup(fighter, self)
@@ -154,6 +159,19 @@ func simulate_tick(delta: float) -> void:
 	_sync_transform()
 
 
+## Ground-contact points follow the loaded model's own underside, so no hull sinks into (or hovers over) the terrain.
+func _fit_support_points_to_model() -> void:
+	if model_holder == null or not model_holder.has_meta("half_extents"):
+		return
+	var half: Vector3 = model_holder.get_meta("half_extents")
+	var low := -half.y
+	var fx := half.x * 0.6
+	var fz := half.z * 0.65
+	tuning.support_points = PackedVector3Array([
+		Vector3(-fx, low, -fz), Vector3(fx, low, -fz), Vector3(-fx, low, fz), Vector3(fx, low, fz),
+		Vector3(0.0, low * 0.45, -half.z), Vector3(0.0, low * 0.45, half.z)])
+
+
 ## Turns this ship into the given fighter: its handling, gun, hit radius source and model. Call before add_child.
 func configure_fighter(def: FighterDef) -> void:
 	fighter = def
@@ -169,8 +187,13 @@ func configure_fighter(def: FighterDef) -> void:
 	weapon.damage = def.gun_damage
 	weapon.shots_per_second = def.gun_rate
 	if player_controlled: # set before this call (main.gd)
-		weapon.damage = PLAYER_FIGHTER_GUN_DAMAGE
-		weapon.shots_per_second = PLAYER_FIGHTER_GUN_RATE
+		# the player's gun keeps the baseline damage per second, but each fighter shoots in its own style: light fighters stream small shots,
+		# heavies fire slow hard ones, and a stronger gun (FighterDef.nominal_dps) hits harder overall
+		var baseline_dps := PLAYER_FIGHTER_GUN_DAMAGE * PLAYER_FIGHTER_GUN_RATE
+		var dps := baseline_dps * clampf(def.nominal_dps() / REFERENCE_NOMINAL_DPS, 0.6, 1.6)
+		var rate := clampf(PLAYER_FIGHTER_GUN_RATE * def.gun_rate / 5.0, 6.0, 20.0)
+		weapon.shots_per_second = rate
+		weapon.damage = dps / rate
 	muzzle_offset = def.muzzle_offset()
 	barrel_x = def.barrel_x()
 

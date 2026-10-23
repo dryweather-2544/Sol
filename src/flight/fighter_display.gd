@@ -20,6 +20,12 @@ const RADAR_AT := Vector2(116.0, 64.0)
 const RADAR_SIZE := Vector2(280.0, 280.0)
 
 var kind := Kind.SYSTEMS
+## The colour of the screen's frame, gauges and text (FighterDef.accent); cyan unless the craft sets its own.
+var accent := CYAN:
+	set(value):
+		accent = value
+		if _backdrop != null:
+			_backdrop.queue_redraw()
 var font: Font
 ## Fed every frame by FighterCockpit.
 var hull := 1.0
@@ -152,6 +158,12 @@ static func level_color(value: float) -> Color:
 	return ALERT
 
 
+## level_color, with the healthy colour swapped for this screen's accent.
+func _level_colour(value: float) -> Color:
+	var colour := level_color(value)
+	return accent if colour == CYAN else colour
+
+
 # --- static layers -----------------------------------------------------------------------------------------------
 
 func _draw_backdrop() -> void:
@@ -171,13 +183,13 @@ func _draw_backdrop() -> void:
 				continue
 			var cell := hex_points(centre, radius - 1.5)
 			cell.append(cell[0])
-			_backdrop.draw_polyline(cell, Color(CYAN, 0.07), 1.0)
+			_backdrop.draw_polyline(cell, Color(accent, 0.07), 1.0)
 	var closed := outer.duplicate()
 	closed.append(outer[0])
-	_backdrop.draw_polyline(closed, Color(CYAN, 0.9), 3.0, true)
+	_backdrop.draw_polyline(closed, Color(accent, 0.9), 3.0, true)
 	var inner := frame_points(14.0)
 	inner.append(inner[0])
-	_backdrop.draw_polyline(inner, Color(CYAN, 0.28), 1.5, true)
+	_backdrop.draw_polyline(inner, Color(accent, 0.28), 1.5, true)
 	# the blue header strip of the ship's screens, with the screen's name
 	var strip := PackedVector2Array([Vector2(36.0, 22.0), Vector2(380.0, 22.0), Vector2(352.0, 58.0), Vector2(36.0, 58.0)])
 	_backdrop.draw_colored_polygon(strip, Color(0.16, 0.34, 0.78, 0.6))
@@ -225,7 +237,7 @@ func _screen_texture() -> Texture2D:
 
 func _draw() -> void:
 	var pulse := 0.5 + 0.5 * sin(_clock * 8.0)
-	var frame_colour := Color(ALERT, 0.5 + 0.5 * pulse) if warning else Color(CYAN, 0.0)
+	var frame_colour := Color(ALERT, 0.5 + 0.5 * pulse) if warning else Color(accent, 0.0)
 	if warning: # a red edge that breathes while hull or fuel is low
 		var outer := frame_points(4.0)
 		outer.append(outer[0])
@@ -257,7 +269,7 @@ func _segment_bar(rect: Rect2, value: float, colour: Color, count: int) -> void:
 	var lit := segments_lit(value, count)
 	for index in count:
 		var cell := Rect2(rect.position + Vector2(float(index) * (cell_width + gap), 0.0), Vector2(cell_width, rect.size.y))
-		draw_rect(cell, colour if index < lit else Color(CYAN, 0.12))
+		draw_rect(cell, colour if index < lit else Color(accent, 0.12))
 
 
 func _draw_systems(pulse: float) -> void:
@@ -265,7 +277,7 @@ func _draw_systems(pulse: float) -> void:
 	# hull: a 270 degree ring of 20 segments, gap at the bottom
 	var centre := Vector2(256.0, 190.0)
 	var radius := 104.0
-	var colour := level_color(hull)
+	var colour := _level_colour(hull)
 	if hull <= 0.3:
 		colour = Color(ALERT, 0.55 + 0.45 * pulse)
 	var count := 20
@@ -275,55 +287,55 @@ func _draw_systems(pulse: float) -> void:
 	for index in count:
 		var from_angle := start + float(index) * segment + deg_to_rad(1.4)
 		var to_angle := start + float(index + 1) * segment - deg_to_rad(1.4)
-		draw_arc(centre, radius, from_angle, to_angle, 6, colour if index < lit else Color(CYAN, 0.13), 22.0, true)
-	draw_arc(centre, radius - 22.0, 0.0, TAU, 56, Color(CYAN, 0.35), 1.5, true)
-	draw_arc(centre, radius + 17.0, start, start + deg_to_rad(270.0), 40, Color(CYAN, 0.35), 1.5, true)
-	_text("HULL", centre + Vector2(-60.0, -34.0), 20, Color(CYAN, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 120.0)
+		draw_arc(centre, radius, from_angle, to_angle, 6, colour if index < lit else Color(accent, 0.13), 22.0, true)
+	draw_arc(centre, radius - 22.0, 0.0, TAU, 56, Color(accent, 0.35), 1.5, true)
+	draw_arc(centre, radius + 17.0, start, start + deg_to_rad(270.0), 40, Color(accent, 0.35), 1.5, true)
+	_text("HULL", centre + Vector2(-60.0, -34.0), 20, Color(accent, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 120.0)
 	_text("%d" % roundi(hull * 100.0), centre + Vector2(-90.0, 28.0), 62, Color(0.93, 0.98, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 180.0)
-	_text("% INTEGRITY", centre + Vector2(-80.0, 56.0), 16, Color(CYAN, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 160.0)
+	_text("% INTEGRITY", centre + Vector2(-80.0, 56.0), 16, Color(accent, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 160.0)
 	# fuel
 	_text("FUEL", Vector2(36.0, 352.0), 20, Color(AMBER, 0.95))
 	_segment_bar(Rect2(Vector2(116.0, 334.0), Vector2(290.0, 24.0)), fuel, AMBER if fuel > 0.15 else Color(ALERT, 0.6 + 0.4 * pulse), 20)
 	_text("%d%%" % roundi(fuel * 100.0), Vector2(380.0, 354.0), 22, Color(0.93, 0.98, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, 100.0)
 	# guns
-	_text("GUNS", Vector2(36.0, 398.0), 20, Color(CYAN, 0.9))
+	_text("GUNS", Vector2(36.0, 398.0), 20, Color(accent, 0.9))
 	var chip: Rect2 = regions(Kind.SYSTEMS)["guns"]
 	if guns_state == 2:
 		draw_colored_polygon(_slanted(chip, 14.0), Color(AMBER, 0.92))
 		_text("ARMED", chip.position + Vector2(0.0, 27.0), 24, NAVY, HORIZONTAL_ALIGNMENT_CENTER, chip.size.x)
 	else:
 		var outline := _slanted(chip, 14.0)
-		draw_colored_polygon(outline, Color(CYAN, 0.1))
+		draw_colored_polygon(outline, Color(accent, 0.1))
 		outline.append(outline[0])
-		draw_polyline(outline, Color(CYAN, 0.5), 1.5, true)
+		draw_polyline(outline, Color(accent, 0.5), 1.5, true)
 		var standby := guns_state == 1 # switched on, but the guns only work in the combat gear
-		_text("STANDBY" if standby else "SAFE", chip.position + Vector2(0.0, 27.0), 24, Color(AMBER, 0.75) if standby else Color(CYAN, 0.6), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x)
+		_text("STANDBY" if standby else "SAFE", chip.position + Vector2(0.0, 27.0), 24, Color(AMBER, 0.75) if standby else Color(accent, 0.6), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x)
 	# gear selector
 	for index in GEAR_SHORT.size():
 		var cell := Rect2(Vector2(36.0 + float(index) * 116.0, 434.0), Vector2(108.0, 50.0))
 		var active := index == gear
-		var accent := WARP_PINK if index == 3 else ICE
+		var cell_colour := WARP_PINK if index == 3 else ICE
 		var shape := _slanted(cell, 12.0)
 		if active:
-			draw_colored_polygon(shape, Color(accent, 0.88))
+			draw_colored_polygon(shape, Color(cell_colour, 0.88))
 			_text(GEAR_SHORT[index], cell.position + Vector2(0.0, 34.0), 26, NAVY, HORIZONTAL_ALIGNMENT_CENTER, cell.size.x)
 		else:
-			draw_colored_polygon(shape, Color(CYAN, 0.09))
+			draw_colored_polygon(shape, Color(cell_colour, 0.09))
 			shape.append(shape[0])
-			draw_polyline(shape, Color(CYAN, 0.4), 1.5, true)
-			_text(GEAR_SHORT[index], cell.position + Vector2(0.0, 34.0), 26, Color(CYAN, 0.55), HORIZONTAL_ALIGNMENT_CENTER, cell.size.x)
+			draw_polyline(shape, Color(cell_colour, 0.4), 1.5, true)
+			_text(GEAR_SHORT[index], cell.position + Vector2(0.0, 34.0), 26, Color(cell_colour, 0.55), HORIZONTAL_ALIGNMENT_CENTER, cell.size.x)
 
 
 func _draw_flight(pulse: float) -> void:
 	_status_chip(gear_name, Color(WARP_PINK, 0.95) if gear == 3 else Color(AMBER, 0.95))
-	var rows := [["SPD", speed_text, Color(0.93, 0.98, 1.0)], ["ALT", altitude_text, Color(0.93, 0.98, 1.0)], ["TGT", target_text, AMBER if target_text != "NONE" else Color(CYAN, 0.5)]]
+	var rows := [["SPD", speed_text, Color(0.93, 0.98, 1.0)], ["ALT", altitude_text, Color(0.93, 0.98, 1.0)], ["TGT", target_text, AMBER if target_text != "NONE" else Color(accent, 0.5)]]
 	for index in rows.size():
 		var baseline := 382.0 + float(index) * 38.0
-		draw_line(Vector2(36.0, baseline - 31.0), Vector2(476.0, baseline - 31.0), Color(CYAN, 0.28), 1.5)
-		_text(rows[index][0], Vector2(40.0, baseline - 4.0), 22, Color(CYAN, 0.85))
+		draw_line(Vector2(36.0, baseline - 31.0), Vector2(476.0, baseline - 31.0), Color(accent, 0.28), 1.5)
+		_text(rows[index][0], Vector2(40.0, baseline - 4.0), 22, Color(accent, 0.85))
 		var value_colour: Color = rows[index][2]
 		if index == 2 and target_text != "NONE":
 			value_colour = Color(AMBER, 0.7 + 0.3 * pulse)
 		_text(rows[index][1], Vector2(176.0, baseline), 30, value_colour, HORIZONTAL_ALIGNMENT_RIGHT, 300.0)
-	_segment_bar(Rect2(Vector2(40.0, 474.0), Vector2(432.0, 14.0)), speed_fraction, CYAN, 28)
-	_text(radar_range_text, Vector2(200.0, 338.0), 20, Color(CYAN, 0.8), HORIZONTAL_ALIGNMENT_RIGHT, 200.0)
+	_segment_bar(Rect2(Vector2(40.0, 474.0), Vector2(432.0, 14.0)), speed_fraction, accent, 28)
+	_text(radar_range_text, Vector2(200.0, 338.0), 20, Color(accent, 0.8), HORIZONTAL_ALIGNMENT_RIGHT, 200.0)

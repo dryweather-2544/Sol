@@ -79,3 +79,27 @@ tools/interior_tour.gd(.uid), tools/interior_tour.tscn.
 - Scanner/radio menus are still plain text menus; the tactical console only reports (firing stays at the helm, H).
 - No new sounds: doors, airlock and machine hums use the existing cues.
 - Hull windows: the exterior hull has no window openings matching the pocket windows (pocket rooms are bigger than the hull).
+
+## Fighters, big ships and cockpits (overnight + follow-ups)
+- 30 fighters (`FighterCatalog`) with cockpit interiors; models load from .glb at runtime (`FighterModel._instantiate`, GLTFDocument
+  fallback when not imported). Licences unconfirmed: `assets/fighters/`, `assets/cockpit/`, `assets/ships/` are git-ignored.
+- 5 big ships in `src/bigship/` (data from `tools/gen_big_ships.py`), walkable in first person (bridge, captain's bay, corridors, airlock).
+  Menu entry "Big ships" in the title/pause menu. 4 hulls are CC-BY-4.0: credit lines in `big_ship_catalog.gd` and ATTRIBUTION.md.
+- Cockpit fixes: readout plates pulled in and squared to the dash; the grey "InteriorFill" wall mesh now only for the X-Wing set
+  (`_spec.legacy`), other interiors carry their own walls.
+- Ground contact: a fighter's support points now come from its loaded model's real extents (`FighterModel` stores `half_extents`,
+  `Ship._fit_support_points_to_model`), so hulls no longer sink into terrain. Verified numerically on the Talon; Valkyrie/Stinger models
+  are not in the cloud copy, so check landing on the Mac.
+- Player gun per fighter: damage/rate scaled from the fighter's stats (`Ship.configure_fighter`).
+
+## OPEN: planet clips / vanishes in cockpit views at some altitudes
+- Not fixed. Cause (best understanding): one planet is drawn three ways (terrain chunks cut by the far plane, `planet_backdrop` sphere
+  that reads the depth buffer, squeezed impostor sphere) and the handoff altitudes depend on the camera far plane. The fighter cockpit
+  camera has near 0.1 m, so `CameraRange` caps its far at ~400 km (chase ~2,000 km): handoffs differ per view and each is a seam
+  (straight terrain cut, backdrop colour differs from terrain, depth reconstruction imprecise at far/near ~4e6).
+- Tried and reverted (could not test on Vulkan; cloud has only GL compatibility): comparing the depth buffer against the projection's own
+  depth instead of the inverse projection; pinning the backdrop's depth in the vertex stage. In GL the pinned depth rounds to 1.0 and draws nothing.
+- Proposed fix: a second "sky" camera (own near/far scaled to planet distance) that draws only planets/moons behind the main view, so the
+  main camera needs only a short far plane; blend terrain into the planet colour at the horizon. Touches `scenes/main.gd` and
+  `src/world/body_impostors.gd`. Needs checking on the Mac renderer.
+- Also unverified in a running game: atmosphere-entry effects for the new fighters, per-model muzzle positions.

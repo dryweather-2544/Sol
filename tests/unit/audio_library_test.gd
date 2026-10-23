@@ -243,3 +243,8 @@ func test_paused_gameplay_audio_is_muted_but_ui_one_shots_remain_available() -> 
 	assert_true(service.play_sample("rod_menu_highlight"), "UI one-shot still allowed while paused")
 	tree.root.remove_child(service)
 	service.free()
+
+
+func test_there_is_no_suit_breathing_sound() -> void:
+	for sound_id in AudioLibrary.SOUNDS:
+		assert_true(not String(sound_id).contains("breath"), "%s: the owner does not want the suit breathing outside the ship" % sound_id)
