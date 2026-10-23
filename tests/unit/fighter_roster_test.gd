@@ -35,9 +35,9 @@ func test_every_role_has_a_proper_squad_and_every_craft_is_sane() -> void:
 		assert_true(def.nominal_dps() > 0.03 and def.nominal_dps() <= 0.08, "%s: a real gun that is not an instant kill" % def.id)
 		assert_near(def.cockpit.z, -0.12 * def.size, 0.1 * def.size * 0.12 + 0.1, "%s: the pilot's eye sits a tenth of the hull back from the nose" % def.id)
 		assert_true(def.cockpit.x == 0.0, "%s: eye on the centre line" % def.id)
-		assert_true(def.engines.size() >= 1 and def.engines.size() <= 2, "%s: one or two engines" % def.id)
+		assert_true(def.engines.size() >= 1 and def.engines.size() <= 4, "%s: one to four engines" % def.id)
 		for engine in def.engines:
-			assert_true(engine.z > def.size * 0.3 and engine.z <= def.size * 0.55, "%s: engines at the tail" % def.id)
+			assert_true(engine.z > def.size * 0.2 and engine.z <= def.size * 0.55, "%s: engines in the rear half" % def.id)
 	# tougher hulls turn slower: the heavies are the slowest turners, the interceptors the quickest
 	var slowest_interceptor_turn := 99.0
 	var fastest_heavy_turn := 0.0

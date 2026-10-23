@@ -845,6 +845,8 @@ func _on_big_ship_fly(ship_def) -> void:
 	def.gun_damage = 0.02
 	def.gun_rate = 3.0
 	def.cockpit = Vector3.ZERO
+	def.engines = ship_def.engines.duplicate()
+	def.engine_radii = ship_def.engine_radii.duplicate()
 	def.blurb = str(ship_def.blurb)
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

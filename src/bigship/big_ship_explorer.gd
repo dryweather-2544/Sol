@@ -191,12 +191,13 @@ func _clear_world() -> void:
 
 ## Inside the real world the room only gets what the real sun gives it through the glass, so a soft fill keeps it readable.
 func _add_fill_light() -> void:
-	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-60.0, 30.0, 0.0)
-	fill.light_energy = 0.35
-	fill.shadow_enabled = false
-	fill.light_cull_mask = 1
-	_world.add_child(fill)
+	for yaw in [0.0, 90.0, 180.0, 270.0]:
+		var fill := DirectionalLight3D.new()
+		fill.rotation_degrees = Vector3(-35.0, yaw, 0.0)
+		fill.light_energy = 0.4
+		fill.shadow_enabled = false
+		fill.light_cull_mask = 1
+		_world.add_child(fill)
 
 
 func _hull_at() -> Vector3:

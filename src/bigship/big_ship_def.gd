@@ -19,3 +19,7 @@ var speed_class := ""
 var accent := Color.WHITE
 ## The licence line the hull's author asks for (empty when the model has no licence to credit).
 var credit := ""
+## Engine nozzles in ship space (nose -z, tail +z, centred on the hull, hull_extent metres long) and each one's radius, measured from the hull model
+## (tools/engine_detect.py). The flames of the flown ship start here.
+var engines: Array[Vector3] = []
+var engine_radii: Array[float] = []

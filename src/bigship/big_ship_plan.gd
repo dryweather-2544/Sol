@@ -151,7 +151,7 @@ func _dress_bridges() -> void:
 		var file := "bridge_7.7.glb" if room.size.y >= 7.9 else "bridge_6.7.glb"
 		if not FileAccess.file_exists(ProjectSettings.globalize_path(BRIDGE_DIR + file)):
 			continue
-		var scale_x := minf(1.0, (room.size.x - 0.3) / BRIDGE_MODEL_WIDTH)
+		var scale_x := minf(1.35, (room.size.x - 0.2) / BRIDGE_MODEL_WIDTH)
 		bridges[room_id] = {"room": room, "file": file, "scale_x": scale_x}
 		# the generated furniture goes, and with it its solid footprints
 		var kept: Array = []

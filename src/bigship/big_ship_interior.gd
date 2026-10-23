@@ -91,6 +91,7 @@ var _batches := {}
 var _materials := {}
 var _doors := {}
 var _time := 0.0
+var _light_walls := false
 
 
 ## Builds the whole interior from the plan.
@@ -165,6 +166,7 @@ func _build_walls() -> void:
 		for side in ["nose", "tail", "left", "right"]:
 			if side == "nose" and plan.bridges.has(room_id):
 				continue  # the model's own nose wall, with its whole window open to the outside
+			_light_walls = plan.bridges.has(room_id)
 			var skin := layout.wall_rect(room_id, side)
 			var along_x := InteriorLayout.wall_runs_along_x(side)
 			_build_wall(skin, along_x, _holes_in(skin, along_x, room_id, side), side)
@@ -219,7 +221,9 @@ func _build_wall(skin: Rect2, along_x: bool, holes: Array, side := "nose") -> vo
 
 func _wall_piece(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: float, y0: float, y1: float, key := "wall", side := "") -> void:
 	var length := hi - lo
-	if key == "wall" and side != "" and length >= 0.6 and _kit_wall(along_x, lo, hi, cross_lo, thickness, y0, y1, side):
+	if key == "wall" and _light_walls:
+		key = "white" # the bridge's own walls match the model's pale panelling instead of the dark kit facades
+	elif key == "wall" and side != "" and length >= 0.6 and _kit_wall(along_x, lo, hi, cross_lo, thickness, y0, y1, side):
 		return
 	var middle_along := (lo + hi) * 0.5
 	var middle_cross := cross_lo + thickness * 0.5
@@ -612,7 +616,7 @@ func _place_bridge_model(room_id: StringName) -> void:
 	var instance := scene.duplicate() as Node3D
 	var scale_x := float(info["scale_x"])
 	var origin := Vector3(room.get_center().x, plan.layout.floor_y + 0.02, room.position.y)
-	instance.transform = Transform3D(Basis.from_scale(Vector3(scale_x, 1.0, 1.0)), origin) \
+	instance.transform = Transform3D(Basis.from_scale(Vector3(scale_x, 1.0, float(info["scale_z"]))), origin) \
 			* Transform3D(Basis.IDENTITY, Vector3(-Plan.BRIDGE_MODEL_CENTRE_X, 0.0, -Plan.BRIDGE_MODEL_NOSE_Z))
 	for node in instance.find_children("*", "MeshInstance3D", true, false):
 		(node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

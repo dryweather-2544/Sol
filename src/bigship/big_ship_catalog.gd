@@ -7,6 +7,16 @@ const CC_BY := "licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by
 
 static var _all: Array = []
 
+## Nozzle positions (ship space) and radii per ship, found from each hull model's geometry with tools/engine_detect.py (the Talon's are the
+## rear ends of its four lift-fan nacelles; the Halo's drum has no nozzles, so it burns from its stern; the Kestrel's are the fighter hull's, scaled).
+const ENGINES := {
+	"meridian": [[Vector3(-30.1, -8.3, 68.7), 6.0], [Vector3(30.1, -8.3, 68.7), 6.0]],
+	"talon": [[Vector3(-23.9, 2.2, 17.1), 2.0], [Vector3(23.9, 2.2, 17.1), 2.0], [Vector3(-10.2, 1.5, -4.8), 2.0], [Vector3(10.2, 1.5, -4.8), 2.0]],
+	"argent": [[Vector3(-19.7, 1.2, 33.8), 5.0], [Vector3(19.7, 1.2, 33.8), 5.0], [Vector3(0.0, 4.4, 44.2), 2.5]],
+	"halo": [[Vector3(-7.0, 0.0, 22.3), 3.0], [Vector3(7.0, 0.0, 22.3), 3.0]],
+	"kestrel": [[Vector3(-15.1, -6.1, 37.9), 4.0], [Vector3(15.1, -6.1, 37.9), 4.0]],
+}
+
 
 static func all() -> Array:
 	if _all.is_empty():
@@ -58,4 +68,7 @@ static func _make(ship_id: String, display_name: String, ship_class: String, blu
 	def.speed_class = speed_class
 	def.accent = accent
 	def.credit = credit
+	for entry in ENGINES.get(ship_id, []):
+		def.engines.append(entry[0])
+		def.engine_radii.append(entry[1])
 	return def

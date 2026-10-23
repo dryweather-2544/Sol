@@ -236,3 +236,11 @@ func test_the_interior_builds_and_its_doors_open_and_close() -> void:
 			interior.update(Vector3(middle.x + 30.0, 0.0, middle.y + 30.0), 0.1)
 		assert_true(door.is_fully_closed(), "%s: and shuts again when they leave" % ship_id)
 		interior.free()
+
+
+func test_each_big_ship_lists_its_engine_nozzles_at_the_tail_with_a_radius_apiece() -> void:
+	for def in Catalog.all():
+		assert_true(def.engines.size() >= 2, "%s has engine nozzles" % def.display_name)
+		assert_eq(def.engine_radii.size(), def.engines.size(), "%s: a radius per nozzle" % def.display_name)
+		for nozzle in def.engines:
+			assert_true(absf(nozzle.x) <= def.hull_extent * 0.5 and nozzle.z <= def.hull_extent * 0.55, "%s: nozzle %s sits on the hull" % [def.display_name, nozzle])

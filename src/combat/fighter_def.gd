@@ -29,6 +29,8 @@ var aim_error := 0.03
 ## The pilot's eye in the cockpit view and the engine nozzles, both ship-local (nose -z, tail +z) and measured from the model.
 var cockpit := Vector3.ZERO
 var engines: Array[Vector3] = []
+## Optional flame size per nozzle, in metres of nozzle radius (a big ship's flames grow with it); empty keeps the size-based default.
+var engine_radii: Array[float] = []
 ## Only used by the placeholder fallback.
 var hull_color := Color(0.75, 0.15, 0.12)
 ## Which cockpit interior the pilot sits in (a key of FighterCockpitSpec.all()), one line about the craft for the hangar, and the colour its

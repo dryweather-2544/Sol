@@ -64,6 +64,7 @@ const PIXEL_LIFETIME := 0.2 # seconds
 const PIXEL_SPEED_MIN := [14.0, 14.0] # m/s at no thrust, extra at full thrust
 const PIXEL_SPEED_MAX := [22.0, 26.0]
 const FLAME_RESPONSE := 8.0 # per second
+const FLAME_IDLE := 0.06 # strength with no thrust: a small spit of flame
 ## Clutch streaks: a thin column of squares left hanging in the world behind the engines.
 const STREAK_COUNT := 160
 const STREAK_SIZE := 0.28
@@ -150,7 +151,8 @@ func _drive_all(ship: Ship) -> void:
 			small = "CombatEngineSmall" if state.gear == PilotCommand.GEAR_COMBAT else "CruiseEngineSmall"
 			medium = small
 			_flame_gear = state.gear
-			_flame_target = minf(Vector2(thrust.y, thrust.z).length(), 1.0) # the pods vector, so any fore/aft/up/down thrust burns
+			# The pods vector, so any fore/aft/up/down thrust burns; the engines never go fully dark, they idle.
+			_flame_target = maxf(minf(Vector2(thrust.y, thrust.z).length(), 1.0), FLAME_IDLE)
 		_jets("F", medium, back_strength)
 		_jets("D", small, up_strength)
 		_jets("U", small, down_strength * 0.75)
@@ -190,10 +192,13 @@ func _update_flames(delta: float) -> void:
 		pixels.direction = Vector3(0, 1, 0)
 		pixels.emitting = true
 		pixels.color_ramp = _pixel_ramp(_flame_gear)
-		pixels.initial_velocity_min = PIXEL_SPEED_MIN[0] + PIXEL_SPEED_MIN[1] * _flame_strength
-		pixels.initial_velocity_max = PIXEL_SPEED_MAX[0] + PIXEL_SPEED_MAX[1] * _flame_strength
-		pixels.scale_amount_min = 0.7
-		pixels.scale_amount_max = 1.2 + 0.5 * _flame_strength
+		var thrust := clampf(inverse_lerp(FLAME_IDLE, 1.0, _flame_strength), 0.0, 1.0)
+		var width := lerpf(0.4, 1.0, thrust)
+		pixels.initial_velocity_min = 3.0 + (PIXEL_SPEED_MIN[0] + PIXEL_SPEED_MIN[1] - 3.0) * thrust
+		pixels.initial_velocity_max = 5.0 + (PIXEL_SPEED_MAX[0] + PIXEL_SPEED_MAX[1] - 5.0) * thrust
+		pixels.scale_amount_min = 0.7 * width
+		pixels.scale_amount_max = (1.2 + 0.5 * thrust) * width
+		pixels.emission_sphere_radius = 0.32 * width
 
 
 func _update_streaks() -> void:

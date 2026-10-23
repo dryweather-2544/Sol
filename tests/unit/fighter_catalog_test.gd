@@ -350,3 +350,13 @@ func test_screen_focus_starts_off_and_needs_a_screen_under_the_reticle() -> void
 	assert_eq(cockpit.focus_look(), Vector2.ZERO)
 	assert_eq(cockpit.swap_focus(), "", "nothing to swap while no screen is focused")
 	cockpit.free()
+
+
+func test_every_fighter_burns_from_nozzles_inside_its_own_hull_at_the_back() -> void:
+	for def in FighterCatalog.all():
+		assert_true(def.engines.size() >= 1 and def.engines.size() <= 4, "%s lists one to four nozzles" % def.display_name)
+		assert_eq(def.engine_radii.size(), def.engines.size(), "%s: a radius per nozzle" % def.display_name)
+		for nozzle in def.engines:
+			assert_true(absf(nozzle.x) <= def.size * 0.6 and absf(nozzle.y) <= def.size * 0.3, "%s: nozzle %s sits on the hull" % [def.display_name, nozzle])
+			assert_true(nozzle.z > 0.0 and nozzle.z <= def.size * 0.55, "%s: nozzle %s is toward the tail" % [def.display_name, nozzle])
+

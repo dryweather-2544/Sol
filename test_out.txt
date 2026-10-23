@@ -1,0 +1,906 @@
+Using: /Users/arielbowyer/Downloads/Godot.app/Contents/MacOS/Godot
+4.7.2.stable.official.ed1daf0bf
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PASS descent_scenario_test.gd::test_descent_from_orbit_reaches_landed_and_never_goes_below_terrain
+PASS descent_scenario_test.gd::test_cruise_straight_at_terrain_is_clamped_and_never_inside
+PASS flight_boundary_test.gd::test_climbing_pitched_up_through_the_old_400_m_band_keeps_the_pitch
+PASS flight_boundary_test.gd::test_descending_nose_down_and_rolled_through_400_m_keeps_the_pitch
+PASS flight_boundary_test.gd::test_rolling_by_hand_through_the_middle_of_the_atmosphere_is_continuous
+PASS flight_boundary_test.gd::test_entering_the_atmosphere_at_different_angles_and_speeds_never_jumps
+PASS flight_boundary_test.gd::test_a_spinning_ship_in_vacuum_keeps_spinning
+PASS flight_modes_loop_test.gd::test_surface_to_space_and_back_with_the_gears
+PASS flight_replay_test.gd::test_same_commands_give_identical_results_twice
+PASS flight_replay_test.gd::test_600_tick_flight_matches_recorded_snapshot
+PASS floating_origin_test.gd::test_compute_shift_only_beyond_threshold
+PASS floating_origin_test.gd::test_fifty_km_flight_rebases_often_and_never_jumps
+ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+   at: get_global_transform (scene/3d/node_3d.cpp:649)
+   GDScript backtrace (most recent call first):
+       [0] snap_to_target (res://src/camera/chase_camera.gd:45)
+       [1] test_chase_camera_recomputes_its_transform_after_an_origin_rebase (res://tests/scenario/floating_origin_test.gd:51)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+   at: get_global_transform (scene/3d/node_3d.cpp:649)
+   GDScript backtrace (most recent call first):
+       [0] _apply (res://src/camera/chase_camera.gd:69)
+       [1] snap_to_target (res://src/camera/chase_camera.gd:46)
+       [2] test_chase_camera_recomputes_its_transform_after_an_origin_rebase (res://tests/scenario/floating_origin_test.gd:51)
+       [3] _initialize (res://tests/run_tests.gd:35)
+ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+   at: get_global_transform (scene/3d/node_3d.cpp:649)
+   GDScript backtrace (most recent call first):
+       [0] _apply (res://src/camera/chase_camera.gd:70)
+       [1] snap_to_target (res://src/camera/chase_camera.gd:46)
+       [2] test_chase_camera_recomputes_its_transform_after_an_origin_rebase (res://tests/scenario/floating_origin_test.gd:51)
+       [3] _initialize (res://tests/run_tests.gd:35)
+ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+   at: get_global_transform (scene/3d/node_3d.cpp:649)
+   GDScript backtrace (most recent call first):
+       [0] _apply (res://src/camera/chase_camera.gd:69)
+       [1] apply_origin_shift (res://src/camera/chase_camera.gd:34)
+       [2] test_chase_camera_recomputes_its_transform_after_an_origin_rebase (res://tests/scenario/floating_origin_test.gd:53)
+       [3] _initialize (res://tests/run_tests.gd:35)
+ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+   at: get_global_transform (scene/3d/node_3d.cpp:649)
+   GDScript backtrace (most recent call first):
+       [0] _apply (res://src/camera/chase_camera.gd:70)
+       [1] apply_origin_shift (res://src/camera/chase_camera.gd:34)
+       [2] test_chase_camera_recomputes_its_transform_after_an_origin_rebase (res://tests/scenario/floating_origin_test.gd:53)
+       [3] _initialize (res://tests/run_tests.gd:35)
+PASS floating_origin_test.gd::test_chase_camera_recomputes_its_transform_after_an_origin_rebase
+PASS frame_switch_test.gd::test_fly_home_planet_to_moon_through_system_frame_and_land
+PASS frame_switch_test.gd::test_two_worlds_save_and_load_between_them
+PASS full_loop_scenario_test.gd::test_full_loop_orbit_land_airlock_walk_return_takeoff
+PASS interior_moving_test.gd::test_standing_still_inside_a_rolling_500_mps_ship_does_not_move
+PASS interior_moving_test.gd::test_walking_inside_a_moving_ship_never_clips_through_walls
+PASS on_foot_test.gd::test_two_km_walk_stays_on_the_ground_and_upright
+PASS on_foot_test.gd::test_walking_speed_is_the_configured_speed_on_flat_ground
+PASS on_foot_test.gd::test_jump_lands_where_a_ballistic_prediction_says
+PASS on_foot_test.gd::test_steep_slope_blocks_walking_and_gentle_slope_does_not
+PASS on_foot_test.gd::test_walking_off_a_ledge_makes_you_fall_and_land
+PASS ramp_walk_test.gd::test_walking_down_and_back_up_the_ramp_along_its_length
+PASS ramp_walk_test.gd::test_strafing_across_the_ramp_goes_straight_and_steps_off_its_edge
+PASS ramp_walk_test.gd::test_walking_diagonally_on_the_ramp_keeps_its_direction
+PASS ramp_walk_test.gd::test_crossing_the_low_end_of_the_ramp_from_the_ground
+PASS ramp_walk_test.gd::test_standing_still_on_the_ramp_stays_put
+PASS ramp_walk_test.gd::test_ramp_surface_carries_the_walker_and_its_sides_are_solid
+PASS slice_scenario_test.gd::test_mayday_on_selene_from_ambush_to_takeoff
+PASS soak_test.gd::test_two_hours_of_random_play_stays_legal_and_finite
+PASS transition_fuzz_test.gd::test_random_action_sequences_stay_legal_and_continuous
+PASS airlock_invariant_test.gd::test_ten_thousand_random_requests_never_open_both_doors
+PASS airlock_invariant_test.gd::test_other_door_is_refused_until_first_is_closed_and_cycled
+PASS airlock_invariant_test.gd::test_outer_door_refused_when_not_landed_or_fast_and_closing_refused_when_occupied
+PASS asset_import_test.gd::test_import_settings_per_texture_kind
+WARNING: asset material 'mat_does_not_exist' not found under res://assets/sol/materials/
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] warn_once (res://src/core/asset_library.gd:73)
+         [1] material (res://src/core/asset_library.gd:33)
+         [2] test_missing_material_returns_null_and_warns_once (res://tests/unit/asset_library_test.gd:7)
+         [3] _initialize (res://tests/run_tests.gd:35)
+PASS asset_library_test.gd::test_missing_material_returns_null_and_warns_once
+WARNING: asset material 'mat_does_not_exist' not found under res://assets/sol/materials/
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] warn_once (res://src/core/asset_library.gd:73)
+         [1] material (res://src/core/asset_library.gd:33)
+         [2] material_or (res://src/core/asset_library.gd:46)
+         [3] test_material_or_falls_back_when_missing (res://tests/unit/asset_library_test.gd:18)
+         [4] _initialize (res://tests/run_tests.gd:35)
+PASS asset_library_test.gd::test_material_or_falls_back_when_missing
+PASS asset_library_test.gd::test_material_or_returns_fallback_when_switched_off_even_if_the_asset_exists
+PASS asset_library_test.gd::test_variant_materials_live_in_their_base_folder
+PASS asset_library_test.gd::test_every_copied_material_loads
+PASS asset_source_test.gd::test_source_file_matches_the_copied_files
+PASS asset_source_test.gd::test_no_copied_material_points_into_lookdev
+PASS audio_library_test.gd::test_every_table_entry_has_files_that_load
+PASS audio_library_test.gd::test_variants_become_one_randomizer
+PASS audio_library_test.gd::test_loops_loop_over_the_whole_sample
+WARNING: sound 'sfx_does_not_exist' has no loadable file under res://assets/sol/audio/ (using the synthesised sound)
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] warn_once (res://src/core/asset_library.gd:73)
+         [1] stream (res://src/audio/audio_library.gd:182)
+         [2] test_switch_off_and_unknown_ids_give_null (res://tests/unit/audio_library_test.gd:52)
+         [3] _initialize (res://tests/run_tests.gd:35)
+PASS audio_library_test.gd::test_switch_off_and_unknown_ids_give_null
+PASS audio_library_test.gd::test_buses_are_known_names
+PASS audio_library_test.gd::test_engine_mix_crossfades_and_is_silent_when_stopped
+PASS audio_library_test.gd::test_latch_has_hysteresis
+PASS audio_library_test.gd::test_alarm_picks_by_priority
+PASS audio_library_test.gd::test_alarm_repeats_fast_three_times_then_slowly
+PASS audio_library_test.gd::test_alarm_restarts_when_the_kind_changes_and_stops_when_cleared
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://src/audio/audio_service.gd:117)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:122)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://src/audio/audio_service.gd:117)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:122)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:129)
+       [2] _initialize (res://tests/run_tests.gd:35)
+WARNING: sound 'sfx_does_not_exist' has no loadable file under res://assets/sol/audio/ (using the synthesised sound)
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] warn_once (res://src/core/asset_library.gd:73)
+         [1] stream (res://src/audio/audio_library.gd:182)
+         [2] play_sample (res://src/audio/audio_service.gd:218)
+         [3] play_cue (res://src/audio/audio_service.gd:201)
+         [4] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:137)
+         [5] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_cue (res://src/audio/audio_service.gd:211)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:137)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_audio_service_emits_cue_started_and_steals_by_priority (res://tests/unit/audio_library_test.gd:140)
+       [2] _initialize (res://tests/run_tests.gd:35)
+PASS audio_library_test.gd::test_audio_service_emits_cue_started_and_steals_by_priority
+PASS audio_library_test.gd::test_crossfade_is_equal_power_and_clamped
+PASS audio_library_test.gd::test_proximity_gain_falls_with_distance
+WARNING: sound file 'res://assets/sol/audio/sfx/ui/sfx_ship_gear_shift_09.wav' not found or not loadable
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] warn_once (res://src/core/asset_library.gd:73)
+         [1] variant_stream (res://src/audio/audio_library.gd:198)
+         [2] test_gear_shift_files_are_one_per_gear (res://tests/unit/audio_library_test.gd:170)
+         [3] _initialize (res://tests/run_tests.gd:35)
+PASS audio_library_test.gd::test_gear_shift_files_are_one_per_gear
+PASS audio_library_test.gd::test_weapon_counts_shots_for_the_audio_service
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://src/audio/audio_service.gd:117)
+       [1] test_reference_samples_play_through_the_service_and_loop_players_restart (res://tests/unit/audio_library_test.gd:189)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://src/audio/audio_service.gd:117)
+       [1] test_reference_samples_play_through_the_service_and_loop_players_restart (res://tests/unit/audio_library_test.gd:189)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_reference_samples_play_through_the_service_and_loop_players_restart (res://tests/unit/audio_library_test.gd:191)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _set_loop_gain (res://src/audio/audio_service.gd:257)
+       [1] test_reference_samples_play_through_the_service_and_loop_players_restart (res://tests/unit/audio_library_test.gd:192)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _set_loop_gain (res://src/audio/audio_service.gd:266)
+       [1] test_reference_samples_play_through_the_service_and_loop_players_restart (res://tests/unit/audio_library_test.gd:192)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _set_loop_gain (res://src/audio/audio_service.gd:266)
+       [1] test_reference_samples_play_through_the_service_and_loop_players_restart (res://tests/unit/audio_library_test.gd:197)
+       [2] _initialize (res://tests/run_tests.gd:35)
+PASS audio_library_test.gd::test_reference_samples_play_through_the_service_and_loop_players_restart
+PASS audio_library_test.gd::test_reference_engine_loops_follow_the_gear_table
+PASS audio_library_test.gd::test_engine_gain_follows_rodinas_rules
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://src/audio/audio_service.gd:117)
+       [1] test_paused_gameplay_audio_is_muted_but_ui_one_shots_remain_available (res://tests/unit/audio_library_test.gd:232)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://src/audio/audio_service.gd:117)
+       [1] test_paused_gameplay_audio_is_muted_but_ui_one_shots_remain_available (res://tests/unit/audio_library_test.gd:232)
+       [2] _initialize (res://tests/run_tests.gd:35)
+ERROR: Playback can only happen when a node is inside the scene tree
+   at: play_basic (scene/audio/audio_stream_player_internal.cpp:145)
+   GDScript backtrace (most recent call first):
+       [0] play_sample (res://src/audio/audio_service.gd:228)
+       [1] test_paused_gameplay_audio_is_muted_but_ui_one_shots_remain_available (res://tests/unit/audio_library_test.gd:243)
+       [2] _initialize (res://tests/run_tests.gd:35)
+PASS audio_library_test.gd::test_paused_gameplay_audio_is_muted_but_ui_one_shots_remain_available
+PASS bigger_inside_test.gd::test_pocket_rooms_are_wider_than_the_hull_and_the_threshold_fits_inside_it
+PASS bigger_inside_test.gd::test_every_station_stands_on_walkable_floor_in_its_room
+PASS bigger_inside_test.gd::test_hull_and_pocket_follow_the_camera
+PASS bigger_inside_test.gd::test_nothing_in_the_ship_is_ever_hidden_by_visibility
+PASS bigger_inside_test.gd::test_nothing_from_a_pocket_room_is_left_outside_the_pocket
+PASS bigger_inside_test.gd::test_crew_in_pocket_rooms_are_hidden_from_outside
+PASS bigger_inside_test.gd::test_no_two_interior_walls_overlap
+PASS bigger_inside_test.gd::test_threshold_shell_is_hidden_from_pocket_rooms_unless_a_door_is_open
+PASS bigger_inside_test.gd::test_a_camera_in_a_doorway_next_to_a_pocket_room_does_not_draw_the_hull
+PASS bigger_inside_test.gd::test_the_hull_ends_drawn_from_inside_never_overlap_a_room
+PASS camera_range_test.gd::test_the_2f9b74e_planes_are_degenerate_and_the_clamped_ones_are_not
+PASS camera_range_test.gd::test_cameras_start_with_safe_planes
+PASS chunk_mesher_test.gd::test_chunk_vertices_lie_on_the_height_function_and_arrays_are_consistent
+PASS chunk_mesher_test.gd::test_triangles_wind_clockwise_seen_from_outside
+PASS chunk_mesher_test.gd::test_colour_masks_poles_snow_steepness_and_airless_palette
+PASS chunk_mesher_test.gd::test_lod_grids_are_progressive_and_preserve_coarse_shape
+PASS chunk_mesher_test.gd::test_geomorph_offsets_lead_to_the_parent_shape
+PASS chunk_mesher_test.gd::test_chunk_reports_its_centre_height_and_makes_a_mesh
+PASS combat_test.gd::test_projectile_hits_enemy_team_only
+PASS combat_test.gd::test_fast_projectile_does_not_tunnel_through_a_small_target
+PASS combat_test.gd::test_misses_expire_and_dead_targets_are_ignored
+PASS combat_test.gd::test_weapon_respects_fire_rate_and_inherits_shooter_velocity
+PASS combat_test.gd::test_face_direction_turns_the_ship_onto_the_target_and_settles
+PASS combat_test.gd::test_face_direction_also_works_for_a_target_directly_behind
+PASS combat_test.gd::test_ai_attacker_flies_to_range_and_destroys_a_target_that_cannot_shoot_back
+PASS crew_brain_test.gd::test_engineer_puts_out_a_fire_in_their_own_room
+PASS crew_brain_test.gd::test_engineer_goes_through_doors_to_a_fire_in_another_room
+PASS crew_brain_test.gd::test_engineer_repairs_a_damaged_engine_until_it_is_fully_fixed
+PASS crew_brain_test.gd::test_engineer_restarts_a_tripped_reactor_before_the_automatic_restart
+PASS crew_brain_test.gd::test_engineer_vents_coolant_when_the_core_runs_hot
+PASS crew_brain_test.gd::test_gunner_destroys_a_hostile_with_the_turret
+PASS crew_brain_test.gd::test_no_gunner_in_the_seat_means_the_turret_stays_silent
+PASS crew_brain_test.gd::test_captains_order_outranks_scores_until_done
+PASS crew_brain_test.gd::test_turret_order_toggles_and_power_presets_cycle
+PASS crew_brain_test.gd::test_crew_do_not_flip_flop_over_a_ten_minute_run_of_trouble
+PASS exploration_test.gd::test_minor_sites_have_stable_identities_and_valid_places
+PASS exploration_test.gd::test_minor_sites_do_not_move_the_large_pois
+PASS exploration_test.gd::test_minor_sites_build_without_beams_or_crate_boxes
+PASS exploration_test.gd::test_bearing_and_direction_words
+PASS exploration_test.gd::test_scan_pulse_finds_only_sites_in_range_and_hides_what_they_are
+PASS exploration_test.gd::test_the_whole_loop_discover_investigate_reward_once
+PASS exploration_test.gd::test_a_full_inventory_leaves_the_site_uninvestigated
+PASS exploration_test.gd::test_every_reward_is_a_real_inventory_item
+PASS exploration_test.gd::test_save_and_load_keep_discovery_investigation_and_contacts_without_duplicates
+PASS exploration_test.gd::test_saves_from_before_the_exploration_log_still_load
+PASS exploration_test.gd::test_large_sites_report_how_many_crates_are_searched
+PASS fighter_catalog_test.gd::test_roster_is_complete_and_unique
+PASS fighter_catalog_test.gd::test_waves_grow_and_unlock_heavier_roles
+PASS fighter_catalog_test.gd::test_configure_fighter_applies_handling_and_gun
+PASS fighter_catalog_test.gd::test_toughness_divides_incoming_damage
+PASS fighter_catalog_test.gd::test_model_builder_adds_a_holder_and_scales_to_size
+PASS fighter_catalog_test.gd::test_skirmish_waves_spawn_attack_and_escalate
+PASS fighter_catalog_test.gd::test_a_fighter_is_a_separate_ship_with_its_own_tuning
+PASS fighter_catalog_test.gd::test_boarding_a_fighter_from_the_helm_parks_the_mothership
+PASS fighter_catalog_test.gd::test_boarding_from_on_foot_and_climbing_out_on_the_ground
+PASS fighter_catalog_test.gd::test_losing_the_fighter_returns_the_player_and_saves_skip_it
+PASS fighter_catalog_test.gd::test_cockpit_builds_on_its_own_render_layer
+PASS fighter_catalog_test.gd::test_radar_puts_forward_contacts_up_the_screen
+PASS flight_model_test.gd::test_forward_thrust_accelerates_at_acceleration_times_move_speed
+PASS flight_model_test.gd::test_speed_is_driven_to_the_gear_move_speed
+PASS flight_model_test.gd::test_sideways_vertical_and_reverse_are_weaker_per_gear
+PASS flight_model_test.gd::test_diagonal_thrust_is_limited_to_unit_demand_then_scaled_per_axis
+PASS flight_model_test.gd::test_thrust_follows_ship_orientation
+PASS flight_model_test.gd::test_no_thrust_keeps_momentum
+PASS flight_model_test.gd::test_drag_only_above_drag_speed
+PASS flight_model_test.gd::test_reverse_input_over_move_speed_brakes_in_proportion_to_speed
+PASS flight_model_test.gd::test_brake_drives_velocity_to_zero_at_the_reverse_thrust_rate
+PASS flight_model_test.gd::test_lock_linear_coasts_and_ignores_thrust
+PASS flight_model_test.gd::test_move_lock_matches_the_target_velocity_exactly
+PASS flight_model_test.gd::test_boost_raises_the_move_speed
+PASS flight_model_test.gd::test_gravity_pulls_a_coasting_or_hands_off_ship
+PASS flight_model_test.gd::test_gear_selection_is_clamped_to_what_is_allowed_and_comes_back
+PASS flight_model_test.gd::test_shifting_down_at_speed_changes_velocity_smoothly
+PASS flight_model_test.gd::test_precision_tap_moves_a_little_and_stops_by_itself
+PASS flight_model_test.gd::test_precision_hovers_against_gravity_up_to_the_engines_limit
+PASS flight_model_test.gd::test_precision_hands_off_at_speed_brakes_in_proportion
+PASS flight_model_test.gd::test_turn_input_accelerates_the_spin_up_to_the_rotation_speed
+PASS flight_model_test.gd::test_small_input_is_squared_for_precision
+PASS flight_model_test.gd::test_spin_continues_in_space_after_release
+PASS flight_model_test.gd::test_air_friction_slows_a_coasting_spin_but_not_a_driven_one
+PASS flight_model_test.gd::test_roll_input_is_smoothed_in_and_capped_at_twice_the_rotation_speed
+PASS flight_model_test.gd::test_ai_facing_sets_the_turn_rate_directly
+PASS flight_model_test.gd::test_parked_ship_stops_rotating
+PASS flight_model_test.gd::test_orientation_stays_orthonormal_over_a_long_mixed_turn
+PASS flight_model_test.gd::test_levelling_never_changes_pitch
+PASS flight_model_test.gd::test_levelling_eases_the_roll_level_in_the_atmosphere
+PASS flight_model_test.gd::test_levelling_is_off_in_space_when_the_setting_is_zero_and_while_the_pilot_rolls
+PASS flight_model_test.gd::test_levelling_fades_out_as_the_nose_points_steeply
+PASS flight_model_test.gd::test_warp_gear_has_a_higher_cap_than_cruise
+PASS flight_model_test.gd::test_control_authority_ramps_after_a_collision
+PASS flight_model_test.gd::test_warp_steering_drift_only_after_full_spin_up
+PASS game_settings_test.gd::test_defaults_when_no_file
+PASS game_settings_test.gd::test_values_survive_save_and_load
+PASS game_settings_test.gd::test_out_of_range_values_are_clamped
+PASS game_settings_test.gd::test_asset_switches_default_on_and_survive_save_and_load
+PASS game_settings_test.gd::test_old_settings_file_without_asset_section_keeps_defaults
+PASS ground_combat_test.gd::test_drone_ignores_a_distant_player_then_closes_in_and_shoots_them
+PASS ground_combat_test.gd::test_player_pistol_kills_a_drone_in_a_few_hits_and_shots_respect_teams
+PASS ground_combat_test.gd::test_enemy_director_spawns_guards_once_and_clearing_is_remembered
+PASS ground_contact_test.gd::test_ship_never_ends_up_below_flat_ground_and_lands
+PASS ground_contact_test.gd::test_gentle_slopes_land_and_ship_tilts_to_match
+PASS ground_contact_test.gd::test_landed_on_a_slope_in_precision_gear_stays_landed_hands_off
+PASS ground_contact_test.gd::test_steep_slope_refuses_landing_with_message
+PASS ground_contact_test.gd::test_landed_ship_holds_position_for_a_minute
+PASS ground_contact_test.gd::test_thrust_up_lifts_off_and_clears_landed
+PASS ground_contact_test.gd::test_a_hard_crash_rebounds_a_little_but_a_landing_does_not
+PASS ground_contact_test.gd::test_a_firm_landing_does_not_bounce
+PASS gunner_station_test.gd::test_aim_pitch_is_clamped_and_yaw_wraps
+PASS gunner_station_test.gd::test_station_hands_the_ship_to_an_ai_and_back
+PASS gunner_station_test.gd::test_holding_the_trigger_overheats_then_cools
+PASS height_function_test.gd::test_same_profile_gives_same_heights_across_instances
+PASS height_function_test.gd::test_heights_stay_within_plausible_bounds
+PASS height_function_test.gd::test_golden_hash_of_1000_samples
+PASS height_function_test.gd::test_rodina_height_grammars_are_deterministic_finite_and_not_flat
+PASS height_function_test.gd::test_world_resources_choose_the_recovered_grammars
+PASS height_function_test.gd::test_grammar_heights_are_continuous_at_small_offsets
+PASS hud_style_test.gd::test_rodina_hud_fonts_load_with_rodina_sizes_and_colours
+PASS hud_style_test.gd::test_rodina_uses_rodinas_default_field_of_view_unless_the_player_changed_it
+PASS input_map_test.gd::test_every_flight_action_exists_and_has_a_key
+PASS input_map_test.gd::test_key_bindings_resolve_to_expected_keys
+PASS interior_layout_test.gd::test_closed_door_blocks_and_open_door_lets_you_through
+PASS interior_layout_test.gd::test_walkers_stay_inside_the_rooms_and_slide_along_walls
+PASS interior_layout_test.gd::test_ramp_is_only_walkable_when_deployed_and_slopes_down
+PASS interior_layout_test.gd::test_nearest_interaction_picks_the_closest_panel
+PASS interior_layout_test.gd::test_exterior_walker_is_pushed_out_of_the_hull_but_not_off_the_ramp
+PASS interior_layout_test.gd::test_every_portal_joins_two_rooms_and_all_rooms_are_connected
+PASS interior_layout_test.gd::test_every_station_is_walkable_and_reachable_from_the_pilot_seat_with_doors_open
+PASS interior_layout_test.gd::test_gunner_seat_is_a_seat_with_an_interaction_point_in_the_turret_room
+PASS interior_layout_test.gd::test_looking_at_a_door_targets_it_from_either_side
+PASS interior_layout_test.gd::test_looking_picks_stations_and_not_through_walls
+PASS interior_layout_test.gd::test_plain_doors_close_by_themselves_but_never_on_a_person
+PASS interior_layout_test.gd::test_airlock_computer_cycles_in_and_out_and_never_opens_both
+PASS interior_layout_test.gd::test_airlock_computer_refuses_the_outer_door_when_flying
+PASS interior_layout_test.gd::test_airlock_computer_is_in_the_airlock_and_can_be_looked_at
+PASS interior_layout_test.gd::test_living_area_and_med_bay_are_reachable_and_walkable
+PASS interior_layout_test.gd::test_side_door_leads_to_the_living_area_when_open
+PASS interior_layout_test.gd::test_windows_sit_in_free_outside_walls
+PASS interior_layout_test.gd::test_furniture_is_solid_but_doorways_and_stations_stay_clear
+PASS interior_layout_test.gd::test_machines_exist_are_solid_and_can_be_looked_at
+PASS interior_layout_test.gd::test_every_piece_stays_inside_its_room
+PASS interior_layout_test.gd::test_solid_pieces_do_not_overlap_each_other_or_block_doorways
+PASS interior_layout_test.gd::test_machines_and_stations_are_not_buried_in_furniture
+PASS interior_layout_test.gd::test_windows_fit_their_wall_and_are_not_covered
+PASS interior_layout_test.gd::test_turret_room_walkway_is_clear_and_the_cargo_door_can_be_looked_at
+PASS interior_layout_test.gd::test_f_opens_every_plain_door_you_look_at
+PASS interior_layout_test.gd::test_reactor_core_is_solid_and_the_reactor_panel_still_reachable
+PASS interior_surface_test.gd::test_no_visible_coplanar_surfaces_in_the_ship
+PASS interlock_test.gd::test_takeoff_is_blocked_until_outer_door_is_closed_and_walkway_stowed
+PASS interlock_test.gd::test_takeoff_is_blocked_while_someone_is_on_the_walkway_and_walkway_will_not_stow
+PASS interlock_test.gd::test_outer_door_is_denied_at_speed_and_in_flight
+PASS interlock_test.gd::test_walkway_stows_itself_when_ship_speeds_up
+PASS interlock_test.gd::test_ship_holds_still_on_the_ground_while_takeoff_is_blocked
+PASS items_test.gd::test_inventory_slots_stacks_and_all_or_nothing_adds
+PASS items_test.gd::test_inventory_round_trips_through_a_dictionary
+PASS items_test.gd::test_loot_is_deterministic_and_varies_by_seed_crate_and_type
+PASS items_test.gd::test_opening_a_crate_gives_its_seeded_loot_once
+PASS items_test.gd::test_full_inventory_keeps_the_crate_closed
+PASS items_test.gd::test_using_items_changes_the_right_state
+PASS items_test.gd::test_empty_tank_blocks_cruise_and_boost_and_cruise_burns_fuel
+PASS items_test.gd::test_warp_gear_burns_more_fuel_than_cruise
+PASS limnal_warp_view_test.gd::test_rodina_math_helpers_match_the_lua
+PASS limnal_warp_view_test.gd::test_at_rest_the_camera_is_unchanged
+PASS limnal_warp_view_test.gd::test_entering_warp_blends_toward_the_rodina_warp_camera
+PASS limnal_warp_view_test.gd::test_sustained_warp_never_reaches_the_full_blend
+PASS limnal_warp_view_test.gd::test_leaving_warp_resets_the_clock_and_decays_the_blend
+PASS limnal_warp_view_test.gd::test_short_warp_drop_out_restarts_the_activation
+PASS limnal_warp_view_test.gd::test_camera_vibration_holds_while_set_and_fades_in_a_quarter_second
+PASS limnal_warp_view_test.gd::test_atmosphere_shake_follows_resistance
+PASS limnal_warp_view_test.gd::test_warp_shake_is_never_stuck_at_zero_on_the_fixed_tick
+PASS lod_planner_test.gd::test_chunk_key_round_trip_and_ancestry
+PASS lod_planner_test.gd::test_leaves_tile_the_whole_planet_without_overlap
+PASS lod_planner_test.gd::test_detail_concentrates_near_the_viewer_and_counts_stay_bounded
+PASS lod_planner_test.gd::test_preload_viewer_requests_detail_ahead_without_overlap
+PASS lod_planner_test.gd::test_a_split_chunk_stays_split_a_little_past_its_split_distance
+PASS lod_planner_test.gd::test_centres_use_built_chunk_heights_instead_of_height_queries
+PASS lod_planner_test.gd::test_the_finest_level_is_about_a_hundred_metres_across
+PASS lod_planner_test.gd::test_fast_flight_caps_the_finest_level
+PASS machine_menu_test.gd::test_every_machine_has_a_readout
+PASS machine_menu_test.gd::test_emergency_doors_open_and_close_plain_doors_but_not_the_airlock
+PASS mayday_test.gd::test_v10_fixture_migrates_with_the_objective_shifted_past_the_new_mission
+PASS mayday_test.gd::test_objectives_before_the_mission_are_not_shifted
+PASS mayday_test.gd::test_repairs_stop_at_the_cap_and_that_counts_as_fully_repaired
+PASS mayday_test.gd::test_the_ambush_hit_is_guaranteed_once_and_only_when_armed
+PASS mayday_test.gd::test_engine_station_refuses_without_a_coupling_and_explains
+PASS mayday_test.gd::test_pinned_beacon_is_planned_like_any_poi_and_sits_on_the_ground
+PASS mayday_test.gd::test_arriving_at_selene_starts_the_ambush_once_and_points_at_a_beacon_below
+PASS music_director_test.gd::test_soundtrack_data_is_valid_and_every_file_plays
+PASS music_director_test.gd::test_contexts_follow_the_real_game_states
+PASS music_director_test.gd::test_climbing_out_of_the_atmosphere_is_an_ascent_not_an_entry
+PASS music_director_test.gd::test_menu_theme_then_a_clean_hand_over_to_play
+PASS music_director_test.gd::test_flight_manoeuvres_and_flicker_never_restart_the_music
+PASS music_director_test.gd::test_deep_space_music_carries_into_the_approach_and_inside_the_ship
+PASS music_director_test.gd::test_atmospheric_entry_crossfades_without_two_loud_pieces
+PASS music_director_test.gd::test_long_flights_avoid_repetition_and_leave_silence
+PASS music_director_test.gd::test_combat_starts_at_once_holds_then_falls_quiet
+PASS music_director_test.gd::test_crash_landing_skips_its_long_intro_in_combat
+PASS music_director_test.gd::test_arrival_cue_once_per_new_world
+PASS music_director_test.gd::test_strange_discoveries_get_one_piece_with_a_cooldown
+PASS music_director_test.gd::test_pause_ducks_and_freezes_the_context
+PASS music_director_test.gd::test_loop_files_end_after_their_loops
+WARNING: music track 'ghost' has no playable file at 'res://assets/sol/audio/mus/not_there.ogg' (skipped)
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] warn_once (res://src/core/asset_library.gd:73)
+         [1] stream (res://src/audio/soundtrack.gd:90)
+         [2] is_playable (res://src/audio/soundtrack.gd:105)
+         [3] validation_errors (res://src/audio/soundtrack.gd:177)
+         [4] test_missing_files_and_broken_data_mean_silence_not_errors (res://tests/unit/music_director_test.gd:275)
+         [5] _initialize (res://tests/run_tests.gd:35)
+ERROR: Parse JSON failed. Error at line 0: Expected 'true', 'false', or 'null', got 'not'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_from_text (res://src/audio/soundtrack.gd:37)
+       [1] test_missing_files_and_broken_data_mean_silence_not_errors (res://tests/unit/music_director_test.gd:279)
+       [2] _initialize (res://tests/run_tests.gd:35)
+WARNING: soundtrack JSON could not be parsed
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] load_from_text (res://src/audio/soundtrack.gd:40)
+         [1] test_missing_files_and_broken_data_mean_silence_not_errors (res://tests/unit/music_director_test.gd:279)
+         [2] _initialize (res://tests/run_tests.gd:35)
+PASS music_director_test.gd::test_missing_files_and_broken_data_mean_silence_not_errors
+PASS music_director_test.gd::test_snapshot_reads_real_enemies_and_damage
+PASS music_director_test.gd::test_music_volume_setting_round_trips
+PASS pilot_controller_test.gd::test_first_request_is_granted_and_second_source_is_denied_with_reason
+PASS pilot_controller_test.gd::test_same_source_can_request_again
+PASS pilot_controller_test.gd::test_release_returns_to_parked_and_only_holder_can_release
+PASS pilot_controller_test.gd::test_control_changed_signal_reports_old_and_new_source
+PASS pilot_controller_test.gd::test_parked_ship_holds_velocity_and_keeps_gear
+PASS pilot_controller_test.gd::test_scripted_source_plays_commands_in_order_then_goes_neutral
+PASS pilot_controller_test.gd::test_poll_command_stamps_source_id
+PASS pilot_controller_test.gd::test_player_gear_shift_can_reach_warp
+PASS pilot_controller_test.gd::test_clutch_then_w_shifts_up_on_release_and_disconnects_the_drive
+PASS pilot_controller_test.gd::test_clutch_s_shifts_down_and_one_shift_per_press
+PASS pilot_controller_test.gd::test_clutch_shift_to_an_unavailable_gear_is_refused
+PASS pilot_controller_test.gd::test_without_the_clutch_w_still_thrusts_and_gear_is_unchanged
+PASS planet_definition_test.gd::test_aurelia_loads_from_the_typed_definition_with_its_existing_identity
+PASS planet_definition_test.gd::test_definition_round_trip_preserves_body_fields
+PASS planet_definition_test.gd::test_every_shipped_body_has_a_valid_definition_resource
+PASS player_state_test.gd::test_full_cycle_stand_walk_out_in_sit
+PASS player_state_test.gd::test_cancel_sit_returns_to_standing_with_no_authority
+PASS player_state_test.gd::test_illegal_transitions_are_refused_without_changing_state
+PASS pod_vectoring_test.gd::test_pods_follow_the_thrust_direction
+PASS pod_vectoring_test.gd::test_demands_turn_the_pods_fully_and_strafing_does_not_tilt
+PASS poi_building_test.gd::test_generation_is_deterministic_connected_and_non_overlapping
+PASS poi_building_test.gd::test_every_doorway_is_open_and_every_room_has_walls_elsewhere
+PASS poi_building_test.gd::test_a_walker_can_pass_every_doorway_but_not_walls
+PASS poi_building_test.gd::test_walking_into_a_depot_gives_a_flat_floor_air_and_working_walls
+PASS poi_building_test.gd::test_depot_crates_hold_loot_inside_rooms
+PASS poi_materials_test.gd::test_wreck_uses_derelict_hull_and_rusted_metal
+PASS poi_materials_test.gd::test_beacon_outpost_use_concrete
+PASS poi_materials_test.gd::test_switch_off_keeps_the_code_materials
+PASS poi_test.gd::test_same_seed_gives_identical_pois_regardless_of_planning_order
+PASS poi_test.gd::test_golden_poi_region_hash
+PASS poi_test.gd::test_pois_sit_on_the_terrain_and_have_sensible_spacing
+PASS poi_test.gd::test_ring_hysteresis_stops_flicker
+PASS poi_test.gd::test_five_hundred_planned_pois_but_only_ring_active_ones_have_nodes
+PASS poi_test.gd::test_discovery_fires_once_per_poi_and_only_on_foot_and_close
+PASS poi_test.gd::test_walker_cannot_walk_into_a_prop_blocker
+PASS poi_test.gd::test_threaded_manager_merges_the_same_pois_as_the_synchronous_one
+SCRIPT ERROR: Invalid call. Nonexistent function 'duplicate_position' in base 'Nil'.
+          at: DiscoveryLog.try_discover (res://src/world/discovery_log.gd:29)
+          GDScript backtrace (most recent call first):
+              [0] try_discover (res://src/world/discovery_log.gd:29)
+              [1] test_objectives_advance_in_order_one_at_a_time (res://tests/unit/progress_test.gd:26)
+              [2] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid call. Nonexistent function 'duplicate_position' in base 'Nil'.
+          at: DiscoveryLog.try_discover (res://src/world/discovery_log.gd:29)
+          GDScript backtrace (most recent call first):
+              [0] try_discover (res://src/world/discovery_log.gd:29)
+              [1] test_objectives_advance_in_order_one_at_a_time (res://tests/unit/progress_test.gd:26)
+              [2] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid call. Nonexistent function 'duplicate_position' in base 'Nil'.
+          at: DiscoveryLog.try_discover (res://src/world/discovery_log.gd:29)
+          GDScript backtrace (most recent call first):
+              [0] try_discover (res://src/world/discovery_log.gd:29)
+              [1] test_objectives_advance_in_order_one_at_a_time (res://tests/unit/progress_test.gd:26)
+              [2] _initialize (res://tests/run_tests.gd:35)
+PASS progress_test.gd::test_objectives_advance_in_order_one_at_a_time
+PASS progress_test.gd::test_warp_coil_install_flow_and_gating_factor
+PASS progress_test.gd::test_open_space_cruise_is_crippled_without_the_warp_drive
+PASS progress_test.gd::test_story_objectives_complete_by_landing_on_the_target_worlds
+PASS progress_test.gd::test_progress_survives_a_save_and_old_saves_keep_open_space
+PASS progress_test.gd::test_warp_gear_is_gated_by_the_installed_drive_and_open_space
+SCRIPT ERROR: Invalid access to property or key 'space' on a base object of type 'Dictionary'.
+          at: StarSystem.body_position (res://src/world/star_system.gd:173)
+          GDScript backtrace (most recent call first):
+              [0] body_position (res://src/world/star_system.gd:173)
+              [1] frame_origin (res://src/world/star_system.gd:196)
+              [2] convert_position (res://src/world/star_system.gd:207)
+              [3] _apply_star_heat (res://src/game/world_runtime.gd:52)
+              [4] advance (res://src/game/world_runtime.gd:44)
+              [5] test_warp_setting_brings_the_drive_online_without_the_coil (res://tests/unit/progress_test.gd:119)
+              [6] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid access to property or key 'x' on a base object of type 'Nil'.
+          at: StarSystem.convert_position (res://src/world/star_system.gd:209)
+          GDScript backtrace (most recent call first):
+              [0] convert_position (res://src/world/star_system.gd:209)
+              [1] _apply_star_heat (res://src/game/world_runtime.gd:52)
+              [2] advance (res://src/game/world_runtime.gd:44)
+              [3] test_warp_setting_brings_the_drive_online_without_the_coil (res://tests/unit/progress_test.gd:119)
+              [4] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid access to property or key 'x' on a base object of type 'Nil'.
+          at: WorldRuntime._apply_star_heat (res://src/game/world_runtime.gd:53)
+          GDScript backtrace (most recent call first):
+              [0] _apply_star_heat (res://src/game/world_runtime.gd:53)
+              [1] advance (res://src/game/world_runtime.gd:44)
+              [2] test_warp_setting_brings_the_drive_online_without_the_coil (res://tests/unit/progress_test.gd:119)
+              [3] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid access to property or key 'space' on a base object of type 'Dictionary'.
+          at: StarSystem.body_position (res://src/world/star_system.gd:173)
+          GDScript backtrace (most recent call first):
+              [0] body_position (res://src/world/star_system.gd:173)
+              [1] frame_origin (res://src/world/star_system.gd:196)
+              [2] convert_position (res://src/world/star_system.gd:207)
+              [3] _apply_star_heat (res://src/game/world_runtime.gd:52)
+              [4] advance (res://src/game/world_runtime.gd:44)
+              [5] test_warp_setting_brings_the_drive_online_without_the_coil (res://tests/unit/progress_test.gd:123)
+              [6] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid access to property or key 'x' on a base object of type 'Nil'.
+          at: StarSystem.convert_position (res://src/world/star_system.gd:209)
+          GDScript backtrace (most recent call first):
+              [0] convert_position (res://src/world/star_system.gd:209)
+              [1] _apply_star_heat (res://src/game/world_runtime.gd:52)
+              [2] advance (res://src/game/world_runtime.gd:44)
+              [3] test_warp_setting_brings_the_drive_online_without_the_coil (res://tests/unit/progress_test.gd:123)
+              [4] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid access to property or key 'x' on a base object of type 'Nil'.
+          at: WorldRuntime._apply_star_heat (res://src/game/world_runtime.gd:53)
+          GDScript backtrace (most recent call first):
+              [0] _apply_star_heat (res://src/game/world_runtime.gd:53)
+              [1] advance (res://src/game/world_runtime.gd:44)
+              [2] test_warp_setting_brings_the_drive_online_without_the_coil (res://tests/unit/progress_test.gd:123)
+              [3] _initialize (res://tests/run_tests.gd:35)
+PASS progress_test.gd::test_warp_setting_brings_the_drive_online_without_the_coil
+PASS rodina_planets_test.gd::test_voronoi_points_are_a_fixed_set_of_unit_vectors
+PASS rodina_planets_test.gd::test_grid_search_matches_brute_force_nearest_two
+PASS rodina_planets_test.gd::test_hlsl_analogue_handles_reversed_and_zero_width_ranges
+PASS rodina_planets_test.gd::test_every_grammar_makes_finite_varied_terrain_and_is_deterministic
+PASS rodina_planets_test.gd::test_exact_height_function_uses_the_rodina_planets
+PASS rodina_planets_test.gd::test_legacy_grammar_is_never_exact
+PASS rodina_planets_test.gd::test_without_a_gpu_the_mesher_still_builds_chunks
+PASS rodina_planets_test.gd::test_rodina_feature_colours_reach_the_mesh_vertices
+PASS rodina_planets_test.gd::test_hue_saturate_value_matches_hand_computed_lua_colours
+PASS rodina_planets_test.gd::test_feature_colours_exist_for_every_grammar_and_follow_the_material_formula
+PASS rodina_planets_test.gd::test_features_are_finite_deterministic_in_range_and_varied_for_every_grammar
+PASS rodina_planets_test.gd::test_features_agree_with_the_height_functions_about_where_things_are
+PASS rodina_planets_test.gd::test_planet_look_feature_colours_are_valid_linear_vertex_colours_and_off_by_default
+PASS rodina_planets_test.gd::test_negative_feature_channels_are_clamped_before_colouring
+PASS rodina_planets_test.gd::test_terrain_sets_exist_for_every_grammar_and_are_well_formed
+PASS rodina_planets_test.gd::test_jarilo_ice_caps_sit_on_flat_polar_land_and_not_on_the_equator
+PASS rodina_planets_test.gd::test_morena_cliff_wall_appears_on_steep_ground_only
+PASS rodina_planets_test.gd::test_terrain_blend_is_finite_and_leaves_legacy_alone
+PASS rodina_planets_test.gd::test_asteroid_scale_keeps_authored_relief_for_rodina_sized_rocks
+PASS rodina_planets_test.gd::test_albedo_gain_brightens_rodina_colours_and_defaults_to_rodina_exact
+PASS rodina_planets_test.gd::test_world_gains_lift_cinder_and_pebble_only
+PASS rodina_planets_test.gd::test_pebble_is_craggy_not_just_rolling
+PASS rodina_planets_test.gd::test_colour_variation_patches_the_ground_and_is_off_by_default
+PASS rodina_planets_test.gd::test_cinder_fog_is_thinned_and_others_keep_rodinas_fog
+PASS rodina_planets_test.gd::test_orbit_glow_is_brightened_for_air_worlds_and_shell_only
+PASS rodina_planets_test.gd::test_morena_big_plate_cracks_are_off_so_selene_has_no_black_line
+PASS rodina_planets_test.gd::test_terminator_dims_the_light_only_inside_air
+PASS rodina_ship_effects_test.gd::test_sol_style_shows_no_rodina_effects
+PASS rodina_ship_effects_test.gd::test_gear_engines_follow_thrust_axes
+PASS rodina_ship_effects_test.gd::test_main_engine_exhaust_runs_along_each_nozzle_as_many_small_squares
+PASS rodina_ship_effects_test.gd::test_warp_runs_the_limnal_effects_and_silences_the_engines
+PASS rodina_ship_effects_test.gd::test_cruise_inertia_streaks_above_rodina_cruise_speed
+PASS rodina_ship_effects_test.gd::test_atmospheric_entry_follows_resistance_and_camera
+PASS rodina_ship_effects_test.gd::test_clutch_held_swaps_the_flame_for_yellow_green_streaks
+PASS rodina_ship_effects_test.gd::test_particle_data_is_rodinas
+PASS rodina_sky_bake_test.gd::test_cube_map_texels_round_trip_on_every_face
+PASS rodina_sky_bake_test.gd::test_axis_mapping_and_star_swizzles_invert
+PASS rodina_sky_bake_test.gd::test_analogue_gaussian_and_the_zero_width_range_follow_the_hlsl
+PASS rodina_sky_bake_test.gd::test_a_star_splat_is_a_small_disc_with_the_linear_falloff_at_the_right_place
+PASS sanity_test.gd::test_float_is_64_bit
+PASS sanity_test.gd::test_vector3_is_32_bit_in_this_build
+PASS sanity_test.gd::test_int_holds_values_above_32_bits
+PASS save_corrupt_test.gd::test_save_leaves_no_temp_file_and_keeps_previous_as_backup
+PASS save_corrupt_test.gd::test_truncated_main_file_falls_back_to_the_previous_save
+PASS save_corrupt_test.gd::test_checksum_mismatch_is_detected_and_reported_when_no_backup_exists
+PASS save_corrupt_test.gd::test_missing_and_future_version_saves_give_clear_errors
+PASS save_corrupt_test.gd::test_committed_v1_fixture_still_loads_and_restores
+PASS save_roundtrip_test.gd::test_all_five_states_round_trip
+PASS save_roundtrip_test.gd::test_restored_session_keeps_running_without_a_jump
+PASS save_roundtrip_test.gd::test_hull_and_suit_survive_a_save
+PASS save_roundtrip_test.gd::test_warp_gear_survives_a_save_round_trip
+PASS save_roundtrip_test.gd::test_old_terrain_revision_reseats_a_landed_ship
+PASS save_v1_to_v2_test.gd::test_v1_fixture_migrates_to_v2_with_empty_discoveries
+SCRIPT ERROR: Invalid call. Nonexistent function 'duplicate_position' in base 'Nil'.
+          at: DiscoveryLog.try_discover (res://src/world/discovery_log.gd:29)
+          GDScript backtrace (most recent call first):
+              [0] try_discover (res://src/world/discovery_log.gd:29)
+              [1] test_discoveries_survive_save_and_load (res://tests/unit/save_v1_to_v2_test.gd:24)
+              [2] _initialize (res://tests/run_tests.gd:35)
+SCRIPT ERROR: Invalid call. Nonexistent function 'duplicate_position' in base 'Nil'.
+          at: DiscoveryLog.try_discover (res://src/world/discovery_log.gd:29)
+          GDScript backtrace (most recent call first):
+              [0] try_discover (res://src/world/discovery_log.gd:29)
+              [1] test_discoveries_survive_save_and_load (res://tests/unit/save_v1_to_v2_test.gd:24)
+              [2] _initialize (res://tests/run_tests.gd:35)
+PASS save_v1_to_v2_test.gd::test_discoveries_survive_save_and_load
+PASS save_v1_to_v2_test.gd::test_v3_saves_record_game_time_and_frame_and_old_saves_migrate
+PASS seat_test.gd::test_two_actors_one_seat_exactly_one_wins
+PASS seat_test.gd::test_cancel_mid_sit_frees_the_seat_and_no_occupancy_event_fires
+PASS seat_test.gd::test_one_actor_cannot_hold_two_seats_and_cannot_cancel_after_seated
+PASS seed_hash_test.gd::test_multiply_32_never_overflows_and_wraps_correctly
+PASS seed_hash_test.gd::test_mix32_golden_values
+PASS seed_hash_test.gd::test_mix32_ignores_bits_above_32
+PASS seed_hash_test.gd::test_combine_golden_values_and_order_matters
+PASS seed_hash_test.gd::test_string_hash_golden_values
+PASS seed_hash_test.gd::test_rng_golden_sequence
+PASS seed_hash_test.gd::test_derive_is_exactly_combine_of_parent_and_label_hash
+PASS seed_hash_test.gd::test_seed_chain_golden_value
+PASS seed_hash_test.gd::test_indexed_derivation_depends_on_index_and_label
+PASS seed_hash_test.gd::test_regression_stray_index_zero_step_is_not_the_chain
+PASS seed_hash_test.gd::test_same_seed_gives_same_sequence_every_time
+PASS seed_hash_test.gd::test_float_and_range_helpers_stay_in_bounds
+PASS ship_crew_test.gd::test_route_goes_through_each_door_in_order
+PASS ship_crew_test.gd::test_crew_reach_every_work_station_from_every_room_with_doors_closed
+PASS ship_crew_test.gd::test_doors_never_close_on_crew_while_random_requests_hammer_them
+PASS ship_crew_test.gd::test_airlock_invariant_holds_with_crew_walking_and_random_airlock_requests
+PASS ship_crew_test.gd::test_player_and_crew_contend_for_one_seat_and_exactly_one_wins
+PASS ship_crew_test.gd::test_new_order_stands_a_seated_crew_member_up
+PASS ship_crew_test.gd::test_crew_positions_and_seats_survive_a_save_round_trip_and_session_stays_legal
+PASS ship_crew_test.gd::test_v10_saves_without_a_crew_section_keep_the_crew_the_game_started_with
+PASS ship_hazards_test.gd::test_fire_behind_closed_doors_stays_in_its_room
+PASS ship_hazards_test.gd::test_fire_spreads_through_an_open_door
+PASS ship_hazards_test.gd::test_fire_in_a_sealed_room_starves_when_air_runs_low_and_goes_out
+PASS ship_hazards_test.gd::test_life_support_refills_a_thin_room
+PASS ship_hazards_test.gd::test_open_door_equalises_air_between_rooms
+PASS ship_hazards_test.gd::test_extinguisher_sprays_put_the_fire_out
+PASS ship_hazards_test.gd::test_fire_burns_the_subsystems_in_its_room
+PASS ship_hazards_test.gd::test_enough_subsystem_damage_starts_a_fire_deterministically
+PASS ship_hazards_test.gd::test_reactor_panel_requests_go_through_the_actor_seam
+PASS ship_hazards_test.gd::test_panel_can_restart_a_cooling_reactor_before_the_automatic_restart
+PASS ship_hazards_test.gd::test_player_takes_the_extinguisher_and_fights_a_fire_in_their_room
+PASS ship_hazards_test.gd::test_breathing_in_a_room_without_air_uses_the_suit_tank
+PASS ship_hazards_test.gd::test_fire_and_extinguisher_survive_a_save_round_trip
+PASS ship_materials_test.gd::test_roles_use_asset_materials_when_the_switch_is_on
+PASS ship_materials_test.gd::test_both_nacelles_get_the_nozzle_and_an_exhaust_disc
+PASS ship_materials_test.gd::test_switch_off_restores_the_original_look
+PASS ship_power_test.gd::test_delivered_power_never_exceeds_request_limit_or_output
+PASS ship_power_test.gd::test_over_draw_heats_monotonically_until_safety_shutdown
+PASS ship_power_test.gd::test_coolant_lowers_temperature_and_runs_out
+PASS ship_power_test.gd::test_light_draw_cools_the_core
+PASS ship_power_test.gd::test_shutdown_zeroes_output_and_restart_waits_for_cooling
+PASS ship_power_test.gd::test_limits_cap_a_conduit_and_shortfall_is_shared
+PASS ship_power_test.gd::test_same_inputs_give_the_same_state_after_ten_thousand_ticks
+PASS ship_power_test.gd::test_battery_keeps_life_support_alive_after_a_trip_and_runs_flat
+PASS ship_power_test.gd::test_battery_recharges_while_the_reactor_runs_and_is_saved
+PASS ship_screens_decals_test.gd::test_decal_catalog_entries_match_the_decals_built
+PASS ship_screens_decals_test.gd::test_decals_sit_inside_the_ship
+PASS ship_screens_decals_test.gd::test_wall_decal_basis_faces_the_viewer_with_the_top_up
+ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+   at: get_global_transform (scene/3d/node_3d.cpp:649)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://src/flight/ship_visuals.gd:141)
+       [1] test_scorch_is_hidden_until_the_room_burns (res://tests/unit/ship_screens_decals_test.gd:96)
+       [2] _initialize (res://tests/run_tests.gd:35)
+PASS ship_screens_decals_test.gd::test_scorch_is_hidden_until_the_room_burns
+PASS ship_screens_decals_test.gd::test_no_decals_when_the_switch_is_off
+PASS ship_screens_decals_test.gd::test_screens_keep_their_tint_contract_and_stand_proud_of_the_wall
+PASS ship_screens_decals_test.gd::test_screens_fall_back_to_the_emissive_material_when_the_switch_is_off
+PASS ship_subsystems_test.gd::test_half_health_engines_reach_about_half_the_speed
+PASS ship_subsystems_test.gd::test_dead_engines_still_give_emergency_thrust
+PASS ship_subsystems_test.gd::test_dead_or_unpowered_weapons_never_fire_and_weak_ones_fire_slower
+PASS ship_subsystems_test.gd::test_guns_fire_in_combat_gear_only
+PASS ship_subsystems_test.gd::test_hit_direction_picks_the_subsystem
+PASS ship_subsystems_test.gd::test_shot_from_behind_damages_hull_and_engines
+PASS ship_subsystems_test.gd::test_reactor_damage_lowers_available_power_so_heavy_draw_is_cut_back
+PASS ship_subsystems_test.gd::test_shut_down_reactor_comes_back_after_cooling
+PASS ship_subsystems_test.gd::test_repair_fixes_worst_subsystem_first_and_reports_when_done
+PASS ship_subsystems_test.gd::test_subsystems_and_reactor_survive_a_save_round_trip
+PASS ship_subsystems_test.gd::test_v8_fixture_migrates_to_v9_with_intact_ship_and_keeps_its_data
+PASS ship_subsystems_test.gd::test_v9_save_with_someone_in_the_old_airlock_moves_them_with_it
+PASS ship_subsystems_test.gd::test_restoring_a_position_inside_a_wall_puts_the_player_at_the_pilot_seat
+PASS ship_test.gd::test_ship_follows_scripted_pilot_and_transform_matches_state
+PASS ship_test.gd::test_unpiloted_ship_coasts
+PASS sound_synth_test.gd::test_tone_has_the_requested_length_frequency_and_stays_in_range
+PASS sound_synth_test.gd::test_sweep_rises_in_pitch
+PASS sound_synth_test.gd::test_noise_is_deterministic_bounded_and_decays
+PASS sound_synth_test.gd::test_stream_conversion_keeps_sample_count_and_clamps
+PASS sound_synth_test.gd::test_engine_gets_louder_and_higher_with_throttle_and_wind_is_silent_at_zero
+PASS space_sky_test.gd::test_starfield_is_used_when_on
+PASS space_sky_test.gd::test_hash_stars_remain_when_off
+PASS space_sky_test.gd::test_shader_keeps_its_original_interface_and_the_hash_fallback
+PASS space_sky_test.gd::test_starfield_texture_has_no_mipmaps
+PASS star_heat_test.gd::test_no_heat_beyond_one_radius_above_the_surface
+PASS star_heat_test.gd::test_heat_grows_towards_the_surface
+PASS star_heat_test.gd::test_inside_the_star_is_certain_death
+PASS star_heat_test.gd::test_ship_destroyed_by_heat
+PASS star_system_test.gd::test_orbits_are_circular_periodic_and_deterministic
+PASS star_system_test.gd::test_moon_orbits_its_planet_not_the_star
+PASS star_system_test.gd::test_velocity_is_the_derivative_of_position
+PASS star_system_test.gd::test_position_conversion_round_trips_between_frames
+PASS star_system_test.gd::test_velocity_conversion_is_galilean
+PASS star_system_test.gd::test_frame_selection_uses_sphere_of_influence_with_hysteresis
+PASS star_system_test.gd::test_planet_bodies_carry_each_worlds_own_numbers
+PASS survival_test.gd::test_damage_curves
+PASS survival_test.gd::test_hard_landing_hurts_the_hull_and_destruction_is_signalled_once
+PASS survival_test.gd::test_repair_panel_restores_the_hull_only_when_landed
+PASS survival_test.gd::test_oxygen_drains_in_vacuum_refills_in_air_and_suffocation_kills
+PASS survival_test.gd::test_jetpack_lifts_in_air_burns_fuel_and_stops_without_fuel
+PASS survival_test.gd::test_vacuum_world_airlock_vents_blocks_inner_door_and_costs_oxygen
+PASS terrain_detail_test.gd::test_world_to_layer_rule
+PASS terrain_detail_test.gd::test_tile_offset_repeats_every_348_metres_and_handles_negatives
+PASS terrain_detail_test.gd::test_tile_period_divides_every_texture_scale
+PASS terrain_detail_test.gd::test_material_has_all_layers_and_the_right_means
+PASS terrain_detail_test.gd::test_means_match_the_asset_notes
+PASS terrain_detail_test.gd::test_switch_off_gives_the_plain_material
+PASS terrain_detail_test.gd::test_terrain_uses_the_detail_material_when_on
+PASS terrain_detail_test.gd::test_steep_weight_curve
+PASS terrain_detail_test.gd::test_flat_chunk_has_zero_steep_weight_and_unchanged_geometry_arrays
+PASS terrain_streaming_test.gd::test_hierarchical_fallback_covers_a_desired_fine_chunk
+PASS terrain_streaming_test.gd::test_parent_is_kept_until_all_four_children_are_available
+PASS terrain_streaming_test.gd::test_coarsening_swaps_to_the_parent_that_was_already_built
+PASS terrain_streaming_test.gd::test_backstop_is_built_once_and_never_requeued
+PASS terrain_streaming_test.gd::test_backstop_is_queued_first_and_the_tree_is_built_top_down
+PASS terrain_streaming_test.gd::test_a_new_plan_shows_the_deepest_complete_level_and_one_layer
+PASS terrain_streaming_test.gd::test_replacing_a_parent_starts_a_geomorph_and_it_finishes
+PASS terrain_streaming_test.gd::test_planning_on_a_thread_gives_the_same_kind_of_plan
+PASS terrain_streaming_test.gd::test_hidden_chunk_is_reused_when_the_viewer_returns
+PASS terrain_streaming_test.gd::test_ready_cache_reuses_entries_and_stays_bounded
+PASS terrain_streaming_test.gd::test_preload_is_directional_and_bounded
+PASS terrain_streaming_test.gd::test_coarse_face_meshes_cover_the_planet_without_high_detail
+PASS terrain_streaming_test.gd::test_coarsening_never_leaves_the_area_uncovered
+PASS terrain_streaming_test.gd::test_coarse_mesh_vertices_still_sample_the_height_function
+PASS terrain_streaming_test.gd::test_coarse_grid_normals_are_finite_at_face_edges
+PASS terrain_streaming_test.gd::test_same_level_neighbour_chunks_share_their_edge
+PASS terrain_streaming_test.gd::test_six_coarse_faces_cover_the_whole_planet
+PASS terrain_streaming_test.gd::test_random_viewer_jumps_never_leave_holes_or_double_layers
+PASS upgrades_test.gd::test_buying_spends_the_cost_once_and_refuses_when_short
+PASS upgrades_test.gd::test_each_upgrade_changes_its_number
+PASS upgrades_test.gd::test_upgrades_survive_a_save
+PASS visual_style_test.gd::test_sol_style_keeps_the_original_rules
+PASS visual_style_test.gd::test_rodina_gives_each_world_its_own_family
+PASS visual_style_test.gd::test_style_changes_colours_but_never_terrain_geometry
+PASS visual_style_test.gd::test_rodina_feature_gates_pick_rock_on_cliffs_and_ice_at_the_poles
+PASS visual_style_test.gd::test_rodina_style_colours_grammar_worlds_from_the_feature_texture
+PASS visual_style_test.gd::test_rodina_high_speed_presentation_is_darker_and_wider
+PASS visual_style_test.gd::test_setting_survives_save_and_load_and_rejects_unknown_values
+PASS visual_style_test.gd::test_set_active_bumps_the_revision_the_scene_watches
+PASS visual_style_test.gd::test_rodina_air_worlds_use_rodina_atmosphere_colours
+PASS visual_style_test.gd::test_speed_streaks_are_off_in_every_style_and_gear
+PASS visual_style_test.gd::test_entry_tint_is_rodina_only_and_tracks_resistance
+PASS warp_rules_test.gd::test_warp_drives_forward_by_itself_and_ignores_strafe
+PASS warp_rules_test.gd::test_warp_spins_up_for_1_8_seconds_before_its_speed_applies
+PASS warp_rules_test.gd::test_leaving_warp_snaps_speed_to_the_cruise_limit
+PASS warp_rules_test.gd::test_warp_is_refused_when_it_would_reach_the_air_within_the_lookahead
+PASS warp_rules_test.gd::test_approach_in_warp_never_enters_the_air_at_warp_speed
+PASS warp_rules_test.gd::test_shifting_down_and_up_again_re_engages_a_cancelled_warp
+PASS warp_rules_test.gd::test_warp_has_rodina_rotation_friction_in_space
+PASS warp_rules_test.gd::test_warp_works_from_orbit_above_the_air_but_not_toward_it
+PASS warp_rules_test.gd::test_ray_to_sphere
+PASS world_pos_test.gd::test_far_position_keeps_millimetre_precision
+PASS world_pos_test.gd::test_to_local_vector3_is_small_and_accurate
+PASS world_pos_test.gd::test_different_frames_never_compare_equal
+PASS world_pos_test.gd::test_dictionary_round_trip
+---
+Godot 4.7.2-stable (official) | files 77 | tests 513 | assertions 129092 | failures 0
+RESULT: PASSED
+WARNING: 10998 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 89 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)
+ERROR: Pages in use exist at exit in PagedAllocator: N12VariantPools12BucketMediumE
+   at: ~PagedAllocator (./core/templates/paged_allocator.h:170)
+ERROR: 1 RID allocations of type 'N26RendererEnvironmentStorage11EnvironmentE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'N17RendererSceneCull8InstanceE' were leaked at exit.
