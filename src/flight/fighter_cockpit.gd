@@ -9,6 +9,7 @@ extends Node3D
 ## the cockpit is shown and the fighter's hull model hidden (the eye is inside the hull); every other view is unchanged.
 
 const LAYER_MASK := 1 << 9 ## render layer 10; ADR 0013 uses layers 2 to 5
+const CockpitOverlayScript := preload("res://src/camera/cockpit_overlay.gd") # preloaded, not by class name: see _overlay
 const GRAPHITE := Color("101316")
 const WARM_METAL := Color("34332e")
 const INTERIOR_GREY := Color("1f2224")
@@ -73,7 +74,7 @@ var _warn_lights: Array[MeshInstance3D] = []
 var _stick: Node3D
 var _radar_view := SubViewport.new()
 ## Draws this cockpit with its own short-range camera over the world view (see CockpitOverlay: why the planet clipped).
-var _overlay := CockpitOverlay.new(LAYER_MASK)
+var _overlay := CockpitOverlayScript.new(LAYER_MASK) # preloaded: a new class_name is not known until the editor rescans the project, and without it this whole script failed to load (no cockpits)
 var _radar := FighterRadar.new()
 ## The X-Wing cockpit's two plates are 2D screens (FighterDisplay) drawn in their own viewports, only updated while the cockpit is shown.
 const Display := preload("res://src/flight/fighter_display.gd") # preloaded, so it needs no class cache refresh
