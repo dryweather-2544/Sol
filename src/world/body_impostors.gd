@@ -56,12 +56,10 @@ func _ready() -> void:
 		if not body.is_star:
 			var backdrop := MeshInstance3D.new()
 			backdrop.mesh = mesh
-			var backdrop_material := StandardMaterial3D.new()
-			backdrop_material.albedo_color = VisualStyle.look_for(body).impostor_color
-			backdrop_material.roughness = 1.0
-			backdrop_material.no_depth_test = true # drawn first and never in front of anything: terrain, ship and cockpit all paint over it
-			backdrop_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-			backdrop_material.render_priority = -100
+			var backdrop_material := ShaderMaterial.new()
+			backdrop_material.shader = load("res://data/shaders/planet_backdrop.gdshader")
+			backdrop_material.set_shader_parameter("albedo", VisualStyle.look_for(body).impostor_color)
+			backdrop_material.render_priority = -128 # first of the transparent things
 			backdrop.material_override = backdrop_material
 			backdrop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			backdrop.extra_cull_margin = 16384.0
@@ -99,7 +97,7 @@ func restyle() -> void:
 		var body: BodyDef = system.bodies[body_id]
 		if not body.is_star:
 			((_nodes[body_id] as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = VisualStyle.look_for(body).impostor_color
-			((_backdrops[body_id] as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = VisualStyle.look_for(body).impostor_color
+			((_backdrops[body_id] as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("albedo", VisualStyle.look_for(body).impostor_color)
 
 
 func _process(_delta: float) -> void:
@@ -134,7 +132,7 @@ func _process(_delta: float) -> void:
 
 ## The terrain is cut off by the camera's far plane in a straight line, well short of the real horizon once the viewer is a few
 ## kilometres up, leaving sky between the two. Behind it the planet is drawn as a squeezed sphere (true angular size, kept inside the
-## far plane) first and without depth, so the terrain, the ship and the cockpit all paint over it and it only shows where the terrain ends.
+## far plane); its shader skips every pixel that already has terrain, the ship or the cockpit, so it only shows where the terrain ends.
 func _update_backdrop(body_id: StringName, body: BodyDef, terrain_drawn: bool, distance: float, offset: Vector3) -> void:
 	var backdrop: MeshInstance3D = _backdrops.get(body_id)
 	if backdrop == null:
@@ -146,6 +144,8 @@ func _update_backdrop(body_id: StringName, body: BodyDef, terrain_drawn: bool, d
 	var scale_factor := minf(1.0, placement_distance * 0.95 / distance)
 	backdrop.position = viewer_local + offset * scale_factor
 	backdrop.scale = Vector3.ONE * (body.radius * scale_factor)
+	# placement_distance is 0.8 x the far plane: a pixel deeper than 99% of the far plane holds nothing.
+	(backdrop.material_override as ShaderMaterial).set_shader_parameter("sky_depth", placement_distance * 1.2375)
 
 
 func _update_shell(body_id: StringName, body: BodyDef, centre: Vector3, scale_factor: float) -> void:
