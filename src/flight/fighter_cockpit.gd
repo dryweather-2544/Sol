@@ -72,6 +72,8 @@ var _bars := {} ## name -> MeshInstance3D (anchored at its bottom edge)
 var _warn_lights: Array[MeshInstance3D] = []
 var _stick: Node3D
 var _radar_view := SubViewport.new()
+## Draws this cockpit with its own short-range camera over the world view (see CockpitOverlay: why the planet clipped).
+var _overlay := CockpitOverlay.new(LAYER_MASK)
 var _radar := FighterRadar.new()
 ## The X-Wing cockpit's two plates are 2D screens (FighterDisplay) drawn in their own viewports, only updated while the cockpit is shown.
 const Display := preload("res://src/flight/fighter_display.gd") # preloaded, so it needs no class cache refresh
@@ -112,6 +114,8 @@ func _init() -> void:
 
 func setup(owner_ship: Ship, def: FighterDef) -> void:
 	ship = owner_ship
+	if _overlay.get_parent() == null:
+		add_child(_overlay)
 	scale = Vector3.ONE * clampf(def.size / 11.0, 0.75, 1.4)
 	_spec = Spec.by_id(def.cockpit_id)
 	_accent = def.accent
@@ -156,6 +160,8 @@ func _process(delta: float) -> void:
 		return
 	var active := ship.cockpit_camera != null and ship.cockpit_camera.current and ship.state.hull > 0.0
 	visible = active
+	_overlay.source = ship.cockpit_camera
+	_overlay.enabled = active
 	var hull_model := ship.get_node_or_null("FighterModel") as Node3D
 	if hull_model != null:
 		hull_model.visible = not active # the eye is inside the hull: its model would only get in the way
@@ -739,6 +745,7 @@ func _add_light(at: Vector3, color: Color, energy: float, light_range: float) ->
 	light.light_color = color
 	light.light_specular = 0.8
 	light.light_cull_mask = LAYER_MASK
+	light.layers = LAYER_MASK # only the cockpit overlay camera draws the cockpit, so its lights live on that layer too
 	light.shadow_enabled = false
 	add_child(light)
 

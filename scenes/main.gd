@@ -357,12 +357,10 @@ func _process(delta: float) -> void:
 		turret_camera.near = close_near
 		turret_camera.far = far_plane
 		if _fighter_node != null and _fighter_node.cockpit_camera != null:
-			_fighter_node.cockpit_camera.near = minf(close_near, 0.1) # a canopy a metre away
-			_fighter_node.cockpit_camera.far = CameraRange.clamp_far(_fighter_node.cockpit_camera.near, far_plane)
-			if session.mode == GameSession.Mode.FIGHTER and _fighter_cockpit_view:
-				# The canopy camera's near plane is smaller, so CameraRange caps its far plane lower (about 400 km, not 2,000 km). Planets
-				# are handed from terrain to far spheres by the far plane, so use this camera's, or the world is sliced off in a straight edge.
-				far_plane = minf(far_plane, _fighter_node.cockpit_camera.far)
+			# Same planes as the chase view: the canopy, a metre away, is drawn by its own short-range camera (CockpitOverlay), so this
+			# one no longer needs a 0.1 m near plane, which capped its far plane at ~400 km and made the planet clip in cockpit view.
+			_fighter_node.cockpit_camera.near = close_near
+			_fighter_node.cockpit_camera.far = far_plane
 	if session.mode == GameSession.Mode.INSIDE:
 		# The pocket rooms' windows look at the world, so the walking camera sees to the horizon too. Its near plane rises
 		# only as far as that needs (at most 0.25 m, still inside a person's 0.3 m radius from any wall) and its far plane is
@@ -648,7 +646,7 @@ func _update_active_camera() -> void:
 			if session.gunner_station:
 				turret_camera.current = true
 			elif session.mode == GameSession.Mode.FIGHTER and _fighter_node != null and _fighter_node.cockpit_camera != null and _fighter_cockpit_view:
-				_fighter_node.cockpit_camera.cull_mask = chase_camera.cull_mask | FighterCockpit.LAYER_MASK
+				_fighter_node.cockpit_camera.cull_mask = chase_camera.cull_mask & ~FighterCockpit.LAYER_MASK # the cockpit itself: CockpitOverlay
 				_fighter_node.cockpit_camera.current = true
 			elif _cockpit_view and session.mode != GameSession.Mode.FIGHTER:
 				cockpit_camera.current = true
@@ -1071,7 +1069,7 @@ func _update_camera_place(camera_inside: bool) -> void:
 			chase_camera.cull_mask = outside_mask
 			turret_camera.cull_mask = outside_mask
 			if _fighter_node != null and _fighter_node.cockpit_camera != null:
-				_fighter_node.cockpit_camera.cull_mask = outside_mask | FighterCockpit.LAYER_MASK # the fighter's own cockpit sits on its own layer
+				_fighter_node.cockpit_camera.cull_mask = outside_mask & ~FighterCockpit.LAYER_MASK # the fighter's own cockpit sits on its own layer, drawn by CockpitOverlay
 			on_foot.camera.cull_mask = outside_mask
 		elif child is CrewView:
 			(child as CrewView).pocket_visible = camera_inside

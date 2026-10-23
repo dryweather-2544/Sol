@@ -65,7 +65,16 @@ const LAMPS := {
 	"atrium": [Color(0.95, 1.0, 0.9), 1.2], "storage": [Color(0.95, 0.95, 0.85), 0.8], "brig": [Color(0.9, 0.9, 1.0), 0.8],
 	"comms": [Color(0.75, 0.9, 1.0), 0.9], "observation": [Color(0.8, 0.85, 1.0), 0.7], "troop": [Color(0.95, 0.95, 0.85), 0.9]}
 
+## Wall, window-wall and door modules from the kit packs (see ATTRIBUTION.md), converted to .glb under assets/ships/kit/. They are optional: a
+## machine without them keeps the plain box walls. The kit walls are large facade panels, so each is shrunk to the room's wall height.
+const KIT_DIR := "res://assets/ships/kit/"
+const KIT_WALLS := ["wall_plain", "wall_window"]
+
+## name -> {"parts": [[mesh, transform]], "box": AABB, "material": Material} (or {} when the file is missing), shared by every interior.
+static var _kit_cache := {}
+
 var plan: Plan
+var _kit_materials := {}
 var _batches := {}
 var _materials := {}
 var _doors := {}
@@ -135,7 +144,7 @@ func _build_walls() -> void:
 		for side in ["nose", "tail", "left", "right"]:
 			var skin := layout.wall_rect(room_id, side)
 			var along_x := InteriorLayout.wall_runs_along_x(side)
-			_build_wall(skin, along_x, _holes_in(skin, along_x, room_id, side))
+			_build_wall(skin, along_x, _holes_in(skin, along_x, room_id, side), side)
 
 
 ## The doorways and windows that cut one wall, sorted along it: {lo, hi, bottom, top, glass}.
@@ -157,7 +166,7 @@ func _holes_in(skin: Rect2, along_x: bool, room_id: StringName, side: String) ->
 	return holes
 
 
-func _build_wall(skin: Rect2, along_x: bool, holes: Array) -> void:
+func _build_wall(skin: Rect2, along_x: bool, holes: Array, side := "nose") -> void:
 	var floor_y := plan.layout.floor_y
 	var ceiling_y := plan.layout.ceiling_y
 	var run_lo := skin.position.x if along_x else skin.position.y
@@ -171,7 +180,7 @@ func _build_wall(skin: Rect2, along_x: bool, holes: Array) -> void:
 		if hi <= lo:
 			continue
 		if lo > cursor:
-			_wall_piece(along_x, cursor, lo, cross_lo, thickness, floor_y, ceiling_y)
+			_wall_piece(along_x, cursor, lo, cross_lo, thickness, floor_y, ceiling_y, "wall", side)
 		var bottom := float(hole["bottom"])
 		var top := float(hole["top"])
 		if bottom > floor_y + 0.001:
@@ -182,11 +191,13 @@ func _build_wall(skin: Rect2, along_x: bool, holes: Array) -> void:
 			_wall_piece(along_x, lo, hi, cross_lo + thickness * 0.4, thickness * 0.2, bottom, top, "glass")
 		cursor = maxf(cursor, hi)
 	if cursor < run_hi:
-		_wall_piece(along_x, cursor, run_hi, cross_lo, thickness, floor_y, ceiling_y)
+		_wall_piece(along_x, cursor, run_hi, cross_lo, thickness, floor_y, ceiling_y, "wall", side)
 
 
-func _wall_piece(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: float, y0: float, y1: float, key := "wall") -> void:
+func _wall_piece(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: float, y0: float, y1: float, key := "wall", side := "") -> void:
 	var length := hi - lo
+	if key == "wall" and side != "" and length >= 0.6 and _kit_wall(along_x, lo, hi, cross_lo, thickness, y0, y1, side):
+		return
 	var middle_along := (lo + hi) * 0.5
 	var middle_cross := cross_lo + thickness * 0.5
 	var middle_y := (y0 + y1) * 0.5
@@ -194,6 +205,129 @@ func _wall_piece(along_x: bool, lo: float, hi: float, cross_lo: float, thickness
 		_batch_box(key, Vector3(middle_along, middle_y, middle_cross), Vector3(length, y1 - y0, thickness))
 	else:
 		_batch_box(key, Vector3(middle_cross, middle_y, middle_along), Vector3(thickness, y1 - y0, length))
+
+
+# ------------------------------------------------------------------------------------------------ kit modules
+## Loads one kit model (cached): its meshes with their transforms inside the model, the overall bounds and the first material.
+static func _kit_piece(piece_name: String) -> Dictionary:
+	if _kit_cache.has(piece_name):
+		return _kit_cache[piece_name]
+	var result := {}
+	var disk_path := ProjectSettings.globalize_path(KIT_DIR + piece_name + ".glb")
+	if FileAccess.file_exists(disk_path):
+		var document := GLTFDocument.new()
+		var state := GLTFState.new()
+		if document.append_from_file(disk_path, state) == OK:
+			var scene := document.generate_scene(state) as Node3D
+			if scene != null:
+				var parts: Array = []
+				var box := AABB()
+				var material: Material = null
+				for node in scene.find_children("*", "MeshInstance3D", true, false):
+					var instance := node as MeshInstance3D
+					if instance.mesh == null:
+						continue
+					var local := _transform_in(instance, scene)
+					parts.append([instance.mesh, local])
+					var part_box: AABB = local * instance.mesh.get_aabb()
+					box = part_box if parts.size() == 1 else box.merge(part_box)
+					if material == null:
+						material = instance.mesh.surface_get_material(0)
+				if not parts.is_empty():
+					result = {"parts": parts, "box": box, "material": material}
+				scene.free()
+	_kit_cache[piece_name] = result
+	return result
+
+
+static func _transform_in(node: Node3D, ancestor: Node3D) -> Transform3D:
+	var result := Transform3D.IDENTITY
+	var current: Node = node
+	while current != null and current != ancestor:
+		if current is Node3D:
+			result = (current as Node3D).transform * result
+		current = current.get_parent()
+	return result
+
+
+## Fills a full-height wall segment with kit wall modules (every other one a window panel). False when the kit is not on this machine.
+func _kit_wall(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: float, y0: float, y1: float, side: String) -> bool:
+	if y1 - y0 < 1.0:
+		return false
+	var plain := _kit_piece(KIT_WALLS[0])
+	if plain.is_empty():
+		return false
+	var length := hi - lo
+	var count := maxi(1, int(round(length / 3.9)))
+	var step := length / float(count)
+	# the module's inside face is -z; turn it to face into the room, and put the face on the room's side of the skin
+	var yaw := 0.0
+	var face_at := cross_lo
+	match side:
+		"nose":
+			yaw = PI
+			face_at = cross_lo + thickness
+		"left":
+			yaw = -PI * 0.5
+			face_at = cross_lo + thickness
+		"right":
+			yaw = PI * 0.5
+		_:
+			yaw = 0.0
+	for index in count:
+		var module := plain
+		if index % 2 == 1 and not _kit_piece(KIT_WALLS[1]).is_empty():
+			module = _kit_piece(KIT_WALLS[1])
+		var box: AABB = module["box"]
+		var scale_y := (y1 - y0) / maxf(box.size.y, 0.001)
+		var scale_x := step / maxf(box.size.x, 0.001)
+		var scale_z := thickness / maxf(box.size.z, 0.001)
+		var along_middle := lo + step * (float(index) + 0.5)
+		var origin := Vector3(along_middle, y0, face_at) if along_x else Vector3(face_at, y0, along_middle)
+		var placed := Transform3D(Basis(Vector3.UP, yaw), origin) * Transform3D(Basis.from_scale(Vector3(scale_x, scale_y, scale_z)), Vector3.ZERO)
+		placed = placed * Transform3D(Basis.IDENTITY, Vector3(-box.get_center().x, -box.position.y, -box.position.z))
+		_batch_kit(KIT_WALLS[0] if module == plain else KIT_WALLS[1], module, placed)
+	return true
+
+
+## Adds every mesh of a kit module, transformed, to the merged batch for that module's material.
+func _batch_kit(key: String, module: Dictionary, placed: Transform3D) -> void:
+	var batch_key := "kit_" + key
+	if not _batches.has(batch_key):
+		_batches[batch_key] = {"v": PackedVector3Array(), "n": PackedVector3Array(), "i": PackedInt32Array(), "uv": PackedVector2Array()}
+		_kit_materials[batch_key] = module["material"]
+	var batch: Dictionary = _batches[batch_key]
+	var vertices: PackedVector3Array = batch["v"]
+	var normals: PackedVector3Array = batch["n"]
+	var indices: PackedInt32Array = batch["i"]
+	var uvs: PackedVector2Array = batch["uv"]
+	var normal_basis := placed.basis.inverse().transposed()
+	for part in module["parts"]:
+		var mesh: Mesh = part[0]
+		var local: Transform3D = part[1]
+		for surface in mesh.get_surface_count():
+			var arrays := mesh.surface_get_arrays(surface)
+			var source_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var source_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL] if arrays[Mesh.ARRAY_NORMAL] != null else PackedVector3Array()
+			var source_uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV] if arrays[Mesh.ARRAY_TEX_UV] != null else PackedVector2Array()
+			var source_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+			var first := vertices.size()
+			var full := placed * local
+			var full_normal := (normal_basis * local.basis)
+			for i in source_vertices.size():
+				vertices.append(full * source_vertices[i])
+				normals.append((full_normal * (source_normals[i] if i < source_normals.size() else Vector3.UP)).normalized())
+				uvs.append(source_uvs[i] if i < source_uvs.size() else Vector2.ZERO)
+			if source_indices.is_empty():
+				for i in source_vertices.size():
+					indices.append(first + i)
+			else:
+				for i in source_indices.size():
+					indices.append(first + source_indices[i])
+	batch["v"] = vertices
+	batch["n"] = normals
+	batch["i"] = indices
+	batch["uv"] = uvs
 
 
 # ------------------------------------------------------------------------------------------------ doors
@@ -312,9 +446,11 @@ func _flush_batches() -> void:
 		arrays[Mesh.ARRAY_VERTEX] = batch["v"]
 		arrays[Mesh.ARRAY_NORMAL] = batch["n"]
 		arrays[Mesh.ARRAY_INDEX] = batch["i"]
+		if batch.has("uv"):
+			arrays[Mesh.ARRAY_TEX_UV] = batch["uv"]
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-		mesh.surface_set_material(0, _material(str(key)))
+		mesh.surface_set_material(0, _kit_materials[key] if _kit_materials.has(key) else _material(str(key)))
 		var instance := MeshInstance3D.new()
 		instance.name = "Merged_" + str(key)
 		instance.mesh = mesh

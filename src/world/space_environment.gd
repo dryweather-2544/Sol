@@ -33,9 +33,11 @@ func _ready() -> void:
 	world_environment.environment = _environment
 	add_child(world_environment)
 	_sun.shadow_enabled = false
+	_sun.layers |= FighterCockpit.LAYER_MASK # the fighter cockpit is drawn by its own camera (CockpitOverlay), which sees only that layer
 	add_child(_sun)
 	_back_light.name = "BackLight"
 	_back_light.shadow_enabled = false
+	_back_light.layers |= FighterCockpit.LAYER_MASK
 	_back_light.light_specular = 0.0
 	add_child(_back_light)
 	apply_look(_look)
