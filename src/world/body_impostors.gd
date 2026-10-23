@@ -109,7 +109,8 @@ func _process(_delta: float) -> void:
 		var center := system.body_position(body_id, runtime.time_seconds)
 		var offset := Vector3(center.x - viewer_system.x, center.y - viewer_system.y, center.z - viewer_system.z)
 		var distance := offset.length()
-		var terrain_drawn: bool = body_id == runtime.active_frame and distance - body.radius <= placement_distance * TERRAIN_HANDOFF
+		# the active planet is always its real terrain (shrunk toward the camera from high up, PlanetTerrain.squeeze_scale), never a flat stand-in
+		var terrain_drawn: bool = body_id == runtime.active_frame
 		node.visible = not terrain_drawn and not (body.is_star and hide_star)
 		_update_backdrop(body_id, body, terrain_drawn, distance, offset)
 		if _shells.has(body_id):
@@ -138,7 +139,7 @@ func _update_backdrop(body_id: StringName, body: BodyDef, terrain_drawn: bool, d
 	if backdrop == null:
 		return
 	var altitude := distance - body.radius
-	backdrop.visible = terrain_drawn and altitude > BACKDROP_MIN_ALTITUDE
+	backdrop.visible = false # retired: the terrain now covers the whole planet (kept for tests that still look it up)
 	if not backdrop.visible:
 		return
 	var scale_factor := minf(1.0, placement_distance * 0.95 / distance)

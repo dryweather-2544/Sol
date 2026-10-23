@@ -42,6 +42,8 @@ class PlanResult extends RefCounted:
 
 ## Minimum time between planning passes (a pass starts as soon as the previous one has been applied after this).
 const PLAN_INTERVAL_SECONDS := 0.1
+## Radius of the core sphere under the terrain, as a fraction of the planet's radius (below any mountain range or canyon).
+const CORE_RADIUS_FRACTION := 0.97
 ## Uploads per frame and the main-thread time allowed for them.
 const CHUNKS_ADDED_PER_FRAME := 16
 const UPLOAD_BUDGET_USEC := 3000
@@ -75,6 +77,12 @@ var render_origin := WorldPos.new(&"planet")
 var viewer := WorldPos.new(&"planet")
 ## Planet-frame velocity of the viewer, used to plan high-detail chunks ahead of the ship.
 var viewer_velocity := Vector3.ZERO
+## Where the camera is in render space, and how far from it the scene can draw (0 = no limit). Seen from high up, the planet's
+## horizon is farther than the camera's far plane, which used to slice the terrain off in a ragged line (and a flat stand-in
+## sphere filled the rest). Instead the whole terrain is shrunk toward the camera so its horizon just fits: same angular size, same
+## detail, never cut. Below that altitude the scale is 1 and nothing changes.
+var view_position := Vector3.ZERO
+var squeeze_range := 0.0
 ## Worker tasks in flight. Defaults to the core count minus two (rendering and the main thread).
 var max_builds_in_flight := MAX_BUILDS_IN_FLIGHT
 var _evicting := false
@@ -98,6 +106,9 @@ var threaded_planning := false
 var _material := StandardMaterial3D.new()
 var _detail_material: ShaderMaterial ## null = plain vertex-colour material (switch off, or an asset missing)
 var _root := Node3D.new()      # parent of every chunk node
+## A plain sphere just under the terrain, in the planet's average colour. Where two chunks of different detail meet there can be a hairline
+## gap; from far away it showed black space through the planet. With this underneath, a gap shows ground colour instead.
+var _core := MeshInstance3D.new()
 var _anchor: WorldPos = null   # chunk nodes are positioned relative to this; _root is offset from the render origin
 var _chunks := {}              # key -> record: every uploaded chunk, visible or hidden
 var _available_grids := {}     # key -> grid of the uploaded chunk
@@ -167,6 +178,22 @@ func _init(planet_body: PlanetBody = null) -> void:
 	_root.name = "Chunks"
 	add_child(_root)
 	if planet_body != null:
+		var core_mesh := SphereMesh.new()
+		core_mesh.radius = 1.0
+		core_mesh.height = 2.0
+		core_mesh.radial_segments = 96
+		core_mesh.rings = 48
+		var core_material := StandardMaterial3D.new()
+		core_material.albedo_color = planet_body.look.impostor_color if planet_body.look != null else Color(0.5, 0.4, 0.35)
+		core_material.roughness = 1.0
+		_core.name = "Core"
+		_core.mesh = core_mesh
+		_core.material_override = core_material
+		_core.scale = Vector3.ONE * planet_body.radius * CORE_RADIUS_FRACTION
+		_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_core.extra_cull_margin = 16384.0
+		_root.add_child(_core)
+	if planet_body != null:
 		_detail_material = TerrainDetail.build_material(planet_body.atmosphere_height, planet_body.look)
 
 
@@ -215,6 +242,7 @@ func _process(delta: float) -> void:
 		_seconds_since_plan = 0.0
 		_replan()
 	_update_morphs(delta)
+	_update_root()
 	_prev_process_usec = Time.get_ticks_usec() - process_started
 	_process_usec_max = maxi(_process_usec_max, _prev_process_usec)
 	_stats_report_timer += delta
@@ -797,8 +825,22 @@ func _place(chunk_record: Dictionary) -> void:
 func _update_root() -> void:
 	if _anchor == null:
 		return
-	_root.position = _anchor.to_local_vector3(render_origin)
+	var base := _anchor.to_local_vector3(render_origin)
+	var scale_factor := squeeze_scale()
+	_root.scale = Vector3.ONE * scale_factor
+	_root.position = view_position + (base - view_position) * scale_factor
 	_root.reset_physics_interpolation()
+	_core.position = WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(_anchor) if planet != null else Vector3.ZERO
+
+
+## The scale the terrain is drawn at: 1 until the planet's horizon (the farthest ground the viewer can see) is farther than squeeze_range,
+## then range / horizon distance, so the visible planet always fits inside the camera's far plane.
+func squeeze_scale() -> float:
+	if squeeze_range <= 0.0 or planet == null:
+		return 1.0
+	var from_centre := Vector3(viewer.x, viewer.y, viewer.z).length()
+	var horizon := sqrt(maxf(from_centre * from_centre - planet.radius * planet.radius, 0.0))
+	return 1.0 if horizon <= squeeze_range else squeeze_range / horizon
 
 
 # --- queries, stats and test hooks ----------------------------------------------------------

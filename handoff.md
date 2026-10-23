@@ -92,14 +92,14 @@ tools/interior_tour.gd(.uid), tools/interior_tour.tscn.
   are not in the cloud copy, so check landing on the Mac.
 - Player gun per fighter: damage/rate scaled from the fighter's stats (`Ship.configure_fighter`).
 
-## OPEN: planet clips / vanishes in cockpit views at some altitudes
-- Not fixed. Cause (best understanding): one planet is drawn three ways (terrain chunks cut by the far plane, `planet_backdrop` sphere
-  that reads the depth buffer, squeezed impostor sphere) and the handoff altitudes depend on the camera far plane. The fighter cockpit
-  camera has near 0.1 m, so `CameraRange` caps its far at ~400 km (chase ~2,000 km): handoffs differ per view and each is a seam
-  (straight terrain cut, backdrop colour differs from terrain, depth reconstruction imprecise at far/near ~4e6).
-- Tried and reverted (could not test on Vulkan; cloud has only GL compatibility): comparing the depth buffer against the projection's own
-  depth instead of the inverse projection; pinning the backdrop's depth in the vertex stage. In GL the pinned depth rounds to 1.0 and draws nothing.
-- Proposed fix: a second "sky" camera (own near/far scaled to planet distance) that draws only planets/moons behind the main view, so the
-  main camera needs only a short far plane; blend terrain into the planet colour at the horizon. Touches `scenes/main.gd` and
-  `src/world/body_impostors.gd`. Needs checking on the Mac renderer.
+## Planet at every distance (done, needs checking on the Mac renderer)
+- `PlanetTerrain` already covers the whole planet at all distances (LOD tree), but the camera far plane cut it off and flat stand-in spheres
+  filled the rest. Now `PlanetTerrain.squeeze_scale()` shrinks the whole terrain toward the camera when the planet's horizon is farther than
+  `squeeze_range` (0.95 x placement distance, set in `scenes/main.gd`), so the detailed planet always fits and is never cut. Scale is 1 below ~200 km.
+  The atmosphere shell shrinks with it; `BodyImpostors` no longer draws a sphere/backdrop for the active planet. A dark `_core` sphere
+  (0.97 R) sits under the terrain so hairline gaps between chunks show ground colour, not space.
+- Verified in software GL at 0.9, 3, 6 and 40 thousand km (detailed planet, atmosphere rim). Not verified on Vulkan/Metal. GL's 24-bit depth
+  shows dark seams and banding at these ranges that reversed-Z should not; if seams persist on the Mac, look at chunk borders in `chunk_mesher.gd`.
+- Other bodies (moons, planets outside the active frame) are still flat impostor spheres; the same squeeze idea needs a terrain per body.
+- The CockpitOverlay (separate short-range cockpit camera) from another session is committed too; cockpit near/far now match the chase view.
 - Also unverified in a running game: atmosphere-entry effects for the new fighters, per-model muzzle positions.

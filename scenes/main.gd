@@ -372,6 +372,11 @@ func _process(delta: float) -> void:
 		interior_view.camera.near = inside_near
 		interior_view.camera.far = far_plane
 	impostors.placement_distance = far_plane * 0.8
+	var terrain_scale := 1.0
+	if terrain != null:
+		terrain.view_position = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else _flown().position
+		terrain.squeeze_range = impostors.placement_distance * 0.95
+		terrain_scale = terrain.squeeze_scale()
 	impostors.viewer_local = on_foot.position if session.mode == GameSession.Mode.OUTSIDE else _flown().position
 	var sun_direction := system.sun_direction_in_frame(runtime.active_frame, runtime.time_seconds)
 	if runtime.active_frame == StarSystem.SYSTEM_FRAME:
@@ -384,8 +389,12 @@ func _process(delta: float) -> void:
 		var home_body: BodyDef = system.bodies[runtime.active_frame]
 		var home_look := VisualStyle.look_for(home_body)
 		var shell_centre := WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin) if terrain != null else Vector3.ZERO
-		if not atmosphere_shell.update_rodina(planet.radius, planet.atmosphere_height, shell_centre, sun_direction, _star_radius_angle(runtime.active_frame), home_look.rodina_atmosphere if VisualStyle.is_rodina() else {}):
-			atmosphere_shell.update_shell(planet.radius + planet.atmosphere_height * 1.6, shell_centre, sun_direction, home_look.rim_color, home_look.rim_power, home_look.rim_haze)
+		if terrain != null and terrain_scale < 1.0: # the shell shrinks with the terrain so the glow stays on the planet's edge
+			shell_centre = terrain.view_position + (shell_centre - terrain.view_position) * terrain_scale
+		var shell_radius := planet.radius * terrain_scale
+		var shell_height := planet.atmosphere_height * terrain_scale
+		if not atmosphere_shell.update_rodina(shell_radius, shell_height, shell_centre, sun_direction, _star_radius_angle(runtime.active_frame), home_look.rodina_atmosphere if VisualStyle.is_rodina() else {}):
+			atmosphere_shell.update_shell(shell_radius + shell_height * 1.6, shell_centre, sun_direction, home_look.rim_color, home_look.rim_power, home_look.rim_haze)
 	space_environment.ambient_scale = VisualStyle.interior_ambient_factor() if session.mode == GameSession.Mode.INSIDE else 1.0
 	if planet != null:
 		var atmosphere_ratio := planet.atmosphere_ratio(actor_position)
