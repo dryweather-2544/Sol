@@ -8,6 +8,8 @@ const Spec := preload("res://src/flight/fighter_cockpit_spec.gd") # preloaded, s
 signal closed
 signal spawn_requested(def: FighterDef)
 signal recall_requested
+## The player wants the big ships (hangar bay): this list hides itself (the game stays paused) and the scene shows them; it calls reopen() when they close.
+signal big_ships_requested
 
 var audio: AudioService
 ## True while the player is flying a fighter (shows the return button).
@@ -93,6 +95,13 @@ func _build() -> void:
 		close()
 		recall_requested.emit())
 	buttons.add_child(_recall_button)
+	var big_ships_button := Button.new()
+	big_ships_button.text = "Big ships..."
+	big_ships_button.pressed.connect(func():
+		_play("rod_gui_click")
+		visible = false
+		big_ships_requested.emit())
+	buttons.add_child(big_ships_button)
 	var close_button := Button.new()
 	close_button.text = "Close (Y)"
 	close_button.pressed.connect(close)
@@ -125,6 +134,12 @@ func open() -> void:
 	_play("rod_inventory_open")
 	_list.select(0)
 	_select(0)
+
+
+## Shows the list again after the big ships closed (the game is still paused).
+func reopen() -> void:
+	visible = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func close() -> void:

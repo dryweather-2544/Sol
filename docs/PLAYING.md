@@ -94,7 +94,7 @@ and starts a fire in engineering). Land, walk to the beacon ~6 km away, open its
 
 ## Big ships
 
-Title or pause menu > **Big ships** lists five crewed ships (Meridian freighter, Talon gunship, Argent liner, Halo ring ship, Kestrel survey corvette).
+Hangar (**Y** while piloting or on foot) > **Big ships...** lists five crewed ships (Meridian freighter, Talon gunship, Argent liner, Halo ring ship, Kestrel survey corvette).
 Pick one to see the hull turn, then **Board the ship** to walk its interior: **WASD** move, **Shift** run, **E** sit in a seat / stand up (the bridge
 seats are the helm, captain and stations), **Tab** toggles the outside hull view, **Esc** leaves. Doors slide open as you approach; each ship has a
 bridge, a captain's bay, corridors and an airlock. Floor plans are in `docs/big_ships/`. Layouts are generated: edit `tools/gen_big_ships.py` and run

@@ -197,10 +197,11 @@ func _ready() -> void:
 	hangar_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	hangar_menu.spawn_requested.connect(_on_fighter_spawn)
 	hangar_menu.recall_requested.connect(_on_fighter_recall)
+	hangar_menu.big_ships_requested.connect(func(): big_ship_menu.open())
 	add_child(hangar_menu)
 	big_ship_menu = BigShipMenuScript.new()
 	big_ship_menu.audio = audio
-	big_ship_menu.closed.connect(func(): menu.show_page(menu.page)) # back to the title / pause page it was opened from
+	big_ship_menu.closed.connect(func(): hangar_menu.reopen()) # back to the hangar it was opened from
 	add_child(big_ship_menu)
 	exploration_menu = ExplorationMenu.new()
 	exploration_menu.session = session
@@ -253,7 +254,6 @@ func _ready() -> void:
 	menu.continue_requested.connect(func(): _load_from("autosave"); _on_menu_resume())
 	menu.save_requested.connect(func(): _save_to("quicksave"))
 	menu.quit_requested.connect(func(): get_tree().quit())
-	menu.big_ships_requested.connect(func(): big_ship_menu.open())
 	menu.autosave_exists = save_manager.load_slot("autosave")["ok"]
 	menu.world_ready_check = func() -> bool: return terrain != null and terrain.is_settled()
 	add_child(menu)

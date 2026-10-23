@@ -84,7 +84,7 @@ tools/interior_tour.gd(.uid), tools/interior_tour.tscn.
 - 30 fighters (`FighterCatalog`) with cockpit interiors; models load from .glb at runtime (`FighterModel._instantiate`, GLTFDocument
   fallback when not imported). Licences unconfirmed: `assets/fighters/`, `assets/cockpit/`, `assets/ships/` are git-ignored.
 - 5 big ships in `src/bigship/` (data from `tools/gen_big_ships.py`), walkable in first person (bridge, captain's bay, corridors, airlock).
-  Menu entry "Big ships" in the title/pause menu. 4 hulls are CC-BY-4.0: credit lines in `big_ship_catalog.gd` and ATTRIBUTION.md.
+  Reached from the hangar (Y) via the "Big ships..." button, like picking a fighter. 4 hulls are CC-BY-4.0: credit lines in `big_ship_catalog.gd` and ATTRIBUTION.md.
 - Cockpit fixes: readout plates pulled in and squared to the dash; the grey "InteriorFill" wall mesh now only for the X-Wing set
   (`_spec.legacy`), other interiors carry their own walls.
 - Ground contact: a fighter's support points now come from its loaded model's real extents (`FighterModel` stores `half_extents`,
