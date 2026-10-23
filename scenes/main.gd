@@ -161,6 +161,7 @@ func _ready() -> void:
 	add_child(floating_origin) # after the actors, so it runs after their physics ticks
 	chase_camera = ChaseCamera.new()
 	chase_camera.target = ship
+	chase_camera.ground_clearance = _camera_ground_clearance
 	add_child(chase_camera)
 	chase_camera.snap_to_target()
 	speed_effects = SpeedEffects.new()
@@ -198,11 +199,16 @@ func _ready() -> void:
 	hangar_menu.closed.connect(func(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	hangar_menu.spawn_requested.connect(_on_fighter_spawn)
 	hangar_menu.recall_requested.connect(_on_fighter_recall)
-	hangar_menu.big_ships_requested.connect(func(): big_ship_menu.open())
+	hangar_menu.big_ships_requested.connect(func():
+		# the interior hangs in the real world, a little above the ship that is being flown, so its windows show the real sky
+		var flown := _flown()
+		big_ship_menu.set_outside(get_viewport().world_3d, flown.global_transform.translated_local(Vector3(0.0, 120.0, 0.0)))
+		big_ship_menu.open())
 	add_child(hangar_menu)
 	big_ship_menu = BigShipMenuScript.new()
 	big_ship_menu.audio = audio
 	big_ship_menu.closed.connect(func(): hangar_menu.reopen()) # back to the hangar it was opened from
+	big_ship_menu.fly_requested.connect(_on_big_ship_fly)
 	add_child(big_ship_menu)
 	exploration_menu = ExplorationMenu.new()
 	exploration_menu.session = session
@@ -308,8 +314,8 @@ func _physics_process(delta: float) -> void:
 	_sync_fighter()
 	_update_warp_view(delta)
 	on_foot.sync_transform()
-	interior_view.sync_view()
 	interior_view.layout = session.systems.layout
+	interior_view.sync_view()
 	interior_view.set_lamp(session.mode == GameSession.Mode.INSIDE)
 	session.set_look(interior_view.eye_position(), -interior_view.camera.basis.z)
 	if session.mode != mode_before:
@@ -543,16 +549,17 @@ func _input(event: InputEvent) -> void:
 		_cycle_nav_target()
 	elif event.is_action_pressed("scan"):
 		session.scan_pulse()
-	elif event.is_action_pressed("toggle_view"):
 	elif event.is_action_pressed("clutch") and (session.mode == GameSession.Mode.INSIDE or session.mode == GameSession.Mode.OUTSIDE):
 		_gait = 2 if _gait == 1 else 1
 		session.say("Running" if _gait == 2 else "Walking")
+	elif event.is_action_pressed("toggle_view"):
 		if session.mode == GameSession.Mode.OUTSIDE:
 			on_foot.third_person = not on_foot.third_person
-		elif session.mode == GameSession.Mode.FIGHTER:
 		elif session.mode == GameSession.Mode.INSIDE:
 			interior_view.third_person = not interior_view.third_person
-			_fighter_cockpit_view = not _fighter_cockpit_view
+		elif session.mode == GameSession.Mode.FIGHTER:
+			if _fighter_node != null and _fighter_node.cockpit_camera != null: # a big ship has no cockpit view
+				_fighter_cockpit_view = not _fighter_cockpit_view
 			_update_active_camera()
 		else:
 			_cockpit_view = not _cockpit_view
@@ -622,6 +629,23 @@ func _on_mode_changed() -> void:
 ## Whatever the player is flying: the mothership, or the separate fighter.
 func _flown() -> Ship:
 	return session.active_ship()
+
+
+## For the chase camera: height of a point (render space) above the terrain under it, and the planet's up there. Far from the ground the
+## answer is "plenty", so nothing is looked up in flight.
+func _camera_ground_clearance(camera_position: Vector3) -> Vector4:
+	var flown := _flown()
+	if flown == null or planet == null or flown.state.altitude_above_ground > 1500.0:
+		return Vector4(INF, 0.0, 1.0, 0.0)
+	var offset := camera_position - flown.global_position
+	var x := flown.state.position.x + offset.x
+	var y := flown.state.position.y + offset.y
+	var z := flown.state.position.z + offset.z
+	var distance := sqrt(x * x + y * y + z * z)
+	if distance < 1.0:
+		return Vector4(INF, 0.0, 1.0, 0.0)
+	var up := Vector3(x, y, z) / distance
+	return Vector4(distance - planet.surface_radius_xyz(up.x, up.y, up.z), up.x, up.y, up.z)
 
 
 ## Points the camera, anchor, HUD, effects and audio at the ship the player is flying now.
@@ -775,7 +799,7 @@ func _on_fighter_spawn(def: FighterDef) -> void:
 		craft.state.selected_gear = PilotCommand.GEAR_DOCK
 	else:
 		var forward := -from_state.basis.z
-		craft.state.position = from_state.position.offset_by(forward * 45.0 + from_state.basis.y * 6.0)
+		craft.state.position = from_state.position.offset_by(forward * maxf(45.0, def.size * 1.2) + from_state.basis.y * 6.0)
 		craft.state.basis = from_state.basis
 		craft.state.velocity = from_state.velocity
 		# A fighter is for flying and shooting: it starts in the combat gear (guns work there) unless the mothership is already in
@@ -796,10 +820,35 @@ func _on_fighter_spawn(def: FighterDef) -> void:
 	_fighter_node = craft
 	var mode_before := session.mode
 	session.board_fighter(craft)
-	_fighter_cockpit_view = true # you start in the cockpit
+	_fighter_cockpit_view = not def.is_big_ship # a fighter starts in its cockpit; a big ship has none
 	_begin_camera_blend(mode_before)
 	_on_mode_changed()
-	session.say("Flying the %s - V for the chase view, Y for the hangar" % def.display_name)
+	session.say("Flying the %s - Y for the hangar" % def.display_name if def.is_big_ship else "Flying the %s - V for the chase view, Y for the hangar" % def.display_name)
+
+
+## Captain's seat > F: the big ship becomes the craft the player flies (a Ship built like a fighter, but with the ship's own hull, no cockpit and a slow heavy feel).
+func _on_big_ship_fly(ship_def) -> void:
+	var def := FighterDef.new()
+	def.id = StringName("big_" + str(ship_def.id))
+	def.display_name = str(ship_def.display_name)
+	def.model_path = str(ship_def.hull_path)
+	def.size = float(ship_def.hull_extent)
+	def.is_big_ship = true
+	def.hull_yaw = float(ship_def.hull_yaw)
+	def.hull_color = Color(ship_def.accent)
+	def.role = FighterDef.Role.HEAVY
+	var fast := str(ship_def.speed_class) == "Fast"
+	var slow := str(ship_def.speed_class) == "Slow"
+	def.speed_scale = 0.9 if fast else (0.45 if slow else 0.65)
+	def.turn_scale = 0.35 if fast else (0.15 if slow else 0.22)
+	def.toughness = maxf(3.0, def.size / 12.0)
+	def.gun_damage = 0.02
+	def.gun_rate = 3.0
+	def.cockpit = Vector3.ZERO
+	def.blurb = str(ship_def.blurb)
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_on_fighter_spawn(def)
 
 
 ## Y > Return: back to where the player boarded (the helm, or on foot). A fighter in the air is gone; one on the ground stays.

@@ -70,8 +70,20 @@ const LAMPS := {
 const KIT_DIR := "res://assets/ships/kit/"
 const KIT_WALLS := ["wall_plain", "wall_window"]
 
+## Material key -> [texture crop of the kit atlas in assets/ships/kit/, metres per tile (0 = stretch once over each face), tint]. Keys not listed (and every
+## key when the files are missing) keep the plain colours above.
+const TEXTURED := {
+	"console": ["tex_panel_console", 0.0, Color(0.9, 0.95, 1.0)], "dark": ["tex_dark", 1.2, Color(1, 1, 1)],
+	"steel": ["tex_metal", 1.5, Color(1, 1, 1)], "white": ["tex_metal", 1.5, Color(1.15, 1.15, 1.2)], "ceiling": ["tex_metal", 1.5, Color(0.8, 0.82, 0.88)],
+	"door": ["tex_metal", 1.5, Color(0.75, 0.8, 0.9)],
+	"screen": ["tex_hud", 0.0, Color(1, 1, 1)], "glow_teal": ["tex_hud", 0.0, Color(1, 1, 1)]}
+const FLOOR_TEXTURE := ["tex_diamond", 1.2]
+
+static var _texture_cache := {}
+
 ## name -> {"parts": [[mesh, transform]], "box": AABB, "material": Material} (or {} when the file is missing), shared by every interior.
 static var _kit_cache := {}
+
 
 var plan: Plan
 var _kit_materials := {}
@@ -88,8 +100,13 @@ func build(ship_plan: Plan) -> void:
 	for room_id in layout.rooms:
 		var room: Rect2 = layout.rooms[room_id]
 		var kind := str(plan.kinds.get(room_id, "corridor"))
-		_slab(room, layout.floor_y - 0.12, layout.floor_y, "floor_" + kind)
-		_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, "ceiling")
+		if plan.bridges.has(room_id):
+			# the bridge model brings its own floor and ceiling: keep ours clear of them so they never fight
+			_slab(room, layout.floor_y - 0.25, layout.floor_y - 0.1, "floor_" + kind)
+			_slab(room, layout.ceiling_y + 0.35, layout.ceiling_y + 0.5, "ceiling")
+		else:
+			_slab(room, layout.floor_y - 0.12, layout.floor_y, "floor_" + kind)
+			_slab(room, layout.ceiling_y, layout.ceiling_y + 0.12, "ceiling")
 		_build_lamps(room, kind)
 	for portal_id in layout.portals:
 		var portal: Portal = layout.portals[portal_id]
@@ -97,8 +114,12 @@ func build(ship_plan: Plan) -> void:
 		_slab(portal.opening, layout.ceiling_y, layout.ceiling_y + 0.12, "ceiling")
 		_build_door(portal_id, portal)
 	_build_walls()
+	for room_id in plan.bridges:
+		_place_bridge_model(room_id)
 	for piece in layout.furniture:
 		var at: Vector2 = piece["at"]
+		if _in_dressed_bridge(at) and not str(piece["name"]).begins_with("chair_"):
+			continue
 		var size: Vector3 = piece["size"]
 		var key := str(piece["material"])
 		if not MATERIALS.has(key):
@@ -119,7 +140,7 @@ func update(player_position: Vector3, delta: float) -> void:
 		portal.update(delta)
 		_move_door(portal_id, portal)
 	var screens := _material("screen")
-	screens.emission_energy_multiplier = 1.15 + 0.25 * sin(_time * 2.3)
+	screens.emission_energy_multiplier = (0.45 + 0.1 * sin(_time * 2.3)) if screens.emission_texture != null else 1.15 + 0.25 * sin(_time * 2.3)
 
 
 ## Opens every door at once (used when the ship is only looked at, and by tests).
@@ -142,6 +163,8 @@ func _build_walls() -> void:
 	var layout := plan.layout
 	for room_id in layout.rooms:
 		for side in ["nose", "tail", "left", "right"]:
+			if side == "nose" and plan.bridges.has(room_id):
+				continue  # the model's own nose wall, with its whole window open to the outside
 			var skin := layout.wall_rect(room_id, side)
 			var along_x := InteriorLayout.wall_runs_along_x(side)
 			_build_wall(skin, along_x, _holes_in(skin, along_x, room_id, side), side)
@@ -291,7 +314,7 @@ func _kit_wall(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: 
 
 
 ## Adds every mesh of a kit module, transformed, to the merged batch for that module's material.
-func _batch_kit(key: String, module: Dictionary, placed: Transform3D) -> void:
+func _batch_kit(key: String, module: Dictionary, placed: Transform3D, cull := Callable()) -> void:
 	var batch_key := "kit_" + key
 	if not _batches.has(batch_key):
 		_batches[batch_key] = {"v": PackedVector3Array(), "n": PackedVector3Array(), "i": PackedInt32Array(), "uv": PackedVector2Array()}
@@ -322,8 +345,14 @@ func _batch_kit(key: String, module: Dictionary, placed: Transform3D) -> void:
 				for i in source_vertices.size():
 					indices.append(first + i)
 			else:
-				for i in source_indices.size():
+				for i in range(0, source_indices.size() - 2, 3):
+					if cull.is_valid():
+						var inside_model: Vector3 = local * ((source_vertices[source_indices[i]] + source_vertices[source_indices[i + 1]] + source_vertices[source_indices[i + 2]]) / 3.0)
+						if bool(cull.call(inside_model)):
+							continue
 					indices.append(first + source_indices[i])
+					indices.append(first + source_indices[i + 1])
+					indices.append(first + source_indices[i + 2])
 	batch["v"] = vertices
 	batch["n"] = normals
 	batch["i"] = indices
@@ -423,19 +452,66 @@ func _batch_box(key: String, centre: Vector3, size: Vector3) -> void:
 	var normals: PackedVector3Array = batch["n"]
 	var indices: PackedInt32Array = batch["i"]
 	var half := size * 0.5
+	var tile := _tile_for(key)
+	if tile >= 0.0 and not batch.has("uv"):
+		batch["uv"] = PackedVector2Array()
+	var box_uvs: PackedVector2Array = batch["uv"] if batch.has("uv") else PackedVector2Array()
 	for face in FACES:
 		var normal: Vector3 = face[0]
 		var corners: Array = face[1]
 		var first := vertices.size()
+		var corner_index := 0
 		for corner in corners:
-			vertices.append(centre + (corner as Vector3) * half)
+			var point: Vector3 = centre + (corner as Vector3) * half
+			vertices.append(point)
 			normals.append(normal)
+			if tile >= 0.0:
+				if tile == 0.0:
+					box_uvs.append(Vector2([0.0, 1.0, 1.0, 0.0][corner_index], [1.0, 1.0, 0.0, 0.0][corner_index]))
+				elif absf(normal.y) > 0.5:
+					box_uvs.append(Vector2(point.x, point.z) / tile)
+				elif absf(normal.x) > 0.5:
+					box_uvs.append(Vector2(point.z, -point.y) / tile)
+				else:
+					box_uvs.append(Vector2(point.x, -point.y) / tile)
+			corner_index += 1
 		# the faces are listed counter-clockwise from outside; Godot's front side is clockwise
 		indices.append_array(PackedInt32Array([first, first + 2, first + 1, first, first + 3, first + 2]))
 	batch["v"] = vertices
 	batch["n"] = normals
 	batch["i"] = indices
+	if tile >= 0.0:
+		batch["uv"] = box_uvs
 	_batches[key] = batch
+
+
+## Metres per texture tile for a box material (0 = stretched over each face), or -1 when it has no texture.
+func _tile_for(key: String) -> float:
+	if _texture_for(key) == null:
+		return -1.0
+	if key.begins_with("floor_"):
+		return float(FLOOR_TEXTURE[1])
+	return float(TEXTURED[key][1])
+
+
+func _texture_for(key: String) -> Texture2D:
+	var file := ""
+	if key.begins_with("floor_"):
+		file = FLOOR_TEXTURE[0]
+	elif TEXTURED.has(key):
+		file = TEXTURED[key][0]
+	else:
+		return null
+	if not _texture_cache.has(file):
+		var path := ProjectSettings.globalize_path(KIT_DIR + file + ".png")
+		var texture: Texture2D = null
+		if FileAccess.file_exists(path):
+			var image := Image.load_from_file(path)
+			if image != null:
+				image.generate_mipmaps()
+				texture = ImageTexture.create_from_image(image)
+		_texture_cache[file] = texture
+	return _texture_cache[file]
 
 
 func _flush_batches() -> void:
@@ -467,10 +543,23 @@ func _material(key: String) -> StandardMaterial3D:
 	material.albedo_color = spec[0]
 	material.metallic = float(spec[1])
 	material.roughness = float(spec[2])
+	var texture := _texture_for(key)
+	if texture != null:
+		material.albedo_texture = texture
+		material.texture_repeat = true
+		if key.begins_with("floor_"):
+			material.albedo_color = (spec[0] as Color).lightened(0.35)
+		else:
+			material.albedo_color = TEXTURED[key][2]
 	var glow := float(spec[3])
 	if glow > 0.0:
 		material.emission_enabled = true
 		material.emission = spec[0]
+		if texture != null:
+			material.emission = Color.WHITE
+			material.emission_texture = texture
+			material.albedo_color = Color(0.15, 0.2, 0.3)
+			glow = 0.5
 		material.emission_energy_multiplier = glow
 	if key == "glass":
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -485,3 +574,47 @@ func _spec_for(key: String) -> Array:
 	if key.begins_with("floor_"):
 		return [FLOOR_COLOURS.get(key.substr(6), Color(0.3, 0.3, 0.3)), 0.1, 0.6, 0.0]
 	return [Color(0.5, 0.5, 0.5), 0.2, 0.7, 0.0]
+
+
+# ------------------------------------------------------------------------------------------------ bridge set
+## The cropped control room from the Spaceship 003 pack (see ATTRIBUTION.md), one scene per file, shared by every interior.
+static var _bridge_cache := {}
+
+
+static func _bridge_scene(file: String) -> Node3D:
+	if _bridge_cache.has(file):
+		return _bridge_cache[file]
+	var scene: Node3D = null
+	var path := ProjectSettings.globalize_path(Plan.BRIDGE_DIR + file)
+	if FileAccess.file_exists(path):
+		var document := GLTFDocument.new()
+		var state := GLTFState.new()
+		if document.append_from_file(path, state) == OK:
+			scene = document.generate_scene(state) as Node3D
+	_bridge_cache[file] = scene
+	return scene
+
+
+## True when this furniture spot is inside a bridge the model dresses (the plan already removed the generated pieces; only chairs stay).
+func _in_dressed_bridge(at: Vector2) -> bool:
+	for room_id in plan.bridges:
+		if (plan.bridges[room_id]["room"] as Rect2).has_point(at):
+			return true
+	return false
+
+
+func _place_bridge_model(room_id: StringName) -> void:
+	var info: Dictionary = plan.bridges[room_id]
+	var scene := _bridge_scene(str(info["file"]))
+	if scene == null:
+		return
+	var room: Rect2 = info["room"]
+	var instance := scene.duplicate() as Node3D
+	var scale_x := float(info["scale_x"])
+	var origin := Vector3(room.get_center().x, plan.layout.floor_y + 0.02, room.position.y)
+	instance.transform = Transform3D(Basis.from_scale(Vector3(scale_x, 1.0, 1.0)), origin) \
+			* Transform3D(Basis.IDENTITY, Vector3(-Plan.BRIDGE_MODEL_CENTRE_X, 0.0, -Plan.BRIDGE_MODEL_NOSE_Z))
+	for node in instance.find_children("*", "MeshInstance3D", true, false):
+		(node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.name = "BridgeSet_" + str(room_id)
+	add_child(instance)

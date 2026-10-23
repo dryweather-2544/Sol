@@ -26,7 +26,9 @@ func _init() -> void:
 func setup(def: FighterDef, owner_ship: Ship) -> void:
 	ship = owner_ship
 	_scale = clampf(def.size / FighterDef.REFERENCE_SIZE, 0.4, 1.0)
-	var nozzles := def.engines if not def.engines.is_empty() else [Vector3(0.0, 0.0, def.size * 0.5)]
+	var nozzles: Array[Vector3] = def.engines.duplicate()
+	if nozzles.is_empty():
+		nozzles.append(Vector3(0.0, 0.0, def.size * 0.5))
 	for index in nozzles.size():
 		var plume := _make_plume(index)
 		plume.position = nozzles[index]

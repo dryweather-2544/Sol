@@ -24,7 +24,7 @@ static func build(ship_node: Node3D, def: FighterDef) -> Node3D:
 	var model_scale := def.size / maxf(box.size.x, maxf(box.size.y, box.size.z))
 	model.scale = Vector3.ONE * model_scale
 	model.position = -box.get_center() * model_scale
-	holder.rotation.y = MODEL_YAW
+	holder.rotation.y = def.hull_yaw
 	holder.add_child(model)
 	preload("res://src/core/ship_style.gd").apply_fighter(model, int(def.role), def.is_big_ship) # Valheim-style ship paint; SOL_SHIP_STYLE=off disables
 	# the real extents, so landing gear contact (Ship) sits on the model's own underside instead of a guessed height

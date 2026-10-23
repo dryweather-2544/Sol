@@ -9,6 +9,8 @@ const Hull := preload("res://src/bigship/big_ship_hull.gd")
 const Explorer := preload("res://src/bigship/big_ship_explorer.gd")
 
 signal closed
+## The player took the helm of a big ship (from the walkable view): everything here is put away and the scene flies it.
+signal fly_requested(ship_def)
 
 var audio: AudioService
 
@@ -102,6 +104,7 @@ func _build() -> void:
 	buttons.add_child(close_button)
 	_explorer = Explorer.new()
 	_explorer.closed.connect(_on_explorer_closed)
+	_explorer.fly_requested.connect(_on_fly)
 	add_child(_explorer)
 
 
@@ -118,6 +121,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode == KEY_ESCAPE or event.is_action_pressed("pause")):
 		get_viewport().set_input_as_handled()
 		close()
+
+
+## Tells the menu where the real world is and where the ship's interior should stand in it, so the windows show what is really out there.
+func set_outside(world: World3D, anchor: Transform3D) -> void:
+	_explorer.outside_world = world
+	_explorer.outside_anchor = anchor
 
 
 func open() -> void:
@@ -159,6 +168,17 @@ func _on_board() -> void:
 		_panel.visible = true
 		_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 		_status.text = "This ship's interior could not be built."
+
+
+func _on_fly(ship_def) -> void:
+	visible = false # first, so the explorer's own closed signal below changes nothing here
+	_serial += 1
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	for child in _pivot.get_children():
+		_pivot.remove_child(child)
+		child.queue_free()
+	_explorer.close()
+	fly_requested.emit(ship_def)
 
 
 func _on_explorer_closed() -> void:

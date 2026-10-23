@@ -5,6 +5,18 @@ extends RefCounted
 
 const Data := preload("res://src/bigship/big_ship_data.gd")
 const CAPTAIN_ROLE := &"captain"
+## The control-room model that dresses every bridge (see ATTRIBUTION.md): files under assets/ships/kit/, cut to the front 6.7 or 7.7 m. Model space:
+## the nose wall is at z -19.78 and the middle of the room at x 0.525; the room is 12.05 m wide.
+const BRIDGE_DIR := "res://assets/ships/kit/"
+const BRIDGE_MODEL_NOSE_Z := -19.78
+const BRIDGE_MODEL_CENTRE_X := 0.525
+const BRIDGE_MODEL_WIDTH := 12.05
+## Seats on the model's own chairs: [x, z, yaw, exit x, exit z] in model space. The first three are the pilot, copilot and captain, the rest are the
+## side stations, left and right alternating.
+const BRIDGE_SEAT_SLOTS := [
+	[-1.08, -15.55, 0.0, -1.08, -14.55], [2.1, -15.55, 0.0, 2.1, -14.55], [0.52, -15.28, 0.0, 0.52, -14.2],
+	[-3.9, -16.4, 1.5708, -3.0, -16.4], [5.1, -16.2, -1.5708, 4.2, -16.2], [-3.9, -15.5, 1.5708, -3.0, -15.5], [5.1, -15.2, -1.5708, 4.2, -15.2],
+	[-3.9, -14.5, 1.5708, -3.0, -14.5], [5.1, -14.2, -1.5708, 4.2, -14.2]]
 
 var id := ""
 var display_name := ""
@@ -19,6 +31,8 @@ var spawn_yaw := 0.0
 var seat_list: Array = []
 ## Standing crew: {role, room, position, yaw}.
 var crew: Array = []
+## Bridges dressed with the control-room model: room id -> {room (Rect2), file, scale_x}. Empty when the model files are not on this machine.
+var bridges := {}
 
 
 ## Builds everything from the data; false when there is no ship of that id.
@@ -72,6 +86,7 @@ func load_ship(ship_id: String) -> bool:
 	var start: Array = data["spawn"]
 	spawn = Vector3(float(start[0]), floor_y, float(start[1]))
 	spawn_yaw = float(start[2])
+	_dress_bridges()
 	return true
 
 
@@ -117,3 +132,103 @@ func length() -> float:
 		low = minf(low, (room as Rect2).position.y)
 		high = maxf(high, (room as Rect2).end.y)
 	return high - low
+
+
+## A point of the control-room model (x, z) as a ship-local point in a dressed bridge.
+func bridge_point(room_id: StringName, model_x: float, model_z: float) -> Vector2:
+	var info: Dictionary = bridges[room_id]
+	var room: Rect2 = info["room"]
+	return Vector2(room.get_center().x + (model_x - BRIDGE_MODEL_CENTRE_X) * float(info["scale_x"]), room.position.y + (model_z - BRIDGE_MODEL_NOSE_Z))
+
+
+## Swaps the generated bridge furniture, windows and seats for the control-room model's: its own consoles, chairs and nose window.
+func _dress_bridges() -> void:
+	bridges.clear()
+	for room_id in layout.rooms:
+		if str(kinds.get(room_id, "")) != "bridge":
+			continue
+		var room: Rect2 = layout.rooms[room_id]
+		var file := "bridge_7.7.glb" if room.size.y >= 7.9 else "bridge_6.7.glb"
+		if not FileAccess.file_exists(ProjectSettings.globalize_path(BRIDGE_DIR + file)):
+			continue
+		var scale_x := minf(1.0, (room.size.x - 0.3) / BRIDGE_MODEL_WIDTH)
+		bridges[room_id] = {"room": room, "file": file, "scale_x": scale_x}
+		# the generated furniture goes, and with it its solid footprints
+		var kept: Array = []
+		for piece in layout.furniture:
+			if not room.has_point(piece["at"]):
+				kept.append(piece)
+		layout.furniture = kept
+		layout.obstacles.clear()
+		for piece in kept:
+			if bool(piece["solid"]):
+				var at: Vector2 = piece["at"]
+				var size: Vector3 = piece["size"]
+				layout.obstacles.append(Rect2(at.x - size.x * 0.5, at.y - size.z * 0.5, size.x, size.z))
+		# one big nose window where the model has its glass; the side windows would be behind its walls
+		var kept_windows: Array = []
+		for window in layout.windows:
+			if window["room"] != room_id:
+				kept_windows.append(window)
+		layout.windows = kept_windows
+		var glass := bridge_point(room_id, 1.0, BRIDGE_MODEL_NOSE_Z)
+		layout.windows.append({"room": room_id, "side": "nose", "center": glass.x, "width": 4.0 * scale_x, "sill": 0.7, "height": 1.4})
+		# solid: the two window desks, and the room beside the model's side walls when the model is narrower than the room
+		_bridge_block(room_id, -1.95, -17.3, -0.2, -16.0)
+		_bridge_block(room_id, 1.2, -17.3, 2.95, -16.0)
+		var left_wall := bridge_point(room_id, -5.5, 0.0).x
+		var right_wall := bridge_point(room_id, 6.55, 0.0).x
+		if left_wall > room.position.x + 0.05:
+			layout.obstacles.append(Rect2(room.position.x, room.position.y, left_wall - room.position.x, room.size.y))
+		if right_wall < room.end.x - 0.05:
+			layout.obstacles.append(Rect2(right_wall, room.position.y, room.end.x - right_wall, room.size.y))
+		_seat_bridge(room_id)
+
+
+func _bridge_block(room_id: StringName, x0: float, z0: float, x1: float, z1: float) -> void:
+	var a := bridge_point(room_id, x0, z0)
+	var b := bridge_point(room_id, x1, z1)
+	layout.obstacles.append(Rect2(a, b - a).abs())
+
+
+## Moves the bridge's seats onto the model's chairs: pilot, copilot and captain first, the others at the side stations. Any seat the model has no chair
+## for gets a generated chair.
+func _seat_bridge(room_id: StringName) -> void:
+	var mine: Array = []
+	for entry in seat_list:
+		if entry["room"] == room_id:
+			mine.append(entry)
+	var ordered: Array = []
+	for role in [&"pilot", &"copilot", &"captain"]:
+		for entry in mine:
+			if entry["role"] == role and not ordered.has(entry):
+				ordered.append(entry)
+	for entry in mine:
+		if not ordered.has(entry):
+			ordered.append(entry)
+	for index in ordered.size():
+		var slot: Array = BRIDGE_SEAT_SLOTS[mini(index, BRIDGE_SEAT_SLOTS.size() - 1)]
+		var seat_xz := bridge_point(room_id, float(slot[0]), float(slot[1]))
+		var exit_xz := bridge_point(room_id, float(slot[3]), float(slot[4]))
+		var entry: Dictionary = ordered[index]
+		var seat_position := Vector3(seat_xz.x, layout.floor_y, seat_xz.y)
+		var exit_position := Vector3(exit_xz.x, layout.floor_y, exit_xz.y)
+		entry["position"] = seat_position
+		entry["yaw"] = float(slot[2])
+		entry["exit"] = exit_position
+		var seat_id: StringName = entry["id"]
+		layout.seats[seat_id] = {"position": seat_position, "exit_position": exit_position, "facing_yaw": float(slot[2])}
+		for point in layout.interact_points:
+			if point["id"] == seat_id:
+				point["position"] = seat_position
+		# the model's own chairs are at the captain's and the four side stations; the window desks and any extra seat need one
+		if index >= 7:
+			_add_bridge_chair(seat_xz, float(slot[2]))
+
+
+func _add_bridge_chair(at: Vector2, yaw: float) -> void:
+	var back := Vector2(sin(yaw), cos(yaw)) * 0.24
+	var wide := absf(sin(yaw)) > 0.5
+	layout.add_piece(&"chair_base", at, Vector3(0.55, 0.42, 0.55), &"steel")
+	layout.add_piece(&"chair_seat", at, Vector3(0.52, 0.1, 0.52), &"fabric", false, 0.42)
+	layout.add_piece(&"chair_back", at + back, Vector3(0.1 if wide else 0.5, 0.6, 0.5 if wide else 0.1), &"fabric", false, 0.5)

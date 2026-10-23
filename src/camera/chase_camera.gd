@@ -24,6 +24,9 @@ var view_scale := 1.0
 ## True for the small fighters (set by main.gd): the view is pinned to the hull, so the ship stays put in frame however hard
 ## it turns. False keeps the mothership's lagging view that swings round the ship in turns.
 var rigid_follow := false
+## Set by main.gd: Callable(camera_position: Vector3) -> Vector4 of (height above the terrain, planet up x, y, z), or null-ish when far from any
+## ground. The camera is lifted clear of terrain so a landed ship's view never ends up inside the hill behind it.
+var ground_clearance := Callable()
 var _smoothed_orientation := Quaternion.IDENTITY
 
 
@@ -77,6 +80,13 @@ func _apply(_delta: float) -> void:
 		offset = Vector3(0.0, sin(follow_angle), cos(follow_angle)) * follow_distance
 	offset *= view_scale
 	var camera_position := target.global_position + rig_basis * offset
+	if ground_clearance.is_valid():
+		var wanted := 2.0 + view_scale # metres of air under the lens
+		for attempt in 5: # a rising slope can need more than one lift
+			var probe: Vector4 = ground_clearance.call(camera_position)
+			if probe.x >= wanted:
+				break
+			camera_position += Vector3(probe.y, probe.z, probe.w) * (wanted - probe.x + 0.5)
 	var look_target := target.global_position + rig_basis * Vector3(0.0, 0.0, -look_ahead_distance)
 	var view_basis := Basis.looking_at(look_target - camera_position, rig_basis.y)
 	if shake != Vector2.ZERO:

@@ -8,6 +8,8 @@ const Plan := preload("res://src/bigship/big_ship_plan.gd")
 const Hull := preload("res://src/bigship/big_ship_hull.gd")
 
 signal closed
+## The captain (or pilot) took the helm: the menu closes and the scene launches this ship as a craft to fly.
+signal fly_requested(ship_def)
 
 const WALK_SPEED := 3.2
 const RUN_SPEED := 5.6
@@ -76,6 +78,9 @@ var _avatars: Array = []
 var _hull_holder: Node3D
 var _hull_view := false
 var _hull_loading := false
+## The real game world and where the interior stands in it. When set, the windows look out onto the actual sky, planet and ship instead of a painted backdrop.
+var outside_world: World3D = null
+var outside_anchor := Transform3D.IDENTITY
 var _orbit := 0.6
 var _time := 0.0
 
@@ -125,6 +130,10 @@ func _style_label(label: Label, horizontal: HorizontalAlignment, vertical: Verti
 func open(ship_def) -> bool:
 	def = ship_def
 	_clear_world()
+	_viewport.own_world_3d = outside_world == null
+	if outside_world != null:
+		_viewport.world_3d = outside_world
+	_world.transform = outside_anchor if outside_world != null else Transform3D.IDENTITY
 	plan = Plan.new()
 	if not plan.load_ship(str(def.id)):
 		push_error("BigShipExplorer: no interior for %s" % str(def.id))
@@ -133,7 +142,10 @@ func open(ship_def) -> bool:
 	interior = Interior.new()
 	_world.add_child(interior)
 	interior.build(plan)
-	_add_environment()
+	if outside_world == null:
+		_add_environment()
+	else:
+		_add_fill_light()
 	_add_crew()
 	_camera = Camera3D.new()
 	_camera.fov = GameSettings.instance().field_of_view
@@ -175,6 +187,20 @@ func _clear_world() -> void:
 	_hull_holder = null
 	_hull_loading = false
 	interior = null
+
+
+## Inside the real world the room only gets what the real sun gives it through the glass, so a soft fill keeps it readable.
+func _add_fill_light() -> void:
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-60.0, 30.0, 0.0)
+	fill.light_energy = 0.35
+	fill.shadow_enabled = false
+	fill.light_cull_mask = 1
+	_world.add_child(fill)
+
+
+func _hull_at() -> Vector3:
+	return HULL_AT if outside_world == null else Vector3(0.0, 400.0, 0.0)
 
 
 func _add_environment() -> void:
@@ -303,8 +329,9 @@ func _update_camera() -> void:
 
 func _update_hull_camera() -> void:
 	var radius := float(def.hull_extent) * 1.05 + 14.0
-	var eye := HULL_AT + Vector3(sin(_orbit) * radius, radius * 0.3, cos(_orbit) * radius)
-	_camera.look_at_from_position(eye, HULL_AT, Vector3.UP)
+	var centre := _hull_at()
+	var eye := centre + Vector3(sin(_orbit) * radius, radius * 0.3, cos(_orbit) * radius)
+	_camera.transform = Transform3D(Basis.looking_at(centre - eye, Vector3.UP), eye)
 
 
 func _update_hud() -> void:
@@ -320,7 +347,10 @@ func _update_hud() -> void:
 	_title_label.text = title + ("   |   " + room_text if room_text != "" else "")
 	if _seat_id != &"":
 		var seated_at := plan.seat(_seat_id)
-		_prompt_label.text = "E - stand up   (seated: %s station)" % str(seated_at.get("role", ""))
+		var role := str(seated_at.get("role", ""))
+		_prompt_label.text = "E - stand up   (seated: %s station)" % role
+		if role == "captain" or role == "pilot":
+			_prompt_label.text += "\nF - take the helm and fly the %s" % str(def.display_name)
 	else:
 		var near := _seat_in_reach()
 		if near == &"":
@@ -354,6 +384,9 @@ func _input(event: InputEvent) -> void:
 		elif key_event.physical_keycode == KEY_E and not _hull_view:
 			get_viewport().set_input_as_handled()
 			_toggle_seat()
+		elif key_event.physical_keycode == KEY_F and not _hull_view and _seat_id != &"" and str(plan.seat(_seat_id).get("role", "")) in ["captain", "pilot"]:
+			get_viewport().set_input_as_handled()
+			fly_requested.emit(def)
 		elif key_event.physical_keycode == KEY_TAB:
 			get_viewport().set_input_as_handled()
 			_toggle_hull_view()
@@ -432,7 +465,7 @@ func _show_hull_view() -> void:
 		if plan == null:
 			return
 		_hull_holder = Hull.build(_world, def)
-		_hull_holder.position = HULL_AT
+		_hull_holder.position = _hull_at()
 		Hull.set_layers(_hull_holder, 2)
 		_hull_loading = false
 		_status_label.text = ""

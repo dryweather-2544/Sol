@@ -35,6 +35,9 @@ var hull_color := Color(0.75, 0.15, 0.12)
 ## cockpit screens and lamps glow in, so no two fighters read alike.
 var cockpit_id: StringName = &"xwing"
 var blurb := ""
+## A big ship (src/bigship) flown from its captain's seat: no cockpit (chase view only), and its hull is turned by hull_yaw instead of the fighter pack's half turn.
+var is_big_ship := false
+var hull_yaw := PI
 var accent := Color(0.255, 0.784, 0.753)
 
 

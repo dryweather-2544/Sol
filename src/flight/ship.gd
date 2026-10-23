@@ -89,7 +89,14 @@ func _ready() -> void:
 		var flames := FighterEngineFlames.new()
 		add_child(flames)
 		flames.setup(fighter, self)
-		if player_controlled:
+		if player_controlled and fighter.is_big_ship:
+			effects = ShipEffects.new() # no cockpit: a big ship is flown from the chase camera
+			effects.fighter_mode = true
+			effects.position_scale = fighter.size / FighterDef.REFERENCE_SIZE
+			add_child(effects)
+			var no_big_nozzles: Array[MeshInstance3D] = []
+			effects.setup(no_big_nozzles)
+		elif player_controlled:
 			cockpit_camera = Camera3D.new()
 			cockpit_camera.name = "CockpitCamera"
 			cockpit_camera.position = fighter.cockpit
@@ -170,6 +177,14 @@ func _fit_support_points_to_model() -> void:
 	tuning.support_points = PackedVector3Array([
 		Vector3(-fx, low, -fz), Vector3(fx, low, -fz), Vector3(-fx, low, fz), Vector3(fx, low, fz),
 		Vector3(0.0, low * 0.45, -half.z), Vector3(0.0, low * 0.45, half.z)])
+	if fighter != null and fighter.is_big_ship:
+		# A 100 m+ hull spans hills between six points: check the whole underside on a grid so no bump pokes through the hull (the first
+		# four points stay the landing gear GroundContact fits the ground plane to).
+		var points := tuning.support_points
+		for column in [-0.9, -0.45, 0.0, 0.45, 0.9]:
+			for row in 11:
+				points.append(Vector3(half.x * column, low, half.z * (-0.95 + 0.19 * row)))
+		tuning.support_points = points
 
 
 ## Turns this ship into the given fighter: its handling, gun, hit radius source and model. Call before add_child.
