@@ -58,6 +58,7 @@ var enemy_director: EnemyDirector
 var projectile_view: ProjectileView
 var combat_effects: CombatEffects
 var _cockpit_view := false
+var _gait := 0 ## Z while on foot: 1 = walk, 2 = run; each press switches, the first gives walk (Shift still runs while held)
 ## The fighter's own view setting: you start in its cockpit, V swings out to the chase view (kept apart from the mothership's).
 var _fighter_cockpit_view := true
 var _gear_hint_cooldown := 0.0
@@ -264,7 +265,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	var command := OnFootCommand.new()
 	command.move = Vector2(Input.get_axis("strafe_left", "strafe_right"), Input.get_axis("thrust_back", "thrust_forward"))
-	command.run = Input.is_action_pressed("boost")
+	command.run = Input.is_action_pressed("boost") or _gait == 2
 	command.jump = Input.is_action_pressed("move_up")
 	command.jetpack = Input.is_action_pressed("move_up")
 	if airlock_menu.visible or machine_menu.visible:
@@ -308,8 +309,9 @@ func _physics_process(delta: float) -> void:
 	_update_warp_view(delta)
 	on_foot.sync_transform()
 	interior_view.sync_view()
+	interior_view.layout = session.systems.layout
 	interior_view.set_lamp(session.mode == GameSession.Mode.INSIDE)
-	session.set_look(interior_view.camera.position, -interior_view.camera.basis.z)
+	session.set_look(interior_view.eye_position(), -interior_view.camera.basis.z)
 	if session.mode != mode_before:
 		_begin_camera_blend(mode_before)
 		_on_mode_changed()
@@ -542,9 +544,14 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("scan"):
 		session.scan_pulse()
 	elif event.is_action_pressed("toggle_view"):
+	elif event.is_action_pressed("clutch") and (session.mode == GameSession.Mode.INSIDE or session.mode == GameSession.Mode.OUTSIDE):
+		_gait = 2 if _gait == 1 else 1
+		session.say("Running" if _gait == 2 else "Walking")
 		if session.mode == GameSession.Mode.OUTSIDE:
 			on_foot.third_person = not on_foot.third_person
 		elif session.mode == GameSession.Mode.FIGHTER:
+		elif session.mode == GameSession.Mode.INSIDE:
+			interior_view.third_person = not interior_view.third_person
 			_fighter_cockpit_view = not _fighter_cockpit_view
 			_update_active_camera()
 		else:

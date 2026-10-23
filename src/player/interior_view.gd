@@ -12,6 +12,20 @@ var _pitch := 0.0
 var lamp := OmniLight3D.new()
 ## Yaw accumulated from the mouse since the last tick; GameSession feeds it in as yaw_delta.
 var pending_yaw := 0.0
+## The ship's layout, used to keep the third-person camera inside the walkable rooms (set by main every tick).
+var layout: InteriorLayout
+## Over-the-shoulder view: the player's own avatar is drawn and the camera sits behind it (pulled in against walls).
+var third_person := false:
+	set(value):
+		third_person = value
+		avatar.visible = value
+var avatar := HumanoidAvatar.new()
+
+const THIRD_PERSON_DISTANCE := 2.3
+const THIRD_PERSON_SHOULDER := 0.4
+const THIRD_PERSON_LIFT := 0.3
+const CAMERA_CLEARANCE := 0.12
+const CEILING_CLEARANCE := 2.3 # the camera stays under this height above the floor
 
 
 func _init() -> void:
@@ -27,6 +41,9 @@ func _init() -> void:
 	lamp.shadow_enabled = false
 	lamp.visible = false
 	camera.add_child(lamp)
+	avatar.name = "PlayerAvatar"
+	avatar.visible = false
+	add_child(avatar)
 
 
 func add_mouse_motion(relative_pixels: Vector2) -> void:
@@ -52,6 +69,34 @@ func take_pending_yaw() -> float:
 	return yaw
 
 
+## Where the player's eyes are (ship-local), whichever view is showing; interaction aims from here.
+func eye_position() -> Vector3:
+	return body.position + Vector3(0, InteriorBody.EYE_HEIGHT, 0)
+
+
 func sync_view() -> void:
-	camera.position = body.position + Vector3(0, InteriorBody.EYE_HEIGHT, 0)
+	var eye := eye_position()
 	camera.rotation = Vector3(_pitch, body.yaw, 0.0)
+	if not third_person:
+		camera.position = eye
+		return
+	avatar.position = body.position
+	avatar.rotation.y = body.yaw
+	avatar.animate(body.velocity.length(), 1.0 / 60.0)
+	var pivot := eye + Vector3(0, 0.1, 0)
+	var aim := Basis.from_euler(Vector3(_pitch, body.yaw, 0.0))
+	var offset := aim.z * THIRD_PERSON_DISTANCE + aim.x * THIRD_PERSON_SHOULDER + Vector3(0, THIRD_PERSON_LIFT, 0)
+	# Pull the camera in along the boom until it would leave the walkable floor (walls, doorframes).
+	var reach := 1.0
+	if layout != null:
+		reach = 0.0
+		for step in range(1, 13):
+			var t := step / 12.0
+			var p := pivot + offset * t
+			if not layout.is_position_walkable(p.x, p.z, CAMERA_CLEARANCE):
+				break
+			reach = t
+	var cam := pivot + offset * reach
+	cam.y = minf(cam.y, body.position.y + CEILING_CLEARANCE)
+	camera.position = cam
+	avatar.visible = reach * THIRD_PERSON_DISTANCE > 1.0 # too close to the wall: the body would fill the screen

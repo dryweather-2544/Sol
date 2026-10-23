@@ -19,6 +19,7 @@ var _animations: AnimationPlayer
 var _clip := ""
 var _phase := 0.0
 var seat_drop := 0.0
+var _seated := false
 ## Colour of the backpack (the stand-in's legs too); crew roles use different ones.
 var accent_color := Color(0.9, 0.45, 0.1)
 ## Colour of the suit (hostiles are given a red one).
@@ -53,12 +54,15 @@ func _ready() -> void:
 	_limb(_right_leg, Vector3(0.13, 0.84, 0), Vector3(0.18, 0.84, 0.18), accent)
 
 
-## Sitting: legs forward (the model has none to move) and the whole body lowered onto the seat.
+## Sitting: the model plays its "sit_idle" clip; the stand-in swings its legs forward and the whole body is lowered onto the seat.
 func set_seated(seated: bool) -> void:
 	if _left_leg != null:
 		for leg in [_left_leg, _right_leg]:
 			(leg as Node3D).rotation.x = -1.45 if seated else 0.0
+	_seated = seated
 	seat_drop = 0.35 if seated else 0.0
+	if seated and _animations != null and _animations.has_animation("sit_idle"):
+		seat_drop = 0.0 # the sitting clip bends the knees and lowers the hips itself, feet stay on the floor
 
 
 ## speed in m/s on foot; the gait scales with it and stops when standing still.
@@ -69,16 +73,19 @@ func animate(speed: float, delta: float) -> void:
 		if _animations != null:
 			var clip := "idle"
 			var rate := 1.0
-			if seat_drop == 0.0 and speed > 0.4:
-				if speed > 5.0:
+			if _seated and _animations.has_animation("sit_idle"):
+				clip = "sit_idle"
+			elif seat_drop == 0.0 and speed > 0.4:
+				# Walking speeds are 3.0-4.0 m/s in the ship and outside, running 5.0-8.0: the walk clip covers about 0.8 m/s, so it is sped up.
+				if speed > 6.5:
 					clip = "sprint"
-					rate = clampf(speed / 5.5, 0.8, 1.6)
-				elif speed > 2.8:
+					rate = clampf(speed / 7.0, 0.8, 1.6)
+				elif speed > 4.2:
 					clip = "run"
-					rate = clampf(speed / 3.5, 0.7, 1.5)
+					rate = clampf(speed / 4.5, 0.7, 1.5)
 				else:
 					clip = "walk"
-					rate = clampf(speed / 1.4, 0.6, 2.0)
+					rate = clampf(speed / 1.25, 0.6, 2.6)
 			if clip != _clip or not _animations.is_playing():
 				_clip = clip
 				_animations.play(clip, 0.25)
