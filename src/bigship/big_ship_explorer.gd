@@ -153,6 +153,13 @@ func open(ship_def) -> bool:
 	_camera.far = 6000.0
 	_world.add_child(_camera)
 	_camera.current = true
+	if outside_world != null and outside_world.environment != null:
+		# the real sky and stars, but with the room's own even ambient light so the sun's side of the room is not the only lit one
+		var lit := outside_world.environment.duplicate() as Environment
+		lit.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		lit.ambient_light_color = Color(0.62, 0.66, 0.76)
+		lit.ambient_light_energy = 0.7
+		_camera.environment = lit
 	_position = plan.spawn
 	_yaw = plan.spawn_yaw
 	_pitch = 0.0

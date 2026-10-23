@@ -138,7 +138,7 @@ func length() -> float:
 func bridge_point(room_id: StringName, model_x: float, model_z: float) -> Vector2:
 	var info: Dictionary = bridges[room_id]
 	var room: Rect2 = info["room"]
-	return Vector2(room.get_center().x + (model_x - BRIDGE_MODEL_CENTRE_X) * float(info["scale_x"]), room.position.y + (model_z - BRIDGE_MODEL_NOSE_Z))
+	return Vector2(room.get_center().x + (model_x - BRIDGE_MODEL_CENTRE_X) * float(info["scale_x"]), room.position.y + (model_z - BRIDGE_MODEL_NOSE_Z) * float(info["scale_z"]))
 
 
 ## Swaps the generated bridge furniture, windows and seats for the control-room model's: its own consoles, chairs and nose window.
@@ -152,7 +152,8 @@ func _dress_bridges() -> void:
 		if not FileAccess.file_exists(ProjectSettings.globalize_path(BRIDGE_DIR + file)):
 			continue
 		var scale_x := minf(1.35, (room.size.x - 0.2) / BRIDGE_MODEL_WIDTH)
-		bridges[room_id] = {"room": room, "file": file, "scale_x": scale_x}
+		var model_depth := 6.58 if file == "bridge_6.7.glb" else 7.58
+		bridges[room_id] = {"room": room, "file": file, "scale_x": scale_x, "scale_z": clampf((room.size.y - 0.36) / model_depth, 0.9, 1.15)}
 		# the generated furniture goes, and with it its solid footprints
 		var kept: Array = []
 		for piece in layout.furniture:

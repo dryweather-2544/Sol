@@ -92,6 +92,7 @@ var _materials := {}
 var _doors := {}
 var _time := 0.0
 var _light_walls := false
+const BRIDGE_TAIL_PULL := 0.3
 
 
 ## Builds the whole interior from the plan.
@@ -169,10 +170,12 @@ func _build_walls() -> void:
 			_light_walls = plan.bridges.has(room_id)
 			var skin := layout.wall_rect(room_id, side)
 			var along_x := InteriorLayout.wall_runs_along_x(side)
-			_build_wall(skin, along_x, _holes_in(skin, along_x, room_id, side), side)
+			var holes := _holes_in(skin, along_x, room_id, side)
+			if side == "tail" and _light_walls:
+				skin.position.y -= BRIDGE_TAIL_PULL # the bridge's back wall stands inside the room, clear of the corridor's wall that shares the old line
+			_build_wall(skin, along_x, holes, side)
 
 
-## The doorways and windows that cut one wall, sorted along it: {lo, hi, bottom, top, glass}.
 func _holes_in(skin: Rect2, along_x: bool, room_id: StringName, side: String) -> Array:
 	var layout := plan.layout
 	var holes: Array = []
@@ -193,7 +196,7 @@ func _holes_in(skin: Rect2, along_x: bool, room_id: StringName, side: String) ->
 
 func _build_wall(skin: Rect2, along_x: bool, holes: Array, side := "nose") -> void:
 	var floor_y := plan.layout.floor_y
-	var ceiling_y := plan.layout.ceiling_y
+	var ceiling_y := plan.layout.ceiling_y + (0.36 if _light_walls else 0.0) # a bridge's ceiling slab sits above the model's own ceiling: the walls reach it
 	var run_lo := skin.position.x if along_x else skin.position.y
 	var run_hi := skin.end.x if along_x else skin.end.y
 	var cross_lo := skin.position.y if along_x else skin.position.x
