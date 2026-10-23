@@ -124,7 +124,8 @@ func _input(event: InputEvent) -> void:
 
 
 ## Tells the menu where the real world is and where the ship's interior should stand in it, so the windows show what is really out there.
-func set_outside(world: World3D, anchor: Transform3D) -> void:
+func set_outside(world: World3D, anchor: Transform3D, far: float) -> void:
+	_explorer.outside_far = far
 	_explorer.outside_world = world
 	_explorer.outside_anchor = anchor
 

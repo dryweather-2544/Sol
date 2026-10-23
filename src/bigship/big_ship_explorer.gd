@@ -81,6 +81,8 @@ var _hull_loading := false
 ## The real game world and where the interior stands in it. When set, the windows look out onto the actual sky, planet and ship instead of a painted backdrop.
 var outside_world: World3D = null
 var outside_anchor := Transform3D.IDENTITY
+## How far the real world's own camera sees (the planet and its sky are drawn near that distance).
+var outside_far := 6000.0
 var _orbit := 0.6
 var _time := 0.0
 
@@ -151,6 +153,9 @@ func open(ship_def) -> bool:
 	_camera.fov = GameSettings.instance().field_of_view
 	_camera.near = 0.05
 	_camera.far = 6000.0
+	if outside_world != null:
+		_camera.near = CameraRange.near_for(outside_far, 0.05, 0.25)
+		_camera.far = CameraRange.clamp_far(_camera.near, outside_far)
 	_world.add_child(_camera)
 	_camera.current = true
 	if outside_world != null and outside_world.environment != null:

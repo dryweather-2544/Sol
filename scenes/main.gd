@@ -200,9 +200,7 @@ func _ready() -> void:
 	hangar_menu.spawn_requested.connect(_on_fighter_spawn)
 	hangar_menu.recall_requested.connect(_on_fighter_recall)
 	hangar_menu.big_ships_requested.connect(func():
-		# the interior hangs in the real world, a little above the ship that is being flown, so its windows show the real sky
-		var flown := _flown()
-		big_ship_menu.set_outside(get_viewport().world_3d, flown.global_transform.translated_local(Vector3(0.0, 120.0, 0.0)))
+		big_ship_menu.set_outside(get_viewport().world_3d, _bridge_view_anchor(), chase_camera.far)
 		big_ship_menu.open())
 	add_child(hangar_menu)
 	big_ship_menu = BigShipMenuScript.new()
@@ -624,6 +622,26 @@ func _on_mode_changed() -> void:
 	if session.mode == GameSession.Mode.SEATED or session.mode == GameSession.Mode.FIGHTER:
 		chase_camera.snap_to_target()
 	_update_active_camera()
+
+
+## Where a big ship's interior hangs in the real world while it is explored: just off the flown ship, turned so the bridge window looks out over the planet
+## (the planet a little below the horizon, so it fills the lower part of the glass); in open space, simply along the ship's own heading.
+func _bridge_view_anchor() -> Transform3D:
+	var flown := _flown()
+	var basis := flown.global_transform.basis.orthonormalized()
+	var here := flown.global_position
+	if planet != null and terrain != null:
+		var centre := WorldPos.new(planet.frame_id, 0.0, 0.0, 0.0).to_local_vector3(terrain.render_origin)
+		var to_planet := (centre - here).normalized()
+		if to_planet.length() > 0.5:
+			var heading := (-basis.z - to_planet * (-basis.z).dot(to_planet))
+			if heading.length() < 0.1:
+				heading = basis.x
+			var nose := (to_planet * 0.3 + heading.normalized() * 0.95).normalized()
+			var up := -to_planet
+			var look := Basis.looking_at(nose, up)
+			return Transform3D(look, here - to_planet * 120.0 - nose * 40.0)
+	return flown.global_transform.translated_local(Vector3(0.0, 120.0, 0.0))
 
 
 ## Whatever the player is flying: the mothership, or the separate fighter.

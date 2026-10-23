@@ -239,9 +239,10 @@ func _wall_piece(along_x: bool, lo: float, hi: float, cross_lo: float, thickness
 
 # ------------------------------------------------------------------------------------------------ kit modules
 ## Loads one kit model (cached): its meshes with their transforms inside the model, the overall bounds and the first material.
-static func _kit_piece(piece_name: String) -> Dictionary:
-	if _kit_cache.has(piece_name):
-		return _kit_cache[piece_name]
+static func _kit_piece(piece_name: String, open := false) -> Dictionary:
+	var cache_key := piece_name + ("_open" if open else "")
+	if _kit_cache.has(cache_key):
+		return _kit_cache[cache_key]
 	var result := {}
 	var disk_path := ProjectSettings.globalize_path(KIT_DIR + piece_name + ".glb")
 	if FileAccess.file_exists(disk_path):
@@ -257,6 +258,8 @@ static func _kit_piece(piece_name: String) -> Dictionary:
 					var instance := node as MeshInstance3D
 					if instance.mesh == null:
 						continue
+					if open and (str(instance.name).begins_with("sheet") or str(instance.name).begins_with("panel_interior")):
+						continue # an outer wall's painted window glass is left out, so the window really is open to the outside
 					var local := _transform_in(instance, scene)
 					parts.append([instance.mesh, local])
 					var part_box: AABB = local * instance.mesh.get_aabb()
@@ -266,7 +269,7 @@ static func _kit_piece(piece_name: String) -> Dictionary:
 				if not parts.is_empty():
 					result = {"parts": parts, "box": box, "material": material}
 				scene.free()
-	_kit_cache[piece_name] = result
+	_kit_cache[cache_key] = result
 	return result
 
 
@@ -280,11 +283,20 @@ static func _transform_in(node: Node3D, ancestor: Node3D) -> Transform3D:
 	return result
 
 
+## True when nothing lies beyond this wall segment: its windows then open onto the real outside instead of showing painted glass.
+func _is_outer_wall(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: float, side: String) -> bool:
+	var middle := (lo + hi) * 0.5
+	var outward := -0.8 if side == "nose" or side == "left" else thickness + 0.8
+	var probe := Vector2(middle, cross_lo + outward) if along_x else Vector2(cross_lo + outward, middle)
+	return plan.layout.room_at(probe.x, probe.y) == &""
+
+
 ## Fills a full-height wall segment with kit wall modules (every other one a window panel). False when the kit is not on this machine.
 func _kit_wall(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: float, y0: float, y1: float, side: String) -> bool:
 	if y1 - y0 < 1.0:
 		return false
-	var plain := _kit_piece(KIT_WALLS[0])
+	var open := _is_outer_wall(along_x, lo, hi, cross_lo, thickness, side)
+	var plain := _kit_piece(KIT_WALLS[0], open)
 	if plain.is_empty():
 		return false
 	var length := hi - lo
@@ -306,8 +318,8 @@ func _kit_wall(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: 
 			yaw = 0.0
 	for index in count:
 		var module := plain
-		if index % 2 == 1 and not _kit_piece(KIT_WALLS[1]).is_empty():
-			module = _kit_piece(KIT_WALLS[1])
+		if index % 2 == 1 and not _kit_piece(KIT_WALLS[1], open).is_empty():
+			module = _kit_piece(KIT_WALLS[1], open)
 		var box: AABB = module["box"]
 		var scale_y := (y1 - y0) / maxf(box.size.y, 0.001)
 		var scale_x := step / maxf(box.size.x, 0.001)
@@ -316,7 +328,7 @@ func _kit_wall(along_x: bool, lo: float, hi: float, cross_lo: float, thickness: 
 		var origin := Vector3(along_middle, y0, face_at) if along_x else Vector3(face_at, y0, along_middle)
 		var placed := Transform3D(Basis(Vector3.UP, yaw), origin) * Transform3D(Basis.from_scale(Vector3(scale_x, scale_y, scale_z)), Vector3.ZERO)
 		placed = placed * Transform3D(Basis.IDENTITY, Vector3(-box.get_center().x, -box.position.y, -box.position.z))
-		_batch_kit(KIT_WALLS[0] if module == plain else KIT_WALLS[1], module, placed)
+		_batch_kit((KIT_WALLS[0] if module == plain else KIT_WALLS[1]) + ("_open" if open else ""), module, placed)
 	return true
 
 
