@@ -30,6 +30,7 @@ static func build(parent: Node3D, def) -> Node3D:
 	model.position = -box.get_center() * model_scale
 	holder.rotation.y = float(def.hull_yaw)
 	holder.add_child(model)
+	preload("res://src/core/ship_style.gd").apply_hull(model, str(def.id)) # Valheim-style ship paint; SOL_SHIP_STYLE=off disables
 	return holder
 
 
