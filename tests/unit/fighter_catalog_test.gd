@@ -85,7 +85,7 @@ func test_model_builder_adds_a_holder_and_scales_to_size() -> void:
 	FighterModel.build(node, def)
 	var holder := node.get_node_or_null("FighterModel") as Node3D
 	assert_true(holder != null, "model holder exists with or without the .glb")
-	if ResourceLoader.exists(def.model_path):
+	if ResourceLoader.exists(def.model_path) or FileAccess.file_exists(ProjectSettings.globalize_path(def.model_path)):
 		var box := FighterModel._bounds(holder, Transform3D.IDENTITY, [])
 		var longest := maxf(box.size.x, maxf(box.size.y, box.size.z))
 		assert_near(longest, def.size, 0.05 * def.size, "model is scaled so its longest side is the def's size")

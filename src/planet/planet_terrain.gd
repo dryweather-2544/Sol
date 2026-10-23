@@ -83,6 +83,9 @@ var viewer_velocity := Vector3.ZERO
 ## detail, never cut. Below that altitude the scale is 1 and nothing changes.
 var view_position := Vector3.ZERO
 var squeeze_range := 0.0
+var _squeeze_key := Vector3(INF, 0.0, 0.0)
+var _squeeze_range_cached := -1.0
+var _squeeze_cached := 1.0
 ## Worker tasks in flight. Defaults to the core count minus two (rendering and the main thread).
 var max_builds_in_flight := MAX_BUILDS_IN_FLIGHT
 var _evicting := false
@@ -838,9 +841,18 @@ func _update_root() -> void:
 func squeeze_scale() -> float:
 	if squeeze_range <= 0.0 or planet == null:
 		return 1.0
-	var from_centre := Vector3(viewer.x, viewer.y, viewer.z).length()
-	var horizon := sqrt(maxf(from_centre * from_centre - planet.radius * planet.radius, 0.0))
-	return 1.0 if horizon <= squeeze_range else squeeze_range / horizon
+	# The horizon follows the viewer's height above the ground it stands on, not above the planet's mean radius: on a hill 1 km above the
+	# mean the old measure gave a 100 km horizon at ground level and squeezed the terrain to a quarter size, lifting the ground up
+	# to the ship (a landed hull looked sunk in it). Cached per viewer position: the terrain height lookup is not free.
+	var key := Vector3(viewer.x, viewer.y, viewer.z)
+	if key != _squeeze_key or squeeze_range != _squeeze_range_cached:
+		_squeeze_key = key
+		_squeeze_range_cached = squeeze_range
+		var above_ground := maxf(planet.altitude_above_ground(viewer), 0.0)
+		var from_centre := planet.radius + above_ground
+		var horizon := sqrt(maxf(from_centre * from_centre - planet.radius * planet.radius, 0.0))
+		_squeeze_cached = 1.0 if horizon <= squeeze_range else squeeze_range / horizon
+	return _squeeze_cached
 
 
 # --- queries, stats and test hooks ----------------------------------------------------------

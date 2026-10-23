@@ -172,6 +172,11 @@ func _fit_support_points_to_model() -> void:
 		return
 	var half: Vector3 = model_holder.get_meta("half_extents")
 	var low := -half.y
+	if fighter != null and fighter.is_big_ship:
+		# The drawn terrain is a coarse lattice of the same heights, so between samples it can sit above the exact height the support points read:
+		# keep a hull this size a little clear of it (about 1.5% of its length) rather than let the chunk surface swallow the underside.
+		low -= 0.6 + fighter.size * 0.015
+		print("[BigShip] %s size=%.1f half_extents=%s support_low=%.2f" % [fighter.display_name, fighter.size, half, low])
 	var fx := half.x * 0.6
 	var fz := half.z * 0.65
 	tuning.support_points = PackedVector3Array([
@@ -181,9 +186,10 @@ func _fit_support_points_to_model() -> void:
 		# A 100 m+ hull spans hills between six points: check the whole underside on a grid so no bump pokes through the hull (the first
 		# four points stay the landing gear GroundContact fits the ground plane to).
 		var points := tuning.support_points
-		for column in [-0.9, -0.45, 0.0, 0.45, 0.9]:
-			for row in 11:
-				points.append(Vector3(half.x * column, low, half.z * (-0.95 + 0.19 * row)))
+		# Every point costs a full planet height evaluation each physics tick (the 55-point grid pushed physics to 45 ms a frame), so keep it to 15.
+		for column in [-0.9, 0.0, 0.9]:
+			for row in 5:
+				points.append(Vector3(half.x * column, low, half.z * (-0.9 + 0.45 * row)))
 		tuning.support_points = points
 
 

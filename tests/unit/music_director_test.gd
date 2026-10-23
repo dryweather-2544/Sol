@@ -96,7 +96,7 @@ func test_menu_theme_then_a_clean_hand_over_to_play() -> void:
 	assert_eq(director.context, MusicDirector.MENU)
 	assert_eq(started.size(), 1, "the title theme starts at once")
 	if started.size() == 1:
-		assert_eq(started[0][0], "orion", "Sol's title theme")
+		assert_eq(started[0][0], "exploration_theme", "Sol's title theme")
 	_run(director, 1.0, _state({"regime": FlightRegime.LANDED, "planet_frame": true}))
 	assert_eq(director.context, MusicDirector.SURFACE, "leaving the title is immediate")
 	assert_eq(director.current_track(), "", "the theme is fading, not carrying on into play")
